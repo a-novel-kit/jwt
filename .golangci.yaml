@@ -1,0 +1,94 @@
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - decorder
+    - dupword
+    - errchkjson
+    - errname
+    - errorlint
+    - fatcontext
+    - gci
+    - gocheckcompilerdirectives
+    - gocritic
+    - godot
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - goprintffuncname
+    - gosec
+    - grouper
+    - importas
+    - inamedparam
+    - intrange
+    - ireturn
+    - lll
+    - loggercheck
+    - mirror
+    - misspell
+    - nestif
+    - noctx
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - perfsprint
+    - prealloc
+    - predeclared
+    - promlinter
+    - reassign
+    - rowserrcheck
+    - sloglint
+    - sqlclosecheck
+    - tagalign
+    - tagliatelle
+    - tenv
+    - testifylint
+    - testpackage
+    - thelper
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+    - zerologlint
+
+linters-settings:
+  gci:
+    sections:
+      - standard # Standard section: captures all standard packages.
+      - default # Default section: contains all imports that could not be matched to another section type.
+      - prefix(github.com/a-novel-kit)
+      - prefix(github.com/a-novel-kit/jwt)
+    skip-generated: true
+  gosec:
+    excludes:
+      - G115
+  ireturn:
+    allow:
+      - anon
+      - error
+      - empty
+      - generic
+  tagliatelle:
+    case:
+      rules:
+        json: snake # JWT standards uses snake case.
+
+issues:
+  exclude-dirs:
+    - mocks
+    - cmd
+  exclude-files:
+    - ".*_test\\.go"

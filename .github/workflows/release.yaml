@@ -1,0 +1,12 @@
+name: release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: a-novel-kit/workflows/.github/workflows/auto-release.yaml@master

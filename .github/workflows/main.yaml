@@ -1,0 +1,9 @@
+name: main
+
+on: [ push ]
+
+jobs:
+  test:
+    uses: a-novel-kit/workflows/.github/workflows/test-go.yaml@master
+    secrets:
+      codecov_token: ${{ secrets.CODECOV_TOKEN }}

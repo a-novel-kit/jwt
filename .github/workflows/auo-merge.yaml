@@ -1,0 +1,10 @@
+name: main
+
+on: pull_request
+
+jobs:
+  auto-merge:
+    permissions:
+      pull-requests: write
+      contents: write
+    uses: a-novel-kit/workflows/.github/workflows/auto-merge-dependabot.yaml@master
