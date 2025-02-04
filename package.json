@@ -1,0 +1,29 @@
+{
+  "name": "jwt",
+  "version": "1.0.0",
+  "description": "Github Pages site",
+  "main": "index.js",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "docs:dev": "vuepress dev docs",
+    "docs:build": "vuepress build docs",
+    "format": "prettier --write './**/*.{js,jsx,ts,tsx,css,md,json,html}' --config ./prettier.config.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+    "@vuepress/bundler-vite": "2.0.0-rc.19",
+    "@vuepress/plugin-markdown-container": "2.0.0-rc.30",
+    "@vuepress/plugin-shiki": "2.0.0-rc.74",
+    "@vuepress/theme-default": "2.0.0-rc.74",
+    "prettier": "^3.4.2",
+    "sass-embedded": "^1.83.4",
+    "vue": "^3.5.13",
+    "vuepress": "2.0.0-rc.19"
+  },
+  "dependencies": {
+    "vuepress-theme-hope": "2.0.0-rc.71"
+  }
+}

@@ -86,10 +86,10 @@ func (manager *AESKWManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byt
 //   - A256KW: 32 bytes key length
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.4
-func NewAESKWManager(secret *AESKWManagerConfig, preset AESKWPreset) *AESKWManager {
+func NewAESKWManager(config *AESKWManagerConfig, preset AESKWPreset) *AESKWManager {
 	return &AESKWManager{
-		cek:     secret.CEK,
-		wrapKey: secret.WrapKey,
+		cek:     config.CEK,
+		wrapKey: config.WrapKey,
 		alg:     preset.Alg,
 		keyLen:  preset.KeyLen,
 	}

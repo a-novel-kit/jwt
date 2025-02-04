@@ -15,10 +15,13 @@ var ErrInvalidClaims = errors.New("invalid claims")
 type ClaimsCheckerConfig struct {
 	// If set, check that the target of a set of claims match the current recipient.
 	Target *jwt.TargetConfig
-	// Leeme is a margin of error allowed when checking the expiration date of a token.
-	Leeme time.Duration
+	// Leeway is a margin of error allowed when checking the expiration date of a token.
+	Leeway time.Duration
 	// If set, require the expiration date to be set.
 	RequireExpiration bool
+
+	// Set a custom deserializer to decode the token's payload. Uses json.Unmarshal by default.
+	Deserializer func(raw []byte, dst any) error
 }
 
 type ClaimsChecker struct {
@@ -59,23 +62,22 @@ func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 	}
 
 	exp := time.Unix(token.Exp, 0)
-	if token.Exp > 0 && exp.Before(time.Now().Add(checker.config.Leeme)) {
+	if token.Exp > 0 && exp.Before(time.Now().Add(-checker.config.Leeway)) {
 		return fmt.Errorf(
 			"(ClaimsChecker.Unmarshal) %w: token expired at %s",
 			ErrInvalidClaims, exp.String(),
 		)
 	}
 
-	if token.Nbf > 0 && time.Unix(token.Nbf, 0).After(time.Now()) {
+	if token.Nbf > 0 && time.Unix(token.Nbf, 0).After(time.Now().Add(checker.config.Leeway)) {
 		return fmt.Errorf(
 			"(ClaimsChecker.Unmarshal) %w: token not valid before %s",
 			ErrInvalidClaims, time.Unix(token.Nbf, 0).String(),
 		)
 	}
 
-	if claimsDST, ok := dst.(*jwa.Claims); ok {
-		*claimsDST = *token
-		return nil
+	if checker.config.Deserializer == nil {
+		checker.config.Deserializer = json.Unmarshal
 	}
 
 	return json.Unmarshal(raw, dst)

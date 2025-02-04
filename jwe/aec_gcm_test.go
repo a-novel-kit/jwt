@@ -162,6 +162,81 @@ func TestAESGCM(t *testing.T) {
 					require.Error(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				})
 			})
+
+			t.Run("NoAdditionalData", func(t *testing.T) {
+				cekManager := &fakeCEKManager{
+					cek:       key.Key(),
+					encrypted: []byte("encrypted"),
+				}
+
+				encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
+					CEKManager: cekManager,
+				}, testCase.preset)
+
+				producer := jwt.NewProducer(jwt.ProducerConfig{
+					Plugins: []jwt.ProducerPlugin{encrypter},
+				})
+
+				producerClaims := map[string]any{"foo": "bar"}
+
+				token, err := producer.Issue(context.Background(), producerClaims, nil)
+				require.NoError(t, err)
+
+				cekDecoder := &fakeCEKDecoder{
+					cek:       key.Key(),
+					encrypted: []byte("encrypted"),
+				}
+
+				decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
+					CEKDecoder: cekDecoder,
+				}, testCase.preset)
+
+				recipient := jwt.NewRecipient(jwt.RecipientConfig{
+					Plugins: []jwt.RecipientPlugin{decrypter},
+				})
+
+				var recipientClaims map[string]any
+				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
+				require.Equal(t, producerClaims, recipientClaims)
+			})
+
+			t.Run("WrongAdditionalData", func(t *testing.T) {
+				cekManager := &fakeCEKManager{
+					cek:       key.Key(),
+					encrypted: []byte("encrypted"),
+				}
+
+				encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
+					CEKManager:     cekManager,
+					AdditionalData: []byte("additional-data"),
+				}, testCase.preset)
+
+				producer := jwt.NewProducer(jwt.ProducerConfig{
+					Plugins: []jwt.ProducerPlugin{encrypter},
+				})
+
+				producerClaims := map[string]any{"foo": "bar"}
+
+				token, err := producer.Issue(context.Background(), producerClaims, nil)
+				require.NoError(t, err)
+
+				cekDecoder := &fakeCEKDecoder{
+					cek:       key.Key(),
+					encrypted: []byte("encrypted"),
+				}
+
+				decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
+					CEKDecoder:     cekDecoder,
+					AdditionalData: []byte("fake-additional-data"),
+				}, testCase.preset)
+
+				recipient := jwt.NewRecipient(jwt.RecipientConfig{
+					Plugins: []jwt.RecipientPlugin{decrypter},
+				})
+
+				var recipientClaims map[string]any
+				require.Error(t, recipient.Consume(context.Background(), token, &recipientClaims))
+			})
 		})
 	}
 }

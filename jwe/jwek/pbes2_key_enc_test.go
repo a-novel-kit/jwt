@@ -11,11 +11,11 @@ import (
 	"github.com/a-novel-kit/jwt/jwk"
 )
 
-func TestPBES2KeyAgrKW(t *testing.T) {
+func TestPBES2KeyEncKW(t *testing.T) {
 	testCases := []struct {
 		name string
 
-		preset jwek.PBES2KeyAgrKWPreset
+		preset jwek.PBES2KeyEncKWPreset
 	}{
 		{
 			name:   "PBES2A128KW",
@@ -37,7 +37,7 @@ func TestPBES2KeyAgrKW(t *testing.T) {
 
 			secret := "my-strong-password"
 
-			manager := jwek.NewPBES2KeyAgrKWManager(&jwek.PBES2KeyAgrKWManagerConfig{
+			manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
 				CEK:        cek.Key(),
 				Secret:     secret,
 				Iterations: 1000,
@@ -57,8 +57,8 @@ func TestPBES2KeyAgrKW(t *testing.T) {
 			require.NotEqual(t, cek.Key(), encryptedCEK)
 
 			t.Run("OK", func(t *testing.T) {
-				decoder := jwek.NewPBES2KeyAgrKWDecoder(
-					&jwek.PBES2KeyAgrKWDecoderConfig{Secret: secret},
+				decoder := jwek.NewPBES2KeyEncKWDecoder(
+					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
 					testCase.preset,
 				)
 
@@ -68,8 +68,8 @@ func TestPBES2KeyAgrKW(t *testing.T) {
 			})
 
 			t.Run("WrongSecret", func(t *testing.T) {
-				decoder := jwek.NewPBES2KeyAgrKWDecoder(
-					&jwek.PBES2KeyAgrKWDecoderConfig{Secret: "fake-secret"},
+				decoder := jwek.NewPBES2KeyEncKWDecoder(
+					&jwek.PBES2KeyEncKWDecoderConfig{Secret: "fake-secret"},
 					testCase.preset,
 				)
 
@@ -78,8 +78,8 @@ func TestPBES2KeyAgrKW(t *testing.T) {
 			})
 
 			t.Run("MissingEncKey", func(t *testing.T) {
-				decoder := jwek.NewPBES2KeyAgrKWDecoder(
-					&jwek.PBES2KeyAgrKWDecoderConfig{Secret: secret},
+				decoder := jwek.NewPBES2KeyEncKWDecoder(
+					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
 					testCase.preset,
 				)
 
