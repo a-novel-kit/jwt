@@ -38,6 +38,12 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		return fmt.Errorf("(Recipient.Consume) unmarshal header: %w", err)
 	}
 
+	if len(header.Crit) > 0 {
+		if err := CheckCrit(decodedHeader, header.Crit); err != nil {
+			return fmt.Errorf("(Recipient.Consume) check crit: %w", err)
+		}
+	}
+
 	if recipient.config.Deserializer == nil {
 		recipient.config.Deserializer = json.Unmarshal
 	}
