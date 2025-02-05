@@ -2,7 +2,7 @@ test:
 	bash -c "set -m; bash '$(CURDIR)/scripts/test.sh'"
 
 lint:
-	go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0 run
+	go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run
 
 format:
 	go mod tidy
@@ -18,4 +18,3 @@ format:
 
 keygen:
 	go run ./internal/keys/main.go
-
