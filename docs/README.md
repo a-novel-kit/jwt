@@ -5,7 +5,7 @@ icon: material-symbols:home-outline-rounded
 
 # JWT - A modular JSON Web Token library for Go.
 
-```go
+```bash
 go get -u github.com/a-novel-kit/jwt
 ```
 
