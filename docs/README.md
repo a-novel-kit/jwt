@@ -5,6 +5,10 @@ icon: material-symbols:home-outline-rounded
 
 # JWT - A modular JSON Web Token library for Go.
 
+```go
+go get -u github.com/a-novel-kit/jwt
+```
+
 Per the [specification](https://datatracker.ietf.org/doc/html/rfc7519):
 
 > JSON Web Token (JWT) is a compact, URL-safe means of representing

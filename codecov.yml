@@ -2,8 +2,6 @@ coverage:
   precision: 2
   round: down
   range: "60..75"
-  notify:
-  # notification blocks. See: https://docs.codecov.io/docs/codecovyml-reference#section-coverage-notify
   status:
     project:
       default: # default is the status check's name, not default settings
