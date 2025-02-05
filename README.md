@@ -2,6 +2,8 @@
 
 A modular JWT library for Go.
 
+[Documentation](https://a-novel-kit.github.io/jwt/).
+
 ```bash
 go get github.com/a-novel-kit/jwt
 ```
