@@ -15,6 +15,8 @@ import (
 )
 
 func TestHMAC(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -40,6 +42,8 @@ func TestHMAC(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			secretKey, err := jwk.GenerateHMAC(testCase.keyPreset)
 			require.NoError(t, err)
 
@@ -59,13 +63,18 @@ func TestHMAC(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Run("OK", func(t *testing.T) {
+				t.Parallel()
+
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
 			t.Run("IncorrectHeader", func(t *testing.T) {
+				t.Parallel()
+
 				var recipientClaims map[string]any
 
 				customHeader := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"foo"}`))
@@ -77,8 +86,11 @@ func TestHMAC(t *testing.T) {
 			})
 
 			t.Run("InvalidSignature", func(t *testing.T) {
+				t.Parallel()
+
 				otherPrivateKey, err := jwk.GenerateHMAC(testCase.keyPreset)
 				require.NoError(t, err)
+
 				otherSigner := jws.NewHMACSigner(otherPrivateKey.Key(), testCase.preset)
 				otherProducer := jwt.NewProducer(jwt.ProducerConfig{
 					Plugins: []jwt.ProducerPlugin{otherSigner},
@@ -97,6 +109,8 @@ func TestHMAC(t *testing.T) {
 }
 
 func TestHMACSourcedSigner(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -122,11 +136,14 @@ func TestHMACSourcedSigner(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			secretKeys := make([]*jwk.Key[[]byte], 3)
 
 			for i := range secretKeys {
 				secretKey, err := jwk.GenerateHMAC(testCase.keyPreset)
 				require.NoError(t, err)
+
 				secretKeys[i] = secretKey
 			}
 
@@ -143,22 +160,28 @@ func TestHMACSourcedSigner(t *testing.T) {
 
 			// OK.
 			t.Run("TryFirstKey", func(t *testing.T) {
+				t.Parallel()
+
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
 					Plugins: []jwt.RecipientPlugin{jws.NewHMACVerifier(secretKeys[0].Key(), testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
 			// KO.
 			t.Run("TrySecondKey", func(t *testing.T) {
+				t.Parallel()
+
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
 					Plugins: []jwt.RecipientPlugin{jws.NewHMACVerifier(secretKeys[1].Key(), testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
+
 				require.ErrorIs(
 					t,
 					recipient.Consume(context.Background(), token, &recipientClaims),
@@ -170,6 +193,8 @@ func TestHMACSourcedSigner(t *testing.T) {
 }
 
 func TestHMACSourcedVerifier(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -195,11 +220,14 @@ func TestHMACSourcedVerifier(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			secretKeys := make([]*jwk.Key[[]byte], 3)
 
 			for i := range secretKeys {
 				secretKey, err := jwk.GenerateHMAC(testCase.keyPreset)
 				require.NoError(t, err)
+
 				secretKeys[i] = secretKey
 			}
 
@@ -216,17 +244,22 @@ func TestHMACSourcedVerifier(t *testing.T) {
 
 			// OK.
 			t.Run("SigningKeyFirst", func(t *testing.T) {
+				t.Parallel()
+
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
 					Plugins: []jwt.RecipientPlugin{jws.NewSourcedHMACVerifier(source, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
 			// OK.
 			t.Run("SigningKeySecond", func(t *testing.T) {
+				t.Parallel()
+
 				newSecretKey, err := jwk.GenerateHMAC(testCase.keyPreset)
 				require.NoError(t, err)
 
@@ -240,12 +273,15 @@ func TestHMACSourcedVerifier(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
 			// KO.
 			t.Run("KeyMissing", func(t *testing.T) {
+				t.Parallel()
+
 				newSecretKey, err := jwk.GenerateHMAC(testCase.keyPreset)
 				require.NoError(t, err)
 
@@ -256,6 +292,7 @@ func TestHMACSourcedVerifier(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.ErrorIs(
 					t,
 					recipient.Consume(context.Background(), token, &recipientClaims),

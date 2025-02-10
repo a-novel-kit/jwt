@@ -11,6 +11,8 @@ import (
 )
 
 func TestNewBasicHeaderProducer(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -78,6 +80,8 @@ func TestNewBasicHeaderProducer(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			producer := jwt.NewHeaderProducer(testCase.config)
 
 			result, err := producer.New(testCase.custom)

@@ -12,6 +12,8 @@ import (
 )
 
 func TestClaimsChecker(t *testing.T) {
+	t.Parallel()
+
 	hourAgo := time.Now().Add(-time.Hour).Unix()
 	hourAfter := time.Now().Add(time.Hour).Unix()
 
@@ -218,6 +220,8 @@ func TestClaimsChecker(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			serialized, err := json.Marshal(testCase.raw)
 			require.NoError(t, err)
 

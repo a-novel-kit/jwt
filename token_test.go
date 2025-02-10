@@ -9,6 +9,8 @@ import (
 )
 
 func TestRawToken(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -29,6 +31,8 @@ func TestRawToken(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			token, err := jwt.DecodeToken(testCase.value, &jwt.RawTokenDecoder{})
 
 			if testCase.expect == nil {
@@ -43,6 +47,8 @@ func TestRawToken(t *testing.T) {
 }
 
 func TestSignedToken(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -63,6 +69,8 @@ func TestSignedToken(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			token, err := jwt.DecodeToken(testCase.value, &jwt.SignedTokenDecoder{})
 
 			if testCase.expect == nil {
@@ -77,6 +85,8 @@ func TestSignedToken(t *testing.T) {
 }
 
 func TestEncryptedToken(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -97,6 +107,8 @@ func TestEncryptedToken(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			token, err := jwt.DecodeToken(testCase.value, &jwt.EncryptedTokenDecoder{})
 
 			if testCase.expect == nil {

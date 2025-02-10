@@ -28,6 +28,8 @@ func (fake *fakeRecipientPlugin) Transform(_ context.Context, header *jwa.JWH, t
 }
 
 func TestRecipient(t *testing.T) {
+	t.Parallel()
+
 	errFoo := errors.New("foo")
 
 	producer := jwt.NewProducer(jwt.ProducerConfig{})
@@ -83,7 +85,7 @@ func TestRecipient(t *testing.T) {
 					&fakeRecipientPlugin{payloadErr: jwt.ErrMismatchRecipientPlugin},
 					// Second plugin success!
 					&fakeRecipientPlugin{
-						payload: func(jwh *jwa.JWH, token string) []byte {
+						payload: func(_ *jwa.JWH, _ string) []byte {
 							return []byte(`{"ping":"pong"}`)
 						},
 					},
@@ -138,6 +140,8 @@ func TestRecipient(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			recipient := jwt.NewRecipient(testCase.config)
 			err = recipient.Consume(context.Background(), testCase.token, &testCase.dst)
 			require.ErrorIs(t, err, testCase.expectErr)

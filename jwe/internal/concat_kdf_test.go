@@ -11,6 +11,8 @@ import (
 
 // https://datatracker.ietf.org/doc/html/rfc7518#appendix-C
 func TestVectorConcatKDF(t *testing.T) {
+	t.Parallel()
+
 	z := []byte{
 		158, 86, 217, 29, 129, 113, 53, 211, 114, 131, 66, 131, 191, 132,
 		38, 156, 251, 49, 110, 163, 218, 128, 106, 72, 246, 218, 167, 121,
@@ -23,6 +25,7 @@ func TestVectorConcatKDF(t *testing.T) {
 	ptyVInfo := []byte{0, 0, 0, 3, 66, 111, 98}
 
 	supPubInfo := []byte{0, 0, 0, 128}
+
 	var supPrivInfo []byte
 
 	expected := []byte{

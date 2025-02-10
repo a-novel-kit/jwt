@@ -12,6 +12,8 @@ import (
 )
 
 func TestAESCBC(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -37,10 +39,14 @@ func TestAESCBC(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			key, err := jwk.GenerateAES(testCase.keyPreset)
 			require.NoError(t, err)
 
 			t.Run("WithEncKey", func(t *testing.T) {
+				t.Parallel()
+
 				cekManager := &fakeCEKManager{
 					cek:       key.Key(),
 					encrypted: []byte("encrypted"),
@@ -61,6 +67,8 @@ func TestAESCBC(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Run("Success", func(t *testing.T) {
+					t.Parallel()
+
 					cekDecoder := &fakeCEKDecoder{
 						cek:       key.Key(),
 						encrypted: []byte("encrypted"),
@@ -76,11 +84,14 @@ func TestAESCBC(t *testing.T) {
 					})
 
 					var recipientClaims map[string]any
+
 					require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 					require.Equal(t, producerClaims, recipientClaims)
 				})
 
 				t.Run("WrongCEK", func(t *testing.T) {
+					t.Parallel()
+
 					fakeKey, err := jwk.GenerateAES(testCase.keyPreset)
 					require.NoError(t, err)
 
@@ -99,11 +110,14 @@ func TestAESCBC(t *testing.T) {
 					})
 
 					var recipientClaims map[string]any
+
 					require.Error(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				})
 			})
 
 			t.Run("WithoutEncKey", func(t *testing.T) {
+				t.Parallel()
+
 				cekManager := &fakeCEKManager{
 					cek: key.Key(),
 				}
@@ -123,6 +137,8 @@ func TestAESCBC(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Run("Success", func(t *testing.T) {
+					t.Parallel()
+
 					cekDecoder := &fakeCEKDecoder{
 						cek: key.Key(),
 					}
@@ -137,11 +153,14 @@ func TestAESCBC(t *testing.T) {
 					})
 
 					var recipientClaims map[string]any
+
 					require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 					require.Equal(t, producerClaims, recipientClaims)
 				})
 
 				t.Run("WrongCEK", func(t *testing.T) {
+					t.Parallel()
+
 					fakeKey, err := jwk.GenerateAES(testCase.keyPreset)
 					require.NoError(t, err)
 
@@ -159,11 +178,14 @@ func TestAESCBC(t *testing.T) {
 					})
 
 					var recipientClaims map[string]any
+
 					require.Error(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				})
 			})
 
 			t.Run("NoAdditionalData", func(t *testing.T) {
+				t.Parallel()
+
 				cekManager := &fakeCEKManager{
 					cek:       key.Key(),
 					encrypted: []byte("encrypted"),
@@ -196,11 +218,14 @@ func TestAESCBC(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
 			t.Run("WrongAdditionalData", func(t *testing.T) {
+				t.Parallel()
+
 				cekManager := &fakeCEKManager{
 					cek:       key.Key(),
 					encrypted: []byte("encrypted"),
@@ -235,6 +260,7 @@ func TestAESCBC(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.Error(t, recipient.Consume(context.Background(), token, &recipientClaims))
 			})
 		})

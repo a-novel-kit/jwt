@@ -22,11 +22,13 @@ func (fake *fakeProducerPlugin) Header(_ context.Context, header *jwa.JWH) (*jwa
 	return fake.header(header), fake.headerErr
 }
 
-func (fake *fakeProducerPlugin) Transform(_ context.Context, _ *jwa.JWH, token string) (modifiedToken string, err error) {
+func (fake *fakeProducerPlugin) Transform(_ context.Context, _ *jwa.JWH, token string) (string, error) {
 	return fake.token(token), fake.tokenErr
 }
 
 func TestProducer(t *testing.T) {
+	t.Parallel()
+
 	errFoo := errors.New("foo")
 
 	testCases := []struct {
@@ -68,6 +70,7 @@ func TestProducer(t *testing.T) {
 						header: func(jwh *jwa.JWH) *jwa.JWH {
 							jwh.KID = "static-key-id"
 							jwh.CTY = "static-test"
+
 							return jwh
 						},
 					},
@@ -76,18 +79,21 @@ func TestProducer(t *testing.T) {
 					&fakeProducerPlugin{
 						header: func(jwh *jwa.JWH) *jwa.JWH {
 							jwh.CTY = "test"
+
 							return jwh
 						},
 						token: func(tokenRaw string) string {
 							token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
 							require.NoError(t, err)
 							token.Payload = "foobarqux"
+
 							return token.String()
 						},
 					},
 					&fakeProducerPlugin{
 						header: func(jwh *jwa.JWH) *jwa.JWH {
 							jwh.Alg = "test-alg"
+
 							return jwh
 						},
 
@@ -95,6 +101,7 @@ func TestProducer(t *testing.T) {
 							token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
 							require.NoError(t, err)
 							token.Payload = "abcdefghi"
+
 							return token.String()
 						},
 					},
@@ -111,7 +118,7 @@ func TestProducer(t *testing.T) {
 			config: jwt.ProducerConfig{
 				StaticPlugins: []jwt.ProducerStaticPlugin{
 					&fakeProducerPlugin{
-						header:    func(jwh *jwa.JWH) *jwa.JWH { return nil },
+						header:    func(_ *jwa.JWH) *jwa.JWH { return nil },
 						headerErr: errFoo,
 					},
 				},
@@ -127,12 +134,13 @@ func TestProducer(t *testing.T) {
 			config: jwt.ProducerConfig{
 				Plugins: []jwt.ProducerPlugin{
 					&fakeProducerPlugin{
-						header:    func(jwh *jwa.JWH) *jwa.JWH { return nil },
+						header:    func(_ *jwa.JWH) *jwa.JWH { return nil },
 						headerErr: errFoo,
 						token: func(tokenRaw string) string {
 							token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
 							require.NoError(t, err)
 							token.Payload = "foobarqux"
+
 							return token.String()
 						},
 					},
@@ -151,9 +159,10 @@ func TestProducer(t *testing.T) {
 					&fakeProducerPlugin{
 						header: func(jwh *jwa.JWH) *jwa.JWH {
 							jwh.CTY = "test"
+
 							return jwh
 						},
-						token:    func(token string) string { return "" },
+						token:    func(_ string) string { return "" },
 						tokenErr: errFoo,
 					},
 				},
@@ -167,6 +176,8 @@ func TestProducer(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			producer := jwt.NewProducer(testCase.config)
 
 			token, err := producer.Issue(context.Background(), testCase.customClaims, testCase.customHeader)

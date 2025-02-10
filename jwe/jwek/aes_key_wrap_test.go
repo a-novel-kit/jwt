@@ -13,6 +13,8 @@ import (
 )
 
 func TestAESKW(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -38,6 +40,8 @@ func TestAESKW(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			wrapKey, err := jwk.GenerateAES(testCase.keyPreset)
 			require.NoError(t, err)
 
@@ -62,6 +66,8 @@ func TestAESKW(t *testing.T) {
 			require.NotEqual(t, cek.Key(), encryptedCEK)
 
 			t.Run("OK", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewAESKWDecoder(
 					&jwek.AESKWDecoderConfig{WrapKey: wrapKey.Key()},
 					testCase.preset,
@@ -73,6 +79,8 @@ func TestAESKW(t *testing.T) {
 			})
 
 			t.Run("WrongKEK", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewAESKWDecoder(
 					&jwek.AESKWDecoderConfig{WrapKey: bytes.Repeat([]byte{0}, testCase.preset.KeyLen)},
 					testCase.preset,

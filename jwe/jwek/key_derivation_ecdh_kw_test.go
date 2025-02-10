@@ -13,6 +13,8 @@ import (
 )
 
 func TestECDHKeyAgrKW(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -34,7 +36,10 @@ func TestECDHKeyAgrKW(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			cek, err := jwk.GenerateAES(jwk.A256GCM)
+			require.NoError(t, err)
 
 			producerPrivateKey, _, err := jwk.GenerateECDH()
 			require.NoError(t, err)
@@ -63,6 +68,8 @@ func TestECDHKeyAgrKW(t *testing.T) {
 			require.NotEqual(t, cek.Key(), encryptedCEK)
 
 			t.Run("OK", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
 					RecipientKey: recipientPrivateKey.Key(),
 				}, testCase.preset)
@@ -73,6 +80,8 @@ func TestECDHKeyAgrKW(t *testing.T) {
 			})
 
 			t.Run("WrongRecipientKey", func(t *testing.T) {
+				t.Parallel()
+
 				fakeRecipientPrivateKey, _, err := jwk.GenerateECDH()
 				require.NoError(t, err)
 
@@ -85,6 +94,8 @@ func TestECDHKeyAgrKW(t *testing.T) {
 			})
 
 			t.Run("WrongProducerInfo", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
 					RecipientKey: recipientPrivateKey.Key(),
 				}, testCase.preset)
@@ -97,6 +108,8 @@ func TestECDHKeyAgrKW(t *testing.T) {
 			})
 
 			t.Run("WrongRecipientInfo", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
 					RecipientKey: recipientPrivateKey.Key(),
 				}, testCase.preset)
@@ -109,6 +122,8 @@ func TestECDHKeyAgrKW(t *testing.T) {
 			})
 
 			t.Run("MissingEPK", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
 					RecipientKey: recipientPrivateKey.Key(),
 				}, testCase.preset)
@@ -121,6 +136,8 @@ func TestECDHKeyAgrKW(t *testing.T) {
 			})
 
 			t.Run("MissingEncKey", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
 					RecipientKey: recipientPrivateKey.Key(),
 				}, testCase.preset)

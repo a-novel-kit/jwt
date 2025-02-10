@@ -10,7 +10,10 @@ import (
 )
 
 func TestOct(t *testing.T) {
+	t.Parallel()
+
 	key, err := generators.NewOct(2048)
+	require.NoError(t, err)
 
 	payload := serializers.EncodeOct(key)
 

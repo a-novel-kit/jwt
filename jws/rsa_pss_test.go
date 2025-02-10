@@ -16,6 +16,8 @@ import (
 )
 
 func TestRSAPSS(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -41,6 +43,8 @@ func TestRSAPSS(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKey, publicKey, err := jwk.GenerateRSA(testCase.keyPreset)
 			require.NoError(t, err)
 
@@ -60,13 +64,18 @@ func TestRSAPSS(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Run("OK", func(t *testing.T) {
+				t.Parallel()
+
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
 			t.Run("IncorrectHeader", func(t *testing.T) {
+				t.Parallel()
+
 				var recipientClaims map[string]any
 
 				customHeader := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"foo"}`))
@@ -78,8 +87,11 @@ func TestRSAPSS(t *testing.T) {
 			})
 
 			t.Run("InvalidSignature", func(t *testing.T) {
+				t.Parallel()
+
 				otherPrivateKey, _, err := jwk.GenerateRSA(testCase.keyPreset)
 				require.NoError(t, err)
+
 				otherSigner := jws.NewRSAPSSSigner(otherPrivateKey.Key(), testCase.preset)
 				otherProducer := jwt.NewProducer(jwt.ProducerConfig{
 					Plugins: []jwt.ProducerPlugin{otherSigner},
@@ -98,6 +110,8 @@ func TestRSAPSS(t *testing.T) {
 }
 
 func TestRSAPSSSourcedSigner(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -123,12 +137,15 @@ func TestRSAPSSSourcedSigner(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKeys := make([]*jwk.Key[*rsa.PrivateKey], 3)
 			publicKeys := make([]*jwk.Key[*rsa.PublicKey], 3)
 
 			for i := range privateKeys {
 				privateKey, publicKey, err := jwk.GenerateRSA(testCase.keyPreset)
 				require.NoError(t, err)
+
 				privateKeys[i] = privateKey
 				publicKeys[i] = publicKey
 			}
@@ -146,22 +163,28 @@ func TestRSAPSSSourcedSigner(t *testing.T) {
 
 			// OK.
 			t.Run("TryFirstKey", func(t *testing.T) {
+				t.Parallel()
+
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
 					Plugins: []jwt.RecipientPlugin{jws.NewRSAPSSVerifier(publicKeys[0].Key(), testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
 			// KO.
 			t.Run("TrySecondKey", func(t *testing.T) {
+				t.Parallel()
+
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
 					Plugins: []jwt.RecipientPlugin{jws.NewRSAPSSVerifier(publicKeys[1].Key(), testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
+
 				require.ErrorIs(
 					t,
 					recipient.Consume(context.Background(), token, &recipientClaims),
@@ -173,6 +196,8 @@ func TestRSAPSSSourcedSigner(t *testing.T) {
 }
 
 func TestRSAPSSSourcedVerifier(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -198,12 +223,15 @@ func TestRSAPSSSourcedVerifier(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKeys := make([]*jwk.Key[*rsa.PrivateKey], 3)
 			publicKeys := make([]*jwk.Key[*rsa.PublicKey], 3)
 
 			for i := range privateKeys {
 				privateKey, publicKey, err := jwk.GenerateRSA(testCase.keyPreset)
 				require.NoError(t, err)
+
 				privateKeys[i] = privateKey
 				publicKeys[i] = publicKey
 			}
@@ -221,17 +249,22 @@ func TestRSAPSSSourcedVerifier(t *testing.T) {
 
 			// OK.
 			t.Run("SigningKeyFirst", func(t *testing.T) {
+				t.Parallel()
+
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
 					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAPSSVerifier(source, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
 			// OK.
 			t.Run("SigningKeySecond", func(t *testing.T) {
+				t.Parallel()
+
 				_, newPublicKey, err := jwk.GenerateRSA(testCase.keyPreset)
 				require.NoError(t, err)
 
@@ -245,12 +278,15 @@ func TestRSAPSSSourcedVerifier(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
 			// KO.
 			t.Run("KeyMissing", func(t *testing.T) {
+				t.Parallel()
+
 				_, newPublicKey, err := jwk.GenerateRSA(testCase.keyPreset)
 				require.NoError(t, err)
 
@@ -261,6 +297,7 @@ func TestRSAPSSSourcedVerifier(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.ErrorIs(
 					t,
 					recipient.Consume(context.Background(), token, &recipientClaims),

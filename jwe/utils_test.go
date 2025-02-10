@@ -7,14 +7,14 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
-var cekDecoderFooErr = errors.New("foo error")
+var errFoo = errors.New("foo error")
 
 type fakeCEKManager struct {
 	cek       []byte
 	encrypted []byte
 }
 
-func (f *fakeCEKManager) SetHeader(_ context.Context, header *jwa.JWH) (modifiedHeader *jwa.JWH, err error) {
+func (f *fakeCEKManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	return header, nil
 }
 
@@ -33,7 +33,7 @@ type fakeCEKDecoder struct {
 
 func (f *fakeCEKDecoder) ComputeCEK(_ context.Context, _ *jwa.JWH, encKey []byte) ([]byte, error) {
 	if string(encKey) != string(f.encrypted) {
-		return nil, cekDecoderFooErr
+		return nil, errFoo
 	}
 
 	return f.cek, nil

@@ -12,6 +12,8 @@ import (
 )
 
 func TestPBES2KeyEncKW(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -33,7 +35,10 @@ func TestPBES2KeyEncKW(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			cek, err := jwk.GenerateAES(jwk.A256GCM)
+			require.NoError(t, err)
 
 			secret := "my-strong-password"
 
@@ -57,6 +62,8 @@ func TestPBES2KeyEncKW(t *testing.T) {
 			require.NotEqual(t, cek.Key(), encryptedCEK)
 
 			t.Run("OK", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewPBES2KeyEncKWDecoder(
 					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
 					testCase.preset,
@@ -68,6 +75,8 @@ func TestPBES2KeyEncKW(t *testing.T) {
 			})
 
 			t.Run("WrongSecret", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewPBES2KeyEncKWDecoder(
 					&jwek.PBES2KeyEncKWDecoderConfig{Secret: "fake-secret"},
 					testCase.preset,
@@ -78,6 +87,8 @@ func TestPBES2KeyEncKW(t *testing.T) {
 			})
 
 			t.Run("MissingEncKey", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewPBES2KeyEncKWDecoder(
 					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
 					testCase.preset,

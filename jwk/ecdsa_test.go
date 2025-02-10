@@ -16,12 +16,17 @@ import (
 )
 
 func mustECDSA(t *testing.T, preset jwk.ECDSAPreset) (*jwk.Key[*ecdsa.PrivateKey], *jwk.Key[*ecdsa.PublicKey]) {
+	t.Helper()
+
 	private, public, err := jwk.GenerateECDSA(preset)
 	require.NoError(t, err)
+
 	return private, public
 }
 
 func TestGenerateECDSA(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name   string
 		preset jwk.ECDSAPreset
@@ -42,6 +47,8 @@ func TestGenerateECDSA(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKey, publicKey, err := jwk.GenerateECDSA(testCase.preset)
 			require.NoError(t, err)
 
@@ -62,7 +69,10 @@ func TestGenerateECDSA(t *testing.T) {
 			require.Equal(t, privateKey.KID, publicKey.KID)
 
 			t.Run("ParsePrivate", func(t *testing.T) {
+				t.Parallel()
+
 				var ecPayload serializers.ECPayload
+
 				require.NoError(t, json.Unmarshal(privateKey.Payload, &ecPayload))
 
 				decodedPrivate, decodedPublic, err := serializers.DecodeEC(&ecPayload)
@@ -76,7 +86,10 @@ func TestGenerateECDSA(t *testing.T) {
 			})
 
 			t.Run("ParsePublic", func(t *testing.T) {
+				t.Parallel()
+
 				var ecPayload serializers.ECPayload
+
 				require.NoError(t, json.Unmarshal(publicKey.Payload, &ecPayload))
 
 				decodedPrivate, decodedPublic, err := serializers.DecodeEC(&ecPayload)
@@ -92,6 +105,8 @@ func TestGenerateECDSA(t *testing.T) {
 }
 
 func TestConsumeECDSA(t *testing.T) {
+	t.Parallel()
+
 	es256Private, es256Public := mustECDSA(t, jwk.ES256)
 	es384Private, es384Public := mustECDSA(t, jwk.ES384)
 	es512Private, es512Public := mustECDSA(t, jwk.ES512)
@@ -125,15 +140,19 @@ func TestConsumeECDSA(t *testing.T) {
 		{
 			name:      "Mismatch",
 			preset:    jwk.ES256,
-			private:   newBullshitKey[*ecdsa.PrivateKey]("kid-1"),
-			public:    newBullshitKey[*ecdsa.PublicKey]("kid-2"),
+			private:   newBullshitKey[*ecdsa.PrivateKey](t, "kid-1"),
+			public:    newBullshitKey[*ecdsa.PublicKey](t, "kid-2"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			t.Run("Private", func(t *testing.T) {
+				t.Parallel()
+
 				privateKey, publicKey, err := jwk.ConsumeECDSA(testCase.private.JWK, testCase.preset)
 				require.ErrorIs(t, err, testCase.expectErr)
 
@@ -144,6 +163,8 @@ func TestConsumeECDSA(t *testing.T) {
 			})
 
 			t.Run("Public", func(t *testing.T) {
+				t.Parallel()
+
 				privateKey, publicKey, err := jwk.ConsumeECDSA(testCase.public.JWK, testCase.preset)
 				require.ErrorIs(t, err, testCase.expectErr)
 
@@ -157,6 +178,8 @@ func TestConsumeECDSA(t *testing.T) {
 }
 
 func TestECDSASource(t *testing.T) {
+	t.Parallel()
+
 	errFoo := errors.New("foo")
 
 	testCases := []struct {
@@ -179,21 +202,30 @@ func TestECDSASource(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKeys := make([]*jwk.Key[*ecdsa.PrivateKey], 3)
 			publicKeys := make([]*jwk.Key[*ecdsa.PublicKey], 3)
+
 			for i := range privateKeys {
 				private, public, err := jwk.GenerateECDSA(testCase.preset)
 				require.NoError(t, err)
+
 				privateKeys[i] = private
 				publicKeys[i] = public
 			}
 
 			t.Run("Private", func(t *testing.T) {
+				t.Parallel()
+
 				t.Run("OK", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						mapped := lo.Map(privateKeys, func(item *jwk.Key[*ecdsa.PrivateKey], index int) *jwa.JWK {
+						mapped := lo.Map(privateKeys, func(item *jwk.Key[*ecdsa.PrivateKey], _ int) *jwa.JWK {
 							return item.JWK
 						})
+
 						return mapped, nil
 					}
 
@@ -211,6 +243,8 @@ func TestECDSASource(t *testing.T) {
 				})
 
 				t.Run("FetchError", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 						return nil, errFoo
 					}
@@ -223,8 +257,11 @@ func TestECDSASource(t *testing.T) {
 				})
 
 				t.Run("UnsupportedKey", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						bullshitKey := newBullshitKey[[]byte]("kid-1")
+						bullshitKey := newBullshitKey[[]byte](t, "kid-1")
+
 						return []*jwa.JWK{bullshitKey.JWK}, nil
 					}
 
@@ -236,10 +273,13 @@ func TestECDSASource(t *testing.T) {
 				})
 
 				t.Run("PublicKeys", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						mapped := lo.Map(publicKeys, func(item *jwk.Key[*ecdsa.PublicKey], index int) *jwa.JWK {
+						mapped := lo.Map(publicKeys, func(item *jwk.Key[*ecdsa.PublicKey], _ int) *jwa.JWK {
 							return item.JWK
 						})
+
 						return mapped, nil
 					}
 
@@ -252,11 +292,16 @@ func TestECDSASource(t *testing.T) {
 			})
 
 			t.Run("Public", func(t *testing.T) {
+				t.Parallel()
+
 				t.Run("OK", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						mapped := lo.Map(publicKeys, func(item *jwk.Key[*ecdsa.PublicKey], index int) *jwa.JWK {
+						mapped := lo.Map(publicKeys, func(item *jwk.Key[*ecdsa.PublicKey], _ int) *jwa.JWK {
 							return item.JWK
 						})
+
 						return mapped, nil
 					}
 
@@ -274,6 +319,8 @@ func TestECDSASource(t *testing.T) {
 				})
 
 				t.Run("FetchError", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 						return nil, errFoo
 					}
@@ -286,8 +333,11 @@ func TestECDSASource(t *testing.T) {
 				})
 
 				t.Run("UnsupportedKey", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						bullshitKey := newBullshitKey[[]byte]("kid-1")
+						bullshitKey := newBullshitKey[[]byte](t, "kid-1")
+
 						return []*jwa.JWK{bullshitKey.JWK}, nil
 					}
 
@@ -299,10 +349,13 @@ func TestECDSASource(t *testing.T) {
 				})
 
 				t.Run("PrivateKeys", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						mapped := lo.Map(privateKeys, func(item *jwk.Key[*ecdsa.PrivateKey], index int) *jwa.JWK {
+						mapped := lo.Map(privateKeys, func(item *jwk.Key[*ecdsa.PrivateKey], _ int) *jwa.JWK {
 							return item.JWK
 						})
+
 						return mapped, nil
 					}
 

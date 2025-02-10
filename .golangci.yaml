@@ -38,6 +38,3 @@ linters-settings:
 issues:
   exclude-dirs:
     - mocks
-    - cmd
-  exclude-files:
-    - ".*_test\\.go"

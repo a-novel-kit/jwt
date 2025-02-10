@@ -16,12 +16,17 @@ import (
 )
 
 func mustECDH(t *testing.T) (*jwk.Key[*ecdh.PrivateKey], *jwk.Key[*ecdh.PublicKey]) {
+	t.Helper()
+
 	private, public, err := jwk.GenerateECDH()
 	require.NoError(t, err)
+
 	return private, public
 }
 
 func TestGenerateECDH(t *testing.T) {
+	t.Parallel()
+
 	privateKey, publicKey, err := jwk.GenerateECDH()
 	require.NoError(t, err)
 
@@ -42,7 +47,10 @@ func TestGenerateECDH(t *testing.T) {
 	require.Equal(t, privateKey.KID, publicKey.KID)
 
 	t.Run("ParsePrivate", func(t *testing.T) {
+		t.Parallel()
+
 		var ecdhPayload serializers.ECDHPayload
+
 		require.NoError(t, json.Unmarshal(privateKey.Payload, &ecdhPayload))
 
 		decodedPrivate, decodedPublic, err := serializers.DecodeECDH(&ecdhPayload)
@@ -56,7 +64,10 @@ func TestGenerateECDH(t *testing.T) {
 	})
 
 	t.Run("ParsePublic", func(t *testing.T) {
+		t.Parallel()
+
 		var ecdhPayload serializers.ECDHPayload
+
 		require.NoError(t, json.Unmarshal(publicKey.Payload, &ecdhPayload))
 
 		decodedPrivate, decodedPublic, err := serializers.DecodeECDH(&ecdhPayload)
@@ -70,6 +81,8 @@ func TestGenerateECDH(t *testing.T) {
 }
 
 func TestConsumeECDH(t *testing.T) {
+	t.Parallel()
+
 	private, public := mustECDH(t)
 
 	testCases := []struct {
@@ -85,15 +98,19 @@ func TestConsumeECDH(t *testing.T) {
 		},
 		{
 			name:      "Mismatch",
-			private:   newBullshitKey[*ecdh.PrivateKey]("kid-1"),
-			public:    newBullshitKey[*ecdh.PublicKey]("kid-2"),
+			private:   newBullshitKey[*ecdh.PrivateKey](t, "kid-1"),
+			public:    newBullshitKey[*ecdh.PublicKey](t, "kid-2"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			t.Run("Private", func(t *testing.T) {
+				t.Parallel()
+
 				privateKey, publicKey, err := jwk.ConsumeECDH(testCase.private.JWK)
 				require.ErrorIs(t, err, testCase.expectErr)
 
@@ -104,6 +121,8 @@ func TestConsumeECDH(t *testing.T) {
 			})
 
 			t.Run("Public", func(t *testing.T) {
+				t.Parallel()
+
 				privateKey, publicKey, err := jwk.ConsumeECDH(testCase.public.JWK)
 				require.ErrorIs(t, err, testCase.expectErr)
 
@@ -117,23 +136,32 @@ func TestConsumeECDH(t *testing.T) {
 }
 
 func TestECDHSource(t *testing.T) {
+	t.Parallel()
+
 	errFoo := errors.New("foo")
 
 	privateKeys := make([]*jwk.Key[*ecdh.PrivateKey], 3)
 	publicKeys := make([]*jwk.Key[*ecdh.PublicKey], 3)
+
 	for i := range privateKeys {
 		private, public, err := jwk.GenerateECDH()
 		require.NoError(t, err)
+
 		privateKeys[i] = private
 		publicKeys[i] = public
 	}
 
 	t.Run("Private", func(t *testing.T) {
+		t.Parallel()
+
 		t.Run("OK", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				mapped := lo.Map(privateKeys, func(item *jwk.Key[*ecdh.PrivateKey], index int) *jwa.JWK {
+				mapped := lo.Map(privateKeys, func(item *jwk.Key[*ecdh.PrivateKey], _ int) *jwa.JWK {
 					return item.JWK
 				})
+
 				return mapped, nil
 			}
 
@@ -151,6 +179,8 @@ func TestECDHSource(t *testing.T) {
 		})
 
 		t.Run("FetchError", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 				return nil, errFoo
 			}
@@ -163,8 +193,11 @@ func TestECDHSource(t *testing.T) {
 		})
 
 		t.Run("UnsupportedKey", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				bullshitKey := newBullshitKey[[]byte]("kid-1")
+				bullshitKey := newBullshitKey[[]byte](t, "kid-1")
+
 				return []*jwa.JWK{bullshitKey.JWK}, nil
 			}
 
@@ -176,10 +209,13 @@ func TestECDHSource(t *testing.T) {
 		})
 
 		t.Run("PublicKeys", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				mapped := lo.Map(publicKeys, func(item *jwk.Key[*ecdh.PublicKey], index int) *jwa.JWK {
+				mapped := lo.Map(publicKeys, func(item *jwk.Key[*ecdh.PublicKey], _ int) *jwa.JWK {
 					return item.JWK
 				})
+
 				return mapped, nil
 			}
 
@@ -192,11 +228,16 @@ func TestECDHSource(t *testing.T) {
 	})
 
 	t.Run("Public", func(t *testing.T) {
+		t.Parallel()
+
 		t.Run("OK", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				mapped := lo.Map(publicKeys, func(item *jwk.Key[*ecdh.PublicKey], index int) *jwa.JWK {
+				mapped := lo.Map(publicKeys, func(item *jwk.Key[*ecdh.PublicKey], _ int) *jwa.JWK {
 					return item.JWK
 				})
+
 				return mapped, nil
 			}
 
@@ -214,6 +255,8 @@ func TestECDHSource(t *testing.T) {
 		})
 
 		t.Run("FetchError", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 				return nil, errFoo
 			}
@@ -226,8 +269,11 @@ func TestECDHSource(t *testing.T) {
 		})
 
 		t.Run("UnsupportedKey", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				bullshitKey := newBullshitKey[[]byte]("kid-1")
+				bullshitKey := newBullshitKey[[]byte](t, "kid-1")
+
 				return []*jwa.JWK{bullshitKey.JWK}, nil
 			}
 
@@ -239,10 +285,13 @@ func TestECDHSource(t *testing.T) {
 		})
 
 		t.Run("PrivateKeys", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				mapped := lo.Map(privateKeys, func(item *jwk.Key[*ecdh.PrivateKey], index int) *jwa.JWK {
+				mapped := lo.Map(privateKeys, func(item *jwk.Key[*ecdh.PrivateKey], _ int) *jwa.JWK {
 					return item.JWK
 				})
+
 				return mapped, nil
 			}
 

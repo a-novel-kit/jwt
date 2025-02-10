@@ -16,12 +16,17 @@ import (
 )
 
 func mustED25519(t *testing.T) (*jwk.Key[ed25519.PrivateKey], *jwk.Key[ed25519.PublicKey]) {
+	t.Helper()
+
 	private, public, err := jwk.GenerateED25519()
 	require.NoError(t, err)
+
 	return private, public
 }
 
 func TestGenerateED25519(t *testing.T) {
+	t.Parallel()
+
 	privateKey, publicKey, err := jwk.GenerateED25519()
 	require.NoError(t, err)
 
@@ -42,7 +47,10 @@ func TestGenerateED25519(t *testing.T) {
 	require.Equal(t, privateKey.KID, publicKey.KID)
 
 	t.Run("ParsePrivate", func(t *testing.T) {
+		t.Parallel()
+
 		var edPayload serializers.EDPayload
+
 		require.NoError(t, json.Unmarshal(privateKey.Payload, &edPayload))
 
 		decodedPrivate, decodedPublic, err := serializers.DecodeED(&edPayload)
@@ -56,7 +64,10 @@ func TestGenerateED25519(t *testing.T) {
 	})
 
 	t.Run("ParsePublic", func(t *testing.T) {
+		t.Parallel()
+
 		var edPayload serializers.EDPayload
+
 		require.NoError(t, json.Unmarshal(publicKey.Payload, &edPayload))
 
 		decodedPrivate, decodedPublic, err := serializers.DecodeED(&edPayload)
@@ -70,6 +81,8 @@ func TestGenerateED25519(t *testing.T) {
 }
 
 func TestConsumeED25519(t *testing.T) {
+	t.Parallel()
+
 	private, public := mustED25519(t)
 
 	testCases := []struct {
@@ -85,25 +98,33 @@ func TestConsumeED25519(t *testing.T) {
 		},
 		{
 			name:      "Mismatch",
-			private:   newBullshitKey[ed25519.PrivateKey]("kid-1"),
-			public:    newBullshitKey[ed25519.PublicKey]("kid-2"),
+			private:   newBullshitKey[ed25519.PrivateKey](t, "kid-1"),
+			public:    newBullshitKey[ed25519.PublicKey](t, "kid-2"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			t.Run("Private", func(t *testing.T) {
+				t.Parallel()
+
 				privateKey, publicKey, err := jwk.ConsumeED25519(testCase.private.JWK)
 				require.ErrorIs(t, err, testCase.expectErr)
 
 				if err == nil {
+					t.Parallel()
+
 					require.True(t, publicKey.Key().Equal(public.Key()))
 					require.True(t, privateKey.Key().Equal(private.Key()))
 				}
 			})
 
 			t.Run("Public", func(t *testing.T) {
+				t.Parallel()
+
 				privateKey, publicKey, err := jwk.ConsumeED25519(testCase.public.JWK)
 				require.ErrorIs(t, err, testCase.expectErr)
 
@@ -117,23 +138,32 @@ func TestConsumeED25519(t *testing.T) {
 }
 
 func TestED25519Source(t *testing.T) {
+	t.Parallel()
+
 	errFoo := errors.New("foo")
 
 	privateKeys := make([]*jwk.Key[ed25519.PrivateKey], 3)
 	publicKeys := make([]*jwk.Key[ed25519.PublicKey], 3)
+
 	for i := range privateKeys {
 		private, public, err := jwk.GenerateED25519()
 		require.NoError(t, err)
+
 		privateKeys[i] = private
 		publicKeys[i] = public
 	}
 
 	t.Run("Private", func(t *testing.T) {
+		t.Parallel()
+
 		t.Run("OK", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				mapped := lo.Map(privateKeys, func(item *jwk.Key[ed25519.PrivateKey], index int) *jwa.JWK {
+				mapped := lo.Map(privateKeys, func(item *jwk.Key[ed25519.PrivateKey], _ int) *jwa.JWK {
 					return item.JWK
 				})
+
 				return mapped, nil
 			}
 
@@ -151,6 +181,8 @@ func TestED25519Source(t *testing.T) {
 		})
 
 		t.Run("FetchError", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 				return nil, errFoo
 			}
@@ -163,8 +195,11 @@ func TestED25519Source(t *testing.T) {
 		})
 
 		t.Run("UnsupportedKey", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				bullshitKey := newBullshitKey[[]byte]("kid-1")
+				bullshitKey := newBullshitKey[[]byte](t, "kid-1")
+
 				return []*jwa.JWK{bullshitKey.JWK}, nil
 			}
 
@@ -176,10 +211,13 @@ func TestED25519Source(t *testing.T) {
 		})
 
 		t.Run("PublicKeys", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				mapped := lo.Map(publicKeys, func(item *jwk.Key[ed25519.PublicKey], index int) *jwa.JWK {
+				mapped := lo.Map(publicKeys, func(item *jwk.Key[ed25519.PublicKey], _ int) *jwa.JWK {
 					return item.JWK
 				})
+
 				return mapped, nil
 			}
 
@@ -192,11 +230,16 @@ func TestED25519Source(t *testing.T) {
 	})
 
 	t.Run("Public", func(t *testing.T) {
+		t.Parallel()
+
 		t.Run("OK", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				mapped := lo.Map(publicKeys, func(item *jwk.Key[ed25519.PublicKey], index int) *jwa.JWK {
+				mapped := lo.Map(publicKeys, func(item *jwk.Key[ed25519.PublicKey], _ int) *jwa.JWK {
 					return item.JWK
 				})
+
 				return mapped, nil
 			}
 
@@ -214,6 +257,8 @@ func TestED25519Source(t *testing.T) {
 		})
 
 		t.Run("FetchError", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 				return nil, errFoo
 			}
@@ -226,8 +271,11 @@ func TestED25519Source(t *testing.T) {
 		})
 
 		t.Run("UnsupportedKey", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				bullshitKey := newBullshitKey[[]byte]("kid-1")
+				bullshitKey := newBullshitKey[[]byte](t, "kid-1")
+
 				return []*jwa.JWK{bullshitKey.JWK}, nil
 			}
 
@@ -239,10 +287,13 @@ func TestED25519Source(t *testing.T) {
 		})
 
 		t.Run("PrivateKeys", func(t *testing.T) {
+			t.Parallel()
+
 			fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-				mapped := lo.Map(privateKeys, func(item *jwk.Key[ed25519.PrivateKey], index int) *jwa.JWK {
+				mapped := lo.Map(privateKeys, func(item *jwk.Key[ed25519.PrivateKey], _ int) *jwa.JWK {
 					return item.JWK
 				})
+
 				return mapped, nil
 			}
 

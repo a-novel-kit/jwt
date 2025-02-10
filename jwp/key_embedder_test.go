@@ -13,6 +13,8 @@ import (
 )
 
 func TestKeyEmbedder(t *testing.T) {
+	t.Parallel()
+
 	key, err := jwk.GenerateHMAC(jwk.HS256)
 	require.NoError(t, err)
 
@@ -108,6 +110,8 @@ func TestKeyEmbedder(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			embedder := jwp.NewEmbedKey(testCase.config)
 			header, err := embedder.Header(context.Background(), &jwa.JWH{})
 			require.NoError(t, err)
