@@ -115,8 +115,6 @@ func TestConsumeED25519(t *testing.T) {
 				require.ErrorIs(t, err, testCase.expectErr)
 
 				if err == nil {
-					t.Parallel()
-
 					require.True(t, publicKey.Key().Equal(public.Key()))
 					require.True(t, privateKey.Key().Equal(private.Key()))
 				}
