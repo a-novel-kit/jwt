@@ -60,6 +60,7 @@ func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw stri
 	hasher.Write(token.Bytes())
 
 	signature := hasher.Sum(nil)
+
 	return jwt.SignedToken{
 		Header:    token.Header,
 		Payload:   token.Payload,

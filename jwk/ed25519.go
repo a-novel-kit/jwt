@@ -47,6 +47,7 @@ func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateED25519) serialize private key: %w", err)
 	}
+
 	publicSerialized, err := json.Marshal(publicPayload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateED25519) serialize public key: %w", err)
@@ -84,6 +85,7 @@ func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.Pub
 		KeyOps: []jwa.KeyOp{jwa.KeyOpVerify},
 		Alg:    jwa.EdDSA,
 	})
+
 	if !matchPrivate && !matchPublic {
 		return nil, nil, fmt.Errorf("(ConsumeED25519) %w", ErrJWKMismatch)
 	}
@@ -106,6 +108,7 @@ func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.Pub
 	if decodedPrivate != nil {
 		privateKey = &Key[ed25519.PrivateKey]{source, decodedPrivate}
 	}
+
 	if decodedPublic != nil {
 		publicKey = &Key[ed25519.PublicKey]{source, decodedPublic}
 	}
@@ -114,7 +117,7 @@ func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.Pub
 }
 
 func NewED25519PublicSource(config SourceConfig) *Source[ed25519.PublicKey] {
-	parser := func(ctx context.Context, jwk *jwa.JWK) (*Key[ed25519.PublicKey], error) {
+	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[ed25519.PublicKey], error) {
 		privateKey, publicKey, err := ConsumeED25519(jwk)
 		if privateKey != nil {
 			return nil, fmt.Errorf("(NewED25519PublicSource) %w: source is providing private keys", ErrJWKMismatch)
@@ -127,7 +130,7 @@ func NewED25519PublicSource(config SourceConfig) *Source[ed25519.PublicKey] {
 }
 
 func NewED25519PrivateSource(config SourceConfig) *Source[ed25519.PrivateKey] {
-	parser := func(ctx context.Context, jwk *jwa.JWK) (*Key[ed25519.PrivateKey], error) {
+	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[ed25519.PrivateKey], error) {
 		privateKey, _, err := ConsumeED25519(jwk)
 		if privateKey == nil {
 			return nil, fmt.Errorf("(NewED25519PrivateSource) %w: source is providing public keys", ErrJWKMismatch)

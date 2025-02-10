@@ -56,6 +56,7 @@ func Derive(z []byte, alg string, keySize int, apu, apv string) ([]byte, error) 
 
 	// This is set to the keydatalen represented as a 32-bit big-endian integer.
 	supPubInfo := make([]byte, 4)
+
 	if keySize > 0xFFFFFFF {
 		return nil, fmt.Errorf("%w: %d", ErrDataTooLarge, keySize)
 	}
@@ -72,6 +73,7 @@ func Derive(z []byte, alg string, keySize int, apu, apv string) ([]byte, error) 
 // Prefix the input data with a 32-bit big-endian length.
 func prefixBlock(data []byte) ([]byte, error) {
 	out := make([]byte, len(data)+4)
+
 	if len(data) > 0xFFFFFFF {
 		return nil, fmt.Errorf("%w: %d", ErrDataTooLarge, len(data))
 	}

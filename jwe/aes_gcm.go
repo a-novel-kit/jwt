@@ -84,6 +84,7 @@ func (enc *AESGCMEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 	}
 
 	header.Enc = enc.enc
+
 	return header, nil
 }
 
@@ -188,6 +189,7 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	if len(token.EncKey) > 0 {
 		encryptedKey, err = base64.RawURLEncoding.DecodeString(token.EncKey)
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) decode enc key: %w", err)
 	}
@@ -196,10 +198,12 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) decode iv: %w", err)
 	}
+
 	tag, err := base64.RawURLEncoding.DecodeString(token.Tag)
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) decode tag: %w", err)
 	}
+
 	cipherText, err := base64.RawURLEncoding.DecodeString(token.CipherText)
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) decode cipher text: %w", err)

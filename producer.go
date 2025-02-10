@@ -47,12 +47,14 @@ func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader 
 	if err != nil {
 		return "", fmt.Errorf("(Issuer.Issue) serialize claims: %w", err)
 	}
+
 	claimsEncoded := base64.RawURLEncoding.EncodeToString(claimsSerialized)
 
 	headerSerialized, err := json.Marshal(header)
 	if err != nil {
 		return "", fmt.Errorf("(Issuer.Issue) serialize header: %w", err)
 	}
+
 	headerEncoded := base64.RawURLEncoding.EncodeToString(headerSerialized)
 
 	token := headerEncoded + "." + claimsEncoded

@@ -50,6 +50,7 @@ func (source *Source[K]) refresh(ctx context.Context) error {
 	}
 
 	parsedKeys := make([]*Key[K], len(keys))
+
 	for i, key := range keys {
 		parsed, err := source.parser(ctx, key)
 		if err != nil {

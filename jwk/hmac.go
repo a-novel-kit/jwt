@@ -108,7 +108,7 @@ func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
 }
 
 func NewHMACSource(config SourceConfig, preset HMACPreset) *Source[[]byte] {
-	parser := func(ctx context.Context, jwk *jwa.JWK) (*Key[[]byte], error) {
+	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[[]byte], error) {
 		return ConsumeHMAC(jwk, preset)
 	}
 

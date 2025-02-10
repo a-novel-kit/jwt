@@ -106,6 +106,7 @@ func (enc *AESCBCEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 	}
 
 	header.Enc = enc.enc
+
 	return header, nil
 }
 
@@ -158,6 +159,7 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	if err != nil {
 		return "", fmt.Errorf("(AESCBCEncryption.Transform) new cipher: %w", err)
 	}
+
 	blockMode := cipher.NewCBCEncrypter(block, iv)
 	// Pad the incoming data so it fits the block size.
 	origData := internal.PKCS7Padding(plainText, block.BlockSize())
@@ -255,6 +257,7 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	if len(token.EncKey) > 0 {
 		encryptedKey, err = base64.RawURLEncoding.DecodeString(token.EncKey)
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) decode enc key: %w", err)
 	}
@@ -263,10 +266,12 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	if err != nil {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) decode iv: %w", err)
 	}
+
 	tag, err := base64.RawURLEncoding.DecodeString(token.Tag)
 	if err != nil {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) decode tag: %w", err)
 	}
+
 	cipherText, err := base64.RawURLEncoding.DecodeString(token.CipherText)
 	if err != nil {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) decode cipher text: %w", err)

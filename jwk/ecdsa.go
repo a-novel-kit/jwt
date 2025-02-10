@@ -55,6 +55,7 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateECDSA) encode private key: %w", err)
 	}
+
 	publicPayload, err := serializers.EncodeEC(publicKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateECDSA) encode public key: %w", err)
@@ -81,6 +82,7 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateECDSA) serialize private key: %w", err)
 	}
+
 	publicSerialized, err := json.Marshal(publicPayload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateECDSA) serialize public key: %w", err)
@@ -121,6 +123,7 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 		KeyOps: []jwa.KeyOp{jwa.KeyOpVerify},
 		Alg:    preset.Alg,
 	})
+
 	if !matchPrivate && !matchPublic {
 		return nil, nil, fmt.Errorf("(ConsumeECDSA) %w", ErrJWKMismatch)
 	}
@@ -143,6 +146,7 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 	if decodedPrivate != nil {
 		privateKey = NewKey[*ecdsa.PrivateKey](source, decodedPrivate)
 	}
+
 	if decodedPublic != nil {
 		publicKey = NewKey[*ecdsa.PublicKey](source, decodedPublic)
 	}
@@ -151,7 +155,7 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 }
 
 func NewECDSAPublicSource(config SourceConfig, preset ECDSAPreset) *Source[*ecdsa.PublicKey] {
-	parser := func(ctx context.Context, jwk *jwa.JWK) (*Key[*ecdsa.PublicKey], error) {
+	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdsa.PublicKey], error) {
 		privateKey, publicKey, err := ConsumeECDSA(jwk, preset)
 		if privateKey != nil {
 			return nil, fmt.Errorf("(NewECDSAPublicSource) %w: source is providing private keys", ErrJWKMismatch)
@@ -164,7 +168,7 @@ func NewECDSAPublicSource(config SourceConfig, preset ECDSAPreset) *Source[*ecds
 }
 
 func NewECDSAPrivateSource(config SourceConfig, preset ECDSAPreset) *Source[*ecdsa.PrivateKey] {
-	parser := func(ctx context.Context, jwk *jwa.JWK) (*Key[*ecdsa.PrivateKey], error) {
+	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdsa.PrivateKey], error) {
 		privateKey, _, err := ConsumeECDSA(jwk, preset)
 		if privateKey == nil {
 			return nil, fmt.Errorf("(NewECDSAPrivateSource) %w: source is providing public keys", ErrJWKMismatch)

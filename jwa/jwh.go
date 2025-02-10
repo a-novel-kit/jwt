@@ -409,5 +409,6 @@ func (header JWH) MarshalJSON() ([]byte, error) {
 func (header *JWH) UnmarshalJSON(src []byte) error {
 	var err error
 	header.JWHCommon, header.Payload, err = internal.UnmarshalJSONJose[JWHCommon](src)
+
 	return err
 }
