@@ -20,6 +20,7 @@ func MarshalJSONJose[T any](common T, custom json.RawMessage) ([]byte, error) {
 	if err := json.Unmarshal(serializedCommon, &merged); err != nil {
 		return nil, fmt.Errorf("(MarshalJSONJose) convert common to map: %w", err)
 	}
+
 	if err := json.Unmarshal(custom, &merged); err != nil {
 		return nil, fmt.Errorf("(MarshalJSONJose) convert custom to map: %w", err)
 	}

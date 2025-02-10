@@ -29,6 +29,7 @@ func GenerateECDH() (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateECDH) encode private key: %w", err)
 	}
+
 	publicPayload, err := serializers.EncodeECDH(publicKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateECDH) encode public key: %w", err)
@@ -55,6 +56,7 @@ func GenerateECDH() (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateECDH) serialize private key: %w", err)
 	}
+
 	publicSerialized, err := json.Marshal(publicPayload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateECDH) serialize public key: %w", err)
@@ -105,6 +107,7 @@ func ConsumeECDH(source *jwa.JWK) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey]
 	if decodedPrivate != nil {
 		privateKey = NewKey[*ecdh.PrivateKey](source, decodedPrivate)
 	}
+
 	if decodedPublic != nil {
 		publicKey = NewKey[*ecdh.PublicKey](source, decodedPublic)
 	}
@@ -113,7 +116,7 @@ func ConsumeECDH(source *jwa.JWK) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey]
 }
 
 func NewECDHPublicSource(config SourceConfig) *Source[*ecdh.PublicKey] {
-	parser := func(ctx context.Context, jwk *jwa.JWK) (*Key[*ecdh.PublicKey], error) {
+	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdh.PublicKey], error) {
 		privateKey, publicKey, err := ConsumeECDH(jwk)
 		if privateKey != nil {
 			return nil, fmt.Errorf("(NewECDHPublicSource) %w: source is providing private keys", ErrJWKMismatch)
@@ -126,7 +129,7 @@ func NewECDHPublicSource(config SourceConfig) *Source[*ecdh.PublicKey] {
 }
 
 func NewECDHPrivateSource(config SourceConfig) *Source[*ecdh.PrivateKey] {
-	parser := func(ctx context.Context, jwk *jwa.JWK) (*Key[*ecdh.PrivateKey], error) {
+	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdh.PrivateKey], error) {
 		privateKey, _, err := ConsumeECDH(jwk)
 		if privateKey == nil {
 			return nil, fmt.Errorf("(NewECDHPrivateSource) %w: source is providing public keys", ErrJWKMismatch)

@@ -1,68 +1,23 @@
 linters:
-  enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - asciicheck
-    - bidichk
-    - bodyclose
-    - canonicalheader
-    - containedctx
-    - contextcheck
-    - copyloopvar
-    - decorder
-    - dupword
-    - errchkjson
-    - errname
-    - errorlint
-    - fatcontext
-    - gci
-    - gocheckcompilerdirectives
-    - gocritic
-    - godot
-    - gofmt
-    - gofumpt
-    - goheader
+  enable-all: true
+  disable:
+    - depguard
+    - exportloopref
+    - dupl
+    - varnamelen
     - goimports
-    - goprintffuncname
-    - gosec
-    - grouper
-    - importas
-    - inamedparam
-    - intrange
+    - nilnil
     - ireturn
-    - lll
-    - loggercheck
-    - mirror
-    - misspell
-    - nestif
-    - noctx
-    - nolintlint
-    - nonamedreturns
-    - nosprintfhostport
-    - perfsprint
-    - prealloc
-    - predeclared
-    - promlinter
-    - reassign
-    - rowserrcheck
-    - sloglint
-    - sqlclosecheck
-    - tagalign
-    - tagliatelle
-    - tenv
-    - testifylint
-    - testpackage
-    - thelper
-    - unconvert
-    - unparam
-    - usestdlibvars
-    - wastedassign
-    - whitespace
-    - zerologlint
+    - gochecknoglobals
+    - funlen
+    - exhaustruct
+    - cyclop
+    - errname
+    - godox
+    - wrapcheck
+    - mnd
+    - err113
+    - forcetypeassert
 
 linters-settings:
   gci:
@@ -75,12 +30,6 @@ linters-settings:
   gosec:
     excludes:
       - G115
-  ireturn:
-    allow:
-      - anon
-      - error
-      - empty
-      - generic
   tagliatelle:
     case:
       rules:

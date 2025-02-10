@@ -28,6 +28,7 @@ func KeyWrap(block cipher.Block, cek []byte) ([]byte, error) {
 
 	buffer := make([]byte, 16)
 	tBytes := make([]byte, 8)
+
 	copy(buffer, defaultIV)
 
 	for t := range 6 * n {
@@ -40,11 +41,13 @@ func KeyWrap(block cipher.Block, cek []byte) ([]byte, error) {
 		for i := range 8 {
 			buffer[i] ^= tBytes[i]
 		}
+
 		copy(r[t%n], buffer[8:])
 	}
 
 	out := make([]byte, (n+1)*8)
 	copy(out, buffer[:8])
+
 	for i := range r {
 		copy(out[(i+1)*8:], r[i])
 	}
@@ -68,6 +71,7 @@ func KeyUnwrap(block cipher.Block, ciphertext []byte) ([]byte, error) {
 
 	buffer := make([]byte, 16)
 	tBytes := make([]byte, 8)
+
 	copy(buffer[:8], ciphertext[:8])
 
 	for t := 6*n - 1; t >= 0; t-- {
@@ -76,6 +80,7 @@ func KeyUnwrap(block cipher.Block, ciphertext []byte) ([]byte, error) {
 		for i := range 8 {
 			buffer[i] ^= tBytes[i]
 		}
+
 		copy(buffer[8:], r[t%n])
 
 		block.Decrypt(buffer, buffer)

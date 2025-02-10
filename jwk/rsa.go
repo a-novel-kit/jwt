@@ -170,6 +170,7 @@ func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey],
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateRSA) serialize private key: %w", err)
 	}
+
 	publicSerialized, err := json.Marshal(publicPayload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateRSA) serialize public key: %w", err)
@@ -217,6 +218,7 @@ func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[
 		KeyOps: preset.PublicKeyOps,
 		Alg:    preset.Alg,
 	})
+
 	if !matchPrivate && !matchPublic {
 		return nil, nil, fmt.Errorf("(ConsumeRSA) %w", ErrJWKMismatch)
 	}
@@ -239,6 +241,7 @@ func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[
 	if decodedPrivate != nil {
 		privateKey = NewKey[*rsa.PrivateKey](source, decodedPrivate)
 	}
+
 	if decodedPublic != nil {
 		publicKey = NewKey[*rsa.PublicKey](source, decodedPublic)
 	}
@@ -260,7 +263,7 @@ func NewRSAPublicSource(config SourceConfig, preset RSAPreset) *Source[*rsa.Publ
 }
 
 func NewRSAPrivateSource(config SourceConfig, preset RSAPreset) *Source[*rsa.PrivateKey] {
-	parser := func(ctx context.Context, jwk *jwa.JWK) (*Key[*rsa.PrivateKey], error) {
+	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*rsa.PrivateKey], error) {
 		privateKey, _, err := ConsumeRSA(jwk, preset)
 		if privateKey == nil {
 			return nil, fmt.Errorf("(NewRSAPrivateSource) %w: source is providing public keys", ErrJWKMismatch)

@@ -13,7 +13,7 @@ func NewStaticKeysSource[T any](t *testing.T, keys []*jwk.Key[T]) *jwk.Source[T]
 	t.Helper()
 
 	return jwk.NewGenericSource[T](jwk.SourceConfig{
-		Fetch: func(ctx context.Context) ([]*jwa.JWK, error) {
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			mapped := make([]*jwa.JWK, len(keys))
 			for i, key := range keys {
 				mapped[i] = key.JWK
@@ -21,7 +21,7 @@ func NewStaticKeysSource[T any](t *testing.T, keys []*jwk.Key[T]) *jwk.Source[T]
 
 			return mapped, nil
 		},
-	}, func(ctx context.Context, jwk *jwa.JWK) (*jwk.Key[T], error) {
+	}, func(_ context.Context, jwk *jwa.JWK) (*jwk.Key[T], error) {
 		for _, key := range keys {
 			if key.JWK.KID == jwk.KID {
 				return key, nil

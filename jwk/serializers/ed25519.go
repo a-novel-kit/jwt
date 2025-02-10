@@ -70,6 +70,7 @@ func EncodeED[Key ed25519.PublicKey | ed25519.PrivateKey](key Key) *EDPayload {
 	pubKey, ok := any(key).(ed25519.PublicKey)
 	if ok {
 		encodedPub := base64.RawURLEncoding.EncodeToString(pubKey)
+
 		return &EDPayload{
 			Crv: "Ed25519",
 			X:   encodedPub,

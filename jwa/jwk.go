@@ -192,5 +192,6 @@ func (key JWK) MarshalJSON() ([]byte, error) {
 func (key *JWK) UnmarshalJSON(src []byte) error {
 	var err error
 	key.JWKCommon, key.Payload, err = internal.UnmarshalJSONJose[JWKCommon](src)
+
 	return err
 }

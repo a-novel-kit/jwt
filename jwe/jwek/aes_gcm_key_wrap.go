@@ -79,6 +79,7 @@ func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, c
 	}
 
 	iv := make([]byte, aesgcm.NonceSize())
+
 	_, err = io.ReadFull(rand.Reader, iv)
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMKW.EncryptCEK) generate IV: %w", err)
@@ -93,6 +94,7 @@ func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, c
 	if len(iv) != 12 {
 		return nil, fmt.Errorf("(AESGCMKW.EncryptCEK) invalid IV size: expected 12, got %d", len(iv))
 	}
+
 	if len(tag) != 16 {
 		return nil, fmt.Errorf("(AESGCMKW.EncryptCEK) invalid tag size: expected 16, got %d", len(tag))
 	}
@@ -160,6 +162,7 @@ func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, e
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) decode IV: %w", err)
 	}
+
 	tag, err := base64.RawURLEncoding.DecodeString(header.JWHAESGCMKW.Tag)
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) decode tag: %w", err)
@@ -168,6 +171,7 @@ func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, e
 	if len(iv) != 12 {
 		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) invalid IV size: expected 12, got %d", len(iv))
 	}
+
 	if len(tag) != 16 {
 		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) invalid tag size: expected 16, got %d", len(tag))
 	}

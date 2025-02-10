@@ -125,5 +125,6 @@ func (claims Claims) MarshalJSON() ([]byte, error) {
 func (claims *Claims) UnmarshalJSON(src []byte) error {
 	var err error
 	claims.ClaimsCommon, claims.Payload, err = internal.UnmarshalJSONJose[ClaimsCommon](src)
+
 	return err
 }
