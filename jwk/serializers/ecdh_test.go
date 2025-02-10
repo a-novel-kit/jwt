@@ -11,11 +11,16 @@ import (
 )
 
 func TestECDH(t *testing.T) {
+	t.Parallel()
+
 	privateKey, err := ecdh.X25519().GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	publicKey := privateKey.PublicKey()
 
 	t.Run("PrivateKey", func(t *testing.T) {
+		t.Parallel()
+
 		payload, err := serializers.EncodeECDH(privateKey)
 		require.NoError(t, err)
 
@@ -27,6 +32,8 @@ func TestECDH(t *testing.T) {
 	})
 
 	t.Run("PublicKey", func(t *testing.T) {
+		t.Parallel()
+
 		payload, err := serializers.EncodeECDH(publicKey)
 		require.NoError(t, err)
 

@@ -16,6 +16,8 @@ import (
 )
 
 func TestED25519(t *testing.T) {
+	t.Parallel()
+
 	privateKey, publicKey, err := jwk.GenerateED25519()
 	require.NoError(t, err)
 
@@ -35,13 +37,18 @@ func TestED25519(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("OK", func(t *testing.T) {
+		t.Parallel()
+
 		var recipientClaims map[string]any
+
 		require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 
 		require.Equal(t, producerClaims, recipientClaims)
 	})
 
 	t.Run("IncorrectHeader", func(t *testing.T) {
+		t.Parallel()
+
 		var recipientClaims map[string]any
 
 		customHeader := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"foo"}`))
@@ -53,8 +60,11 @@ func TestED25519(t *testing.T) {
 	})
 
 	t.Run("InvalidSignature", func(t *testing.T) {
+		t.Parallel()
+
 		otherPrivateKey, _, err := jwk.GenerateED25519()
 		require.NoError(t, err)
+
 		otherSigner := jws.NewED25519Signer(otherPrivateKey.Key())
 		otherProducer := jwt.NewProducer(jwt.ProducerConfig{
 			Plugins: []jwt.ProducerPlugin{otherSigner},
@@ -71,12 +81,15 @@ func TestED25519(t *testing.T) {
 }
 
 func TestED25519SourcedSigner(t *testing.T) {
+	t.Parallel()
+
 	privateKeys := make([]*jwk.Key[ed25519.PrivateKey], 3)
 	publicKeys := make([]*jwk.Key[ed25519.PublicKey], 3)
 
 	for i := range privateKeys {
 		privateKey, publicKey, err := jwk.GenerateED25519()
 		require.NoError(t, err)
+
 		privateKeys[i] = privateKey
 		publicKeys[i] = publicKey
 	}
@@ -94,22 +107,28 @@ func TestED25519SourcedSigner(t *testing.T) {
 
 	// OK.
 	t.Run("TryFirstKey", func(t *testing.T) {
+		t.Parallel()
+
 		recipient := jwt.NewRecipient(jwt.RecipientConfig{
 			Plugins: []jwt.RecipientPlugin{jws.NewED25519Verifier(publicKeys[0].Key())},
 		})
 
 		var recipientClaims map[string]any
+
 		require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 		require.Equal(t, producerClaims, recipientClaims)
 	})
 
 	// KO.
 	t.Run("TrySecondKey", func(t *testing.T) {
+		t.Parallel()
+
 		recipient := jwt.NewRecipient(jwt.RecipientConfig{
 			Plugins: []jwt.RecipientPlugin{jws.NewED25519Verifier(publicKeys[1].Key())},
 		})
 
 		var recipientClaims map[string]any
+
 		require.ErrorIs(
 			t,
 			recipient.Consume(context.Background(), token, &recipientClaims),
@@ -119,12 +138,15 @@ func TestED25519SourcedSigner(t *testing.T) {
 }
 
 func TestED25519SourcedVerifier(t *testing.T) {
+	t.Parallel()
+
 	privateKeys := make([]*jwk.Key[ed25519.PrivateKey], 3)
 	publicKeys := make([]*jwk.Key[ed25519.PublicKey], 3)
 
 	for i := range privateKeys {
 		privateKey, publicKey, err := jwk.GenerateED25519()
 		require.NoError(t, err)
+
 		privateKeys[i] = privateKey
 		publicKeys[i] = publicKey
 	}
@@ -142,17 +164,22 @@ func TestED25519SourcedVerifier(t *testing.T) {
 
 	// OK.
 	t.Run("SigningKeyFirst", func(t *testing.T) {
+		t.Parallel()
+
 		recipient := jwt.NewRecipient(jwt.RecipientConfig{
 			Plugins: []jwt.RecipientPlugin{jws.NewSourcedED25519Verifier(source)},
 		})
 
 		var recipientClaims map[string]any
+
 		require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 		require.Equal(t, producerClaims, recipientClaims)
 	})
 
 	// OK.
 	t.Run("SigningKeySecond", func(t *testing.T) {
+		t.Parallel()
+
 		_, newPublicKey, err := jwk.GenerateED25519()
 		require.NoError(t, err)
 
@@ -166,12 +193,15 @@ func TestED25519SourcedVerifier(t *testing.T) {
 		})
 
 		var recipientClaims map[string]any
+
 		require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 		require.Equal(t, producerClaims, recipientClaims)
 	})
 
 	// KO.
 	t.Run("KeyMissing", func(t *testing.T) {
+		t.Parallel()
+
 		_, newPublicKey, err := jwk.GenerateED25519()
 		require.NoError(t, err)
 
@@ -182,6 +212,7 @@ func TestED25519SourcedVerifier(t *testing.T) {
 		})
 
 		var recipientClaims map[string]any
+
 		require.ErrorIs(
 			t,
 			recipient.Consume(context.Background(), token, &recipientClaims),

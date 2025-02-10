@@ -12,6 +12,8 @@ import (
 )
 
 func TestDirectEncryption(t *testing.T) {
+	t.Parallel()
+
 	cek, err := jwk.GenerateAES(jwk.A128GCM)
 	require.NoError(t, err)
 

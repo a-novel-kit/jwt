@@ -12,11 +12,16 @@ import (
 )
 
 func TestEC(t *testing.T) {
+	t.Parallel()
+
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
+
 	publicKey := &privateKey.PublicKey
 
 	t.Run("PrivateKey", func(t *testing.T) {
+		t.Parallel()
+
 		payload, err := serializers.EncodeEC(privateKey)
 		require.NoError(t, err)
 
@@ -28,6 +33,8 @@ func TestEC(t *testing.T) {
 	})
 
 	t.Run("PublicKey", func(t *testing.T) {
+		t.Parallel()
+
 		payload, err := serializers.EncodeEC(publicKey)
 		require.NoError(t, err)
 

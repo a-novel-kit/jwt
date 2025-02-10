@@ -9,6 +9,8 @@ import (
 )
 
 func TestPKCS7Padding(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -38,6 +40,8 @@ func TestPKCS7Padding(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := internal.PKCS7Padding(testCase.ciphertext, testCase.blockSize)
 			require.Equal(t, testCase.expected, result)
 		})
@@ -45,6 +49,8 @@ func TestPKCS7Padding(t *testing.T) {
 }
 
 func TestPKCS7UnPadding(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -63,6 +69,8 @@ func TestPKCS7UnPadding(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := internal.PKCS7UnPadding(testCase.plaintText)
 			require.Equal(t, testCase.expected, result)
 		})

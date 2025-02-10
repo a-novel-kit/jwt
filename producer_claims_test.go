@@ -11,7 +11,11 @@ import (
 )
 
 func TestNewBasicClaims(t *testing.T) {
+	t.Parallel()
+
 	t.Run("DefaultsOnly", func(t *testing.T) {
+		t.Parallel()
+
 		claims, err := jwt.NewBasicClaims(nil, jwt.ClaimsProducerConfig{})
 		require.NoError(t, err)
 
@@ -26,6 +30,8 @@ func TestNewBasicClaims(t *testing.T) {
 	})
 
 	t.Run("WithExpiration", func(t *testing.T) {
+		t.Parallel()
+
 		claims, err := jwt.NewBasicClaims(nil, jwt.ClaimsProducerConfig{
 			TTL: time.Minute,
 		})
@@ -42,6 +48,8 @@ func TestNewBasicClaims(t *testing.T) {
 	})
 
 	t.Run("WithTarget", func(t *testing.T) {
+		t.Parallel()
+
 		claims, err := jwt.NewBasicClaims(nil, jwt.ClaimsProducerConfig{
 			TargetConfig: jwt.TargetConfig{
 				Issuer:   "issuer",
@@ -63,11 +71,14 @@ func TestNewBasicClaims(t *testing.T) {
 	})
 
 	t.Run("WithCustomFields", func(t *testing.T) {
+		t.Parallel()
+
 		customClaims := map[string]any{"foo": "bar"}
 		claims, err := jwt.NewBasicClaims(customClaims, jwt.ClaimsProducerConfig{})
 		require.NoError(t, err)
 
 		var decodedCustom map[string]any
+
 		require.NoError(t, json.Unmarshal(claims.Payload, &decodedCustom))
 
 		require.Equal(t, customClaims, decodedCustom)

@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewOct(t *testing.T) {
+	t.Parallel()
+
 	key1, err := generators.NewOct(12)
 	require.NoError(t, err)
 	require.Len(t, key1, 12)

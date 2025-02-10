@@ -16,12 +16,17 @@ import (
 )
 
 func mustRSA(t *testing.T, preset jwk.RSAPreset) (*jwk.Key[*rsa.PrivateKey], *jwk.Key[*rsa.PublicKey]) {
+	t.Helper()
+
 	private, public, err := jwk.GenerateRSA(preset)
 	require.NoError(t, err)
+
 	return private, public
 }
 
 func TestGenerateRSA(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name   string
 		preset jwk.RSAPreset
@@ -64,6 +69,8 @@ func TestGenerateRSA(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKey, publicKey, err := jwk.GenerateRSA(testCase.preset)
 			require.NoError(t, err)
 
@@ -84,7 +91,10 @@ func TestGenerateRSA(t *testing.T) {
 			require.Equal(t, privateKey.KID, publicKey.KID)
 
 			t.Run("ParsePrivate", func(t *testing.T) {
+				t.Parallel()
+
 				var rsaPayload serializers.RSAPayload
+
 				require.NoError(t, json.Unmarshal(privateKey.Payload, &rsaPayload))
 
 				decodedPrivate, decodedPublic, err := serializers.DecodeRSA(&rsaPayload)
@@ -98,7 +108,10 @@ func TestGenerateRSA(t *testing.T) {
 			})
 
 			t.Run("ParsePublic", func(t *testing.T) {
+				t.Parallel()
+
 				var rsaPayload serializers.RSAPayload
+
 				require.NoError(t, json.Unmarshal(publicKey.Payload, &rsaPayload))
 
 				decodedPrivate, decodedPublic, err := serializers.DecodeRSA(&rsaPayload)
@@ -114,6 +127,8 @@ func TestGenerateRSA(t *testing.T) {
 }
 
 func TestConsumeRSA(t *testing.T) {
+	t.Parallel()
+
 	rs256Private, rs256Public := mustRSA(t, jwk.RS256)
 	rs384Private, rs384Public := mustRSA(t, jwk.RS384)
 	rs512Private, rs512Public := mustRSA(t, jwk.RS512)
@@ -183,15 +198,19 @@ func TestConsumeRSA(t *testing.T) {
 		{
 			name:      "Mismatch",
 			preset:    jwk.RS256,
-			private:   newBullshitKey[*rsa.PrivateKey]("kid-1"),
-			public:    newBullshitKey[*rsa.PublicKey]("kid-2"),
+			private:   newBullshitKey[*rsa.PrivateKey](t, "kid-1"),
+			public:    newBullshitKey[*rsa.PublicKey](t, "kid-2"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			t.Run("Private", func(t *testing.T) {
+				t.Parallel()
+
 				privateKey, publicKey, err := jwk.ConsumeRSA(testCase.private.JWK, testCase.preset)
 				require.ErrorIs(t, err, testCase.expectErr)
 
@@ -202,6 +221,8 @@ func TestConsumeRSA(t *testing.T) {
 			})
 
 			t.Run("Public", func(t *testing.T) {
+				t.Parallel()
+
 				privateKey, publicKey, err := jwk.ConsumeRSA(testCase.public.JWK, testCase.preset)
 				require.ErrorIs(t, err, testCase.expectErr)
 
@@ -215,6 +236,8 @@ func TestConsumeRSA(t *testing.T) {
 }
 
 func TestRSASource(t *testing.T) {
+	t.Parallel()
+
 	errFoo := errors.New("foo")
 
 	testCases := []struct {
@@ -257,21 +280,30 @@ func TestRSASource(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKeys := make([]*jwk.Key[*rsa.PrivateKey], 3)
 			publicKeys := make([]*jwk.Key[*rsa.PublicKey], 3)
+
 			for i := range privateKeys {
 				private, public, err := jwk.GenerateRSA(testCase.preset)
 				require.NoError(t, err)
+
 				privateKeys[i] = private
 				publicKeys[i] = public
 			}
 
 			t.Run("Private", func(t *testing.T) {
+				t.Parallel()
+
 				t.Run("OK", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						mapped := lo.Map(privateKeys, func(item *jwk.Key[*rsa.PrivateKey], index int) *jwa.JWK {
+						mapped := lo.Map(privateKeys, func(item *jwk.Key[*rsa.PrivateKey], _ int) *jwa.JWK {
 							return item.JWK
 						})
+
 						return mapped, nil
 					}
 
@@ -289,6 +321,8 @@ func TestRSASource(t *testing.T) {
 				})
 
 				t.Run("FetchError", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 						return nil, errFoo
 					}
@@ -301,8 +335,11 @@ func TestRSASource(t *testing.T) {
 				})
 
 				t.Run("UnsupportedKey", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						bullshitKey := newBullshitKey[[]byte]("kid-1")
+						bullshitKey := newBullshitKey[[]byte](t, "kid-1")
+
 						return []*jwa.JWK{bullshitKey.JWK}, nil
 					}
 
@@ -314,10 +351,13 @@ func TestRSASource(t *testing.T) {
 				})
 
 				t.Run("PublicKeys", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						mapped := lo.Map(publicKeys, func(item *jwk.Key[*rsa.PublicKey], index int) *jwa.JWK {
+						mapped := lo.Map(publicKeys, func(item *jwk.Key[*rsa.PublicKey], _ int) *jwa.JWK {
 							return item.JWK
 						})
+
 						return mapped, nil
 					}
 
@@ -330,11 +370,16 @@ func TestRSASource(t *testing.T) {
 			})
 
 			t.Run("Public", func(t *testing.T) {
+				t.Parallel()
+
 				t.Run("OK", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						mapped := lo.Map(publicKeys, func(item *jwk.Key[*rsa.PublicKey], index int) *jwa.JWK {
+						mapped := lo.Map(publicKeys, func(item *jwk.Key[*rsa.PublicKey], _ int) *jwa.JWK {
 							return item.JWK
 						})
+
 						return mapped, nil
 					}
 
@@ -352,6 +397,8 @@ func TestRSASource(t *testing.T) {
 				})
 
 				t.Run("FetchError", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 						return nil, errFoo
 					}
@@ -364,8 +411,11 @@ func TestRSASource(t *testing.T) {
 				})
 
 				t.Run("UnsupportedKey", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						bullshitKey := newBullshitKey[[]byte]("kid-1")
+						bullshitKey := newBullshitKey[[]byte](t, "kid-1")
+
 						return []*jwa.JWK{bullshitKey.JWK}, nil
 					}
 
@@ -377,10 +427,13 @@ func TestRSASource(t *testing.T) {
 				})
 
 				t.Run("PrivateKeys", func(t *testing.T) {
+					t.Parallel()
+
 					fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-						mapped := lo.Map(privateKeys, func(item *jwk.Key[*rsa.PrivateKey], index int) *jwa.JWK {
+						mapped := lo.Map(privateKeys, func(item *jwk.Key[*rsa.PrivateKey], _ int) *jwa.JWK {
 							return item.JWK
 						})
+
 						return mapped, nil
 					}
 

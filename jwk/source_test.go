@@ -35,6 +35,8 @@ func (sp *simulateParser[K]) parse(_ context.Context, _ *jwa.JWK) (*jwk.Key[K], 
 }
 
 func TestSourceList(t *testing.T) {
+	t.Parallel()
+
 	errFoo := errors.New("foo")
 
 	testCases := []struct {
@@ -52,18 +54,18 @@ func TestSourceList(t *testing.T) {
 			name: "Success",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string]("kid-1").JWK,
-				newBullshitKey[string]("kid-2").JWK,
+				newBullshitKey[string](t, "kid-1").JWK,
+				newBullshitKey[string](t, "kid-2").JWK,
 			},
 
 			parserResponses: []simulatedParserResp[string]{
-				{key: newBullshitKey[string]("kid-1")},
-				{key: newBullshitKey[string]("kid-2")},
+				{key: newBullshitKey[string](t, "kid-1")},
+				{key: newBullshitKey[string](t, "kid-2")},
 			},
 
 			expect: []*jwk.Key[string]{
-				newBullshitKey[string]("kid-1"),
-				newBullshitKey[string]("kid-2"),
+				newBullshitKey[string](t, "kid-1"),
+				newBullshitKey[string](t, "kid-2"),
 			},
 		},
 		{
@@ -75,13 +77,13 @@ func TestSourceList(t *testing.T) {
 			name: "ParserError",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string]("kid-1").JWK,
-				newBullshitKey[string]("kid-2").JWK,
-				newBullshitKey[string]("kid-3").JWK,
+				newBullshitKey[string](t, "kid-1").JWK,
+				newBullshitKey[string](t, "kid-2").JWK,
+				newBullshitKey[string](t, "kid-3").JWK,
 			},
 
 			parserResponses: []simulatedParserResp[string]{
-				{key: newBullshitKey[string]("kid-1")},
+				{key: newBullshitKey[string](t, "kid-1")},
 				{err: errFoo},
 			},
 
@@ -91,6 +93,8 @@ func TestSourceList(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			config := jwk.SourceConfig{
 				Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 					return testCase.fetcherResp, testCase.fetcherErr
@@ -109,6 +113,8 @@ func TestSourceList(t *testing.T) {
 }
 
 func TestSourceGet(t *testing.T) {
+	t.Parallel()
+
 	errFoo := errors.New("foo")
 
 	testCases := []struct {
@@ -128,33 +134,33 @@ func TestSourceGet(t *testing.T) {
 			name: "Success",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string]("kid-1").JWK,
-				newBullshitKey[string]("kid-2").JWK,
+				newBullshitKey[string](t, "kid-1").JWK,
+				newBullshitKey[string](t, "kid-2").JWK,
 			},
 
 			parserResponses: []simulatedParserResp[string]{
-				{key: newBullshitKey[string]("kid-1")},
-				{key: newBullshitKey[string]("kid-2")},
+				{key: newBullshitKey[string](t, "kid-1")},
+				{key: newBullshitKey[string](t, "kid-2")},
 			},
 
-			expect: newBullshitKey[string]("kid-1"),
+			expect: newBullshitKey[string](t, "kid-1"),
 		},
 		{
 			name: "KID",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string]("kid-1").JWK,
-				newBullshitKey[string]("kid-2").JWK,
+				newBullshitKey[string](t, "kid-1").JWK,
+				newBullshitKey[string](t, "kid-2").JWK,
 			},
 
 			kid: "kid-2",
 
 			parserResponses: []simulatedParserResp[string]{
-				{key: newBullshitKey[string]("kid-1")},
-				{key: newBullshitKey[string]("kid-2")},
+				{key: newBullshitKey[string](t, "kid-1")},
+				{key: newBullshitKey[string](t, "kid-2")},
 			},
 
-			expect: newBullshitKey[string]("kid-2"),
+			expect: newBullshitKey[string](t, "kid-2"),
 		},
 		{
 			name:       "FetcherError",
@@ -165,13 +171,13 @@ func TestSourceGet(t *testing.T) {
 			name: "ParserError",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string]("kid-1").JWK,
-				newBullshitKey[string]("kid-2").JWK,
-				newBullshitKey[string]("kid-3").JWK,
+				newBullshitKey[string](t, "kid-1").JWK,
+				newBullshitKey[string](t, "kid-2").JWK,
+				newBullshitKey[string](t, "kid-3").JWK,
 			},
 
 			parserResponses: []simulatedParserResp[string]{
-				{key: newBullshitKey[string]("kid-1")},
+				{key: newBullshitKey[string](t, "kid-1")},
 				{err: errFoo},
 			},
 
@@ -188,15 +194,15 @@ func TestSourceGet(t *testing.T) {
 			name: "KIDNotFound",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string]("kid-1").JWK,
-				newBullshitKey[string]("kid-2").JWK,
+				newBullshitKey[string](t, "kid-1").JWK,
+				newBullshitKey[string](t, "kid-2").JWK,
 			},
 
 			kid: "kid-3",
 
 			parserResponses: []simulatedParserResp[string]{
-				{key: newBullshitKey[string]("kid-1")},
-				{key: newBullshitKey[string]("kid-2")},
+				{key: newBullshitKey[string](t, "kid-1")},
+				{key: newBullshitKey[string](t, "kid-2")},
 			},
 
 			expectErr: jwk.ErrKeyNotFound,
@@ -205,6 +211,8 @@ func TestSourceGet(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			config := jwk.SourceConfig{
 				Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 					return testCase.fetcherResp, testCase.fetcherErr
@@ -223,17 +231,20 @@ func TestSourceGet(t *testing.T) {
 }
 
 func TestSourceRefresh(t *testing.T) {
+	t.Parallel()
+
 	var keys []*jwa.JWK
 
 	keys = []*jwa.JWK{
-		newBullshitKey[string](`"number":1`).JWK,
-		newBullshitKey[string](`"number":2`).JWK,
+		newBullshitKey[string](t, `"number":1`).JWK,
+		newBullshitKey[string](t, `"number":2`).JWK,
 	}
 
 	fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 		// Copy the array to prevent side effects.
 		copied := make([]*jwa.JWK, len(keys))
 		copy(copied, keys)
+
 		return copied, nil
 	}
 
@@ -248,13 +259,13 @@ func TestSourceRefresh(t *testing.T) {
 	fetchedKeys, err := source.List(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, []*jwk.Key[string]{
-		newBullshitKey[string](`"number":1`),
-		newBullshitKey[string](`"number":2`),
+		newBullshitKey[string](t, `"number":1`),
+		newBullshitKey[string](t, `"number":2`),
 	}, fetchedKeys)
 
 	keys = []*jwa.JWK{
-		newBullshitKey[string](`"number":3`).JWK,
-		newBullshitKey[string](`"number":4`).JWK,
+		newBullshitKey[string](t, `"number":3`).JWK,
+		newBullshitKey[string](t, `"number":4`).JWK,
 	}
 
 	time.Sleep(10 * time.Millisecond)
@@ -262,8 +273,8 @@ func TestSourceRefresh(t *testing.T) {
 	fetchedKeys, err = source.List(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, []*jwk.Key[string]{
-		newBullshitKey[string](`"number":1`),
-		newBullshitKey[string](`"number":2`),
+		newBullshitKey[string](t, `"number":1`),
+		newBullshitKey[string](t, `"number":2`),
 	}, fetchedKeys)
 
 	time.Sleep(100 * time.Millisecond)
@@ -271,7 +282,7 @@ func TestSourceRefresh(t *testing.T) {
 	fetchedKeys, err = source.List(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, []*jwk.Key[string]{
-		newBullshitKey[string](`"number":3`),
-		newBullshitKey[string](`"number":4`),
+		newBullshitKey[string](t, `"number":3`),
+		newBullshitKey[string](t, `"number":4`),
 	}, fetchedKeys)
 }

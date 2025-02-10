@@ -15,12 +15,17 @@ import (
 )
 
 func mustHMAC(t *testing.T, preset jwk.HMACPreset) *jwk.Key[[]byte] {
+	t.Helper()
+
 	key, err := jwk.GenerateHMAC(preset)
 	require.NoError(t, err)
+
 	return key
 }
 
 func TestGenerateHMAC(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name   string
 		preset jwk.HMACPreset
@@ -41,6 +46,8 @@ func TestGenerateHMAC(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			key := mustHMAC(t, testCase.preset)
 			require.NotNil(t, key)
 
@@ -54,6 +61,7 @@ func TestGenerateHMAC(t *testing.T) {
 			require.NotEmpty(t, key.KID)
 
 			var octPayload serializers.OctPayload
+
 			require.NoError(t, json.Unmarshal(key.Payload, &octPayload))
 
 			decoded, err := serializers.DecodeOct(&octPayload)
@@ -64,6 +72,8 @@ func TestGenerateHMAC(t *testing.T) {
 }
 
 func TestConsumeHMAC(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name      string
 		preset    jwk.HMACPreset
@@ -89,13 +99,15 @@ func TestConsumeHMAC(t *testing.T) {
 		{
 			name:      "InvalidKey",
 			preset:    jwk.HS256,
-			key:       newBullshitKey[[]byte]("kid-1"),
+			key:       newBullshitKey[[]byte](t, "kid-1"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			key, err := jwk.ConsumeHMAC(testCase.key.JWK, testCase.preset)
 			require.ErrorIs(t, err, testCase.expectErr)
 
@@ -107,6 +119,8 @@ func TestConsumeHMAC(t *testing.T) {
 }
 
 func TestHMACSource(t *testing.T) {
+	t.Parallel()
+
 	errFoo := errors.New("foo")
 
 	testCases := []struct {
@@ -129,18 +143,24 @@ func TestHMACSource(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			keys := make([]*jwk.Key[[]byte], 3)
 			for i := range keys {
 				key, err := jwk.GenerateHMAC(testCase.preset)
 				require.NoError(t, err)
+
 				keys[i] = key
 			}
 
 			t.Run("OK", func(t *testing.T) {
+				t.Parallel()
+
 				fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-					mapped := lo.Map(keys, func(item *jwk.Key[[]byte], index int) *jwa.JWK {
+					mapped := lo.Map(keys, func(item *jwk.Key[[]byte], _ int) *jwa.JWK {
 						return item.JWK
 					})
+
 					return mapped, nil
 				}
 
@@ -153,6 +173,8 @@ func TestHMACSource(t *testing.T) {
 			})
 
 			t.Run("FetchError", func(t *testing.T) {
+				t.Parallel()
+
 				fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
 					return nil, errFoo
 				}
@@ -165,8 +187,11 @@ func TestHMACSource(t *testing.T) {
 			})
 
 			t.Run("UnsupportedKey", func(t *testing.T) {
+				t.Parallel()
+
 				fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-					bullshitKey := newBullshitKey[[]byte]("kid-1")
+					bullshitKey := newBullshitKey[[]byte](t, "kid-1")
+
 					return []*jwa.JWK{bullshitKey.JWK}, nil
 				}
 

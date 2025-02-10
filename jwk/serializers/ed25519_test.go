@@ -11,10 +11,14 @@ import (
 )
 
 func TestED(t *testing.T) {
+	t.Parallel()
+
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
 	t.Run("PrivateKey", func(t *testing.T) {
+		t.Parallel()
+
 		payload := serializers.EncodeED(privateKey)
 
 		decodedPrivateKey, decodedPublicKey, err := serializers.DecodeED(payload)
@@ -25,6 +29,8 @@ func TestED(t *testing.T) {
 	})
 
 	t.Run("PublicKey", func(t *testing.T) {
+		t.Parallel()
+
 		payload := serializers.EncodeED(publicKey)
 
 		decodedPrivateKey, decodedPublicKey, err := serializers.DecodeED(payload)

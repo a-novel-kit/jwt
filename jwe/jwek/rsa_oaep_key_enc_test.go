@@ -12,6 +12,8 @@ import (
 )
 
 func TestRSAOAEPKeyEnc(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -32,6 +34,8 @@ func TestRSAOAEPKeyEnc(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			cek, err := jwk.GenerateAES(jwk.A256GCM)
 			require.NoError(t, err)
 
@@ -56,6 +60,8 @@ func TestRSAOAEPKeyEnc(t *testing.T) {
 			require.NotEqual(t, cek.Key(), encryptedCEK)
 
 			t.Run("OK", func(t *testing.T) {
+				t.Parallel()
+
 				decoder := jwek.NewRSAOAEPKeyEncDecoder(
 					&jwek.RSAOAEPKeyEncDecoderConfig{EncKey: recipientPrivateKey.Key()},
 					testCase.preset,
@@ -67,6 +73,8 @@ func TestRSAOAEPKeyEnc(t *testing.T) {
 			})
 
 			t.Run("WrongRecipientKey", func(t *testing.T) {
+				t.Parallel()
+
 				fakeRecipientPrivateKey, _, err := jwk.GenerateRSA(testCase.keyPreset)
 				require.NoError(t, err)
 

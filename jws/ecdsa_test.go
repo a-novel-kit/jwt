@@ -16,6 +16,8 @@ import (
 )
 
 func TestECDSA(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -41,6 +43,8 @@ func TestECDSA(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKey, publicKey, err := jwk.GenerateECDSA(testCase.keyPreset)
 			require.NoError(t, err)
 
@@ -61,6 +65,7 @@ func TestECDSA(t *testing.T) {
 
 			t.Run("OK", func(t *testing.T) {
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 
 				require.Equal(t, producerClaims, recipientClaims)
@@ -80,6 +85,7 @@ func TestECDSA(t *testing.T) {
 			t.Run("InvalidSignature", func(t *testing.T) {
 				otherPrivateKey, _, err := jwk.GenerateECDSA(testCase.keyPreset)
 				require.NoError(t, err)
+
 				otherSigner := jws.NewECDSASigner(otherPrivateKey.Key(), testCase.preset)
 				otherProducer := jwt.NewProducer(jwt.ProducerConfig{
 					Plugins: []jwt.ProducerPlugin{otherSigner},
@@ -98,6 +104,8 @@ func TestECDSA(t *testing.T) {
 }
 
 func TestECDSASourcedSigner(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -123,12 +131,15 @@ func TestECDSASourcedSigner(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKeys := make([]*jwk.Key[*ecdsa.PrivateKey], 3)
 			publicKeys := make([]*jwk.Key[*ecdsa.PublicKey], 3)
 
 			for i := range privateKeys {
 				privateKey, publicKey, err := jwk.GenerateECDSA(testCase.keyPreset)
 				require.NoError(t, err)
+
 				privateKeys[i] = privateKey
 				publicKeys[i] = publicKey
 			}
@@ -151,6 +162,7 @@ func TestECDSASourcedSigner(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
@@ -162,6 +174,7 @@ func TestECDSASourcedSigner(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.ErrorIs(
 					t,
 					recipient.Consume(context.Background(), token, &recipientClaims),
@@ -173,6 +186,8 @@ func TestECDSASourcedSigner(t *testing.T) {
 }
 
 func TestECDSASourcedVerifier(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name string
 
@@ -198,12 +213,15 @@ func TestECDSASourcedVerifier(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			privateKeys := make([]*jwk.Key[*ecdsa.PrivateKey], 3)
 			publicKeys := make([]*jwk.Key[*ecdsa.PublicKey], 3)
 
 			for i := range privateKeys {
 				privateKey, publicKey, err := jwk.GenerateECDSA(testCase.keyPreset)
 				require.NoError(t, err)
+
 				privateKeys[i] = privateKey
 				publicKeys[i] = publicKey
 			}
@@ -226,6 +244,7 @@ func TestECDSASourcedVerifier(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
@@ -245,6 +264,7 @@ func TestECDSASourcedVerifier(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
@@ -261,6 +281,7 @@ func TestECDSASourcedVerifier(t *testing.T) {
 				})
 
 				var recipientClaims map[string]any
+
 				require.ErrorIs(
 					t,
 					recipient.Consume(context.Background(), token, &recipientClaims),
