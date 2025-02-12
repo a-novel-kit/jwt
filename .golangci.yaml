@@ -2,7 +2,7 @@ linters:
   enable-all: true
   disable:
     - depguard
-    - exportloopref
+    - tenv
     - dupl
     - varnamelen
     - goimports

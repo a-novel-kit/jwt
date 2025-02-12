@@ -1,7 +1,6 @@
 package jwek_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,20 +18,20 @@ func TestDirectEncryption(t *testing.T) {
 
 	manager := jwek.NewDirectKeyManager(cek.Key())
 
-	header, err := manager.SetHeader(context.Background(), &jwa.JWH{})
+	header, err := manager.SetHeader(t.Context(), &jwa.JWH{})
 	require.NoError(t, err)
 
-	computedCEK, err := manager.ComputeCEK(context.Background(), header)
+	computedCEK, err := manager.ComputeCEK(t.Context(), header)
 	require.NoError(t, err)
 	require.Equal(t, cek.Key(), computedCEK)
 
-	encryptedCEK, err := manager.EncryptCEK(context.Background(), cek.Key())
+	encryptedCEK, err := manager.EncryptCEK(t.Context(), cek.Key())
 	require.NoError(t, err)
 	require.Nil(t, encryptedCEK)
 
 	decoder := jwek.NewDirectKeyDecoder(&jwek.DirectKeyDecoderConfig{CEK: cek.Key()})
 
-	decodedCEK, err := decoder.ComputeCEK(context.Background(), header, nil)
+	decodedCEK, err := decoder.ComputeCEK(t.Context(), header, nil)
 	require.NoError(t, err)
 	require.Equal(t, cek.Key(), decodedCEK)
 }

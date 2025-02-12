@@ -33,7 +33,7 @@ func TestRecipient(t *testing.T) {
 	errFoo := errors.New("foo")
 
 	producer := jwt.NewProducer(jwt.ProducerConfig{})
-	token, err := producer.Issue(context.Background(), map[string]interface{}{"foo": "bar"}, nil)
+	token, err := producer.Issue(t.Context(), map[string]interface{}{"foo": "bar"}, nil)
 	require.NoError(t, err)
 
 	tokenNotJSON, err := jwt.DecodeToken(token, &jwt.RawTokenDecoder{})
@@ -143,7 +143,7 @@ func TestRecipient(t *testing.T) {
 			t.Parallel()
 
 			recipient := jwt.NewRecipient(testCase.config)
-			err = recipient.Consume(context.Background(), testCase.token, &testCase.dst)
+			err = recipient.Consume(t.Context(), testCase.token, &testCase.dst)
 			require.ErrorIs(t, err, testCase.expectErr)
 			require.Equal(t, testCase.expect, testCase.dst)
 		})

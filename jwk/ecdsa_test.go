@@ -232,7 +232,7 @@ func TestECDSASource(t *testing.T) {
 					source := jwk.NewECDSAPrivateSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					fetchedKeys, err := source.List(context.Background())
+					fetchedKeys, err := source.List(t.Context())
 					require.NoError(t, err)
 					require.Len(t, fetchedKeys, len(privateKeys))
 
@@ -252,7 +252,7 @@ func TestECDSASource(t *testing.T) {
 					source := jwk.NewECDSAPrivateSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, errFoo)
 				})
 
@@ -268,7 +268,7 @@ func TestECDSASource(t *testing.T) {
 					source := jwk.NewECDSAPrivateSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 				})
 
@@ -286,7 +286,7 @@ func TestECDSASource(t *testing.T) {
 					source := jwk.NewECDSAPrivateSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 				})
 			})
@@ -308,7 +308,7 @@ func TestECDSASource(t *testing.T) {
 					source := jwk.NewECDSAPublicSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					fetchedKeys, err := source.List(context.Background())
+					fetchedKeys, err := source.List(t.Context())
 					require.NoError(t, err)
 					require.Len(t, fetchedKeys, len(publicKeys))
 
@@ -328,7 +328,7 @@ func TestECDSASource(t *testing.T) {
 					source := jwk.NewECDSAPublicSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, errFoo)
 				})
 
@@ -344,7 +344,7 @@ func TestECDSASource(t *testing.T) {
 					source := jwk.NewECDSAPublicSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 				})
 
@@ -362,7 +362,7 @@ func TestECDSASource(t *testing.T) {
 					source := jwk.NewECDSAPublicSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 				})
 			})

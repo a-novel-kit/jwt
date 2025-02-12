@@ -168,7 +168,7 @@ func TestED25519Source(t *testing.T) {
 			source := jwk.NewED25519PrivateSource(jwk.SourceConfig{Fetch: fetcher})
 			require.NotNil(t, source)
 
-			fetchedKeys, err := source.List(context.Background())
+			fetchedKeys, err := source.List(t.Context())
 			require.NoError(t, err)
 			require.Len(t, fetchedKeys, len(privateKeys))
 
@@ -188,7 +188,7 @@ func TestED25519Source(t *testing.T) {
 			source := jwk.NewED25519PrivateSource(jwk.SourceConfig{Fetch: fetcher})
 			require.NotNil(t, source)
 
-			_, err := source.List(context.Background())
+			_, err := source.List(t.Context())
 			require.ErrorIs(t, err, errFoo)
 		})
 
@@ -204,7 +204,7 @@ func TestED25519Source(t *testing.T) {
 			source := jwk.NewED25519PrivateSource(jwk.SourceConfig{Fetch: fetcher})
 			require.NotNil(t, source)
 
-			_, err := source.List(context.Background())
+			_, err := source.List(t.Context())
 			require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 		})
 
@@ -222,7 +222,7 @@ func TestED25519Source(t *testing.T) {
 			source := jwk.NewED25519PrivateSource(jwk.SourceConfig{Fetch: fetcher})
 			require.NotNil(t, source)
 
-			_, err := source.List(context.Background())
+			_, err := source.List(t.Context())
 			require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 		})
 	})
@@ -244,7 +244,7 @@ func TestED25519Source(t *testing.T) {
 			source := jwk.NewED25519PublicSource(jwk.SourceConfig{Fetch: fetcher})
 			require.NotNil(t, source)
 
-			fetchedKeys, err := source.List(context.Background())
+			fetchedKeys, err := source.List(t.Context())
 			require.NoError(t, err)
 			require.Len(t, fetchedKeys, len(publicKeys))
 
@@ -264,7 +264,7 @@ func TestED25519Source(t *testing.T) {
 			source := jwk.NewED25519PublicSource(jwk.SourceConfig{Fetch: fetcher})
 			require.NotNil(t, source)
 
-			_, err := source.List(context.Background())
+			_, err := source.List(t.Context())
 			require.ErrorIs(t, err, errFoo)
 		})
 
@@ -280,7 +280,7 @@ func TestED25519Source(t *testing.T) {
 			source := jwk.NewED25519PublicSource(jwk.SourceConfig{Fetch: fetcher})
 			require.NotNil(t, source)
 
-			_, err := source.List(context.Background())
+			_, err := source.List(t.Context())
 			require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 		})
 
@@ -298,7 +298,7 @@ func TestED25519Source(t *testing.T) {
 			source := jwk.NewED25519PublicSource(jwk.SourceConfig{Fetch: fetcher})
 			require.NotNil(t, source)
 
-			_, err := source.List(context.Background())
+			_, err := source.List(t.Context())
 			require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 		})
 	})
