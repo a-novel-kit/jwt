@@ -105,7 +105,7 @@ func TestSourceList(t *testing.T) {
 
 			source := jwk.NewGenericSource[string](config, parser.parse)
 
-			keys, err := source.List(context.Background())
+			keys, err := source.List(t.Context())
 			require.ErrorIs(t, err, testCase.expectErr)
 			require.Equal(t, testCase.expect, keys)
 		})
@@ -223,7 +223,7 @@ func TestSourceGet(t *testing.T) {
 
 			source := jwk.NewGenericSource[string](config, parser.parse)
 
-			key, err := source.Get(context.Background(), testCase.kid)
+			key, err := source.Get(t.Context(), testCase.kid)
 			require.ErrorIs(t, err, testCase.expectErr)
 			require.Equal(t, testCase.expect, key)
 		})
@@ -256,7 +256,7 @@ func TestSourceRefresh(t *testing.T) {
 
 	source := jwk.NewGenericSource[string](config, parser)
 
-	fetchedKeys, err := source.List(context.Background())
+	fetchedKeys, err := source.List(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, []*jwk.Key[string]{
 		newBullshitKey[string](t, `"number":1`),
@@ -270,7 +270,7 @@ func TestSourceRefresh(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	fetchedKeys, err = source.List(context.Background())
+	fetchedKeys, err = source.List(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, []*jwk.Key[string]{
 		newBullshitKey[string](t, `"number":1`),
@@ -279,7 +279,7 @@ func TestSourceRefresh(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	fetchedKeys, err = source.List(context.Background())
+	fetchedKeys, err = source.List(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, []*jwk.Key[string]{
 		newBullshitKey[string](t, `"number":3`),

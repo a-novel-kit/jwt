@@ -310,7 +310,7 @@ func TestRSASource(t *testing.T) {
 					source := jwk.NewRSAPrivateSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					fetchedKeys, err := source.List(context.Background())
+					fetchedKeys, err := source.List(t.Context())
 					require.NoError(t, err)
 					require.Len(t, fetchedKeys, len(privateKeys))
 
@@ -330,7 +330,7 @@ func TestRSASource(t *testing.T) {
 					source := jwk.NewRSAPrivateSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, errFoo)
 				})
 
@@ -346,7 +346,7 @@ func TestRSASource(t *testing.T) {
 					source := jwk.NewRSAPrivateSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 				})
 
@@ -364,7 +364,7 @@ func TestRSASource(t *testing.T) {
 					source := jwk.NewRSAPrivateSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 				})
 			})
@@ -386,7 +386,7 @@ func TestRSASource(t *testing.T) {
 					source := jwk.NewRSAPublicSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					fetchedKeys, err := source.List(context.Background())
+					fetchedKeys, err := source.List(t.Context())
 					require.NoError(t, err)
 					require.Len(t, fetchedKeys, len(publicKeys))
 
@@ -406,7 +406,7 @@ func TestRSASource(t *testing.T) {
 					source := jwk.NewRSAPublicSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, errFoo)
 				})
 
@@ -422,7 +422,7 @@ func TestRSASource(t *testing.T) {
 					source := jwk.NewRSAPublicSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 				})
 
@@ -440,7 +440,7 @@ func TestRSASource(t *testing.T) {
 					source := jwk.NewRSAPublicSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
 					require.NotNil(t, source)
 
-					_, err := source.List(context.Background())
+					_, err := source.List(t.Context())
 					require.ErrorIs(t, err, jwk.ErrJWKMismatch)
 				})
 			})

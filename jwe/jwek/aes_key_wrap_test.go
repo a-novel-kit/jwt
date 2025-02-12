@@ -2,7 +2,6 @@ package jwek_test
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -53,14 +52,14 @@ func TestAESKW(t *testing.T) {
 				WrapKey: wrapKey.Key(),
 			}, testCase.preset)
 
-			header, err := manager.SetHeader(context.Background(), &jwa.JWH{})
+			header, err := manager.SetHeader(t.Context(), &jwa.JWH{})
 			require.NoError(t, err)
 
-			computedCEK, err := manager.ComputeCEK(context.Background(), header)
+			computedCEK, err := manager.ComputeCEK(t.Context(), header)
 			require.NoError(t, err)
 			require.Equal(t, cek.Key(), computedCEK)
 
-			encryptedCEK, err := manager.EncryptCEK(context.Background(), header, cek.Key())
+			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, cek.Key())
 			require.NoError(t, err)
 			require.NotEmpty(t, encryptedCEK)
 			require.NotEqual(t, cek.Key(), encryptedCEK)
@@ -73,7 +72,7 @@ func TestAESKW(t *testing.T) {
 					testCase.preset,
 				)
 
-				decodedCEK, err := decoder.ComputeCEK(context.Background(), header, encryptedCEK)
+				decodedCEK, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
 				require.NoError(t, err)
 				require.Equal(t, cek.Key(), decodedCEK)
 			})
@@ -86,7 +85,7 @@ func TestAESKW(t *testing.T) {
 					testCase.preset,
 				)
 
-				_, err := decoder.ComputeCEK(context.Background(), header, encryptedCEK)
+				_, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
 				require.Error(t, err)
 			})
 		})

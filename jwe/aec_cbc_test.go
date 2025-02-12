@@ -1,7 +1,6 @@
 package jwe_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -63,7 +62,7 @@ func TestAESCBC(t *testing.T) {
 
 				producerClaims := map[string]any{"foo": "bar"}
 
-				token, err := producer.Issue(context.Background(), producerClaims, nil)
+				token, err := producer.Issue(t.Context(), producerClaims, nil)
 				require.NoError(t, err)
 
 				t.Run("Success", func(t *testing.T) {
@@ -85,7 +84,7 @@ func TestAESCBC(t *testing.T) {
 
 					var recipientClaims map[string]any
 
-					require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
+					require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
 					require.Equal(t, producerClaims, recipientClaims)
 				})
 
@@ -111,7 +110,7 @@ func TestAESCBC(t *testing.T) {
 
 					var recipientClaims map[string]any
 
-					require.Error(t, recipient.Consume(context.Background(), token, &recipientClaims))
+					require.Error(t, recipient.Consume(t.Context(), token, &recipientClaims))
 				})
 			})
 
@@ -133,7 +132,7 @@ func TestAESCBC(t *testing.T) {
 
 				producerClaims := map[string]any{"foo": "bar"}
 
-				token, err := producer.Issue(context.Background(), producerClaims, nil)
+				token, err := producer.Issue(t.Context(), producerClaims, nil)
 				require.NoError(t, err)
 
 				t.Run("Success", func(t *testing.T) {
@@ -154,7 +153,7 @@ func TestAESCBC(t *testing.T) {
 
 					var recipientClaims map[string]any
 
-					require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
+					require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
 					require.Equal(t, producerClaims, recipientClaims)
 				})
 
@@ -179,7 +178,7 @@ func TestAESCBC(t *testing.T) {
 
 					var recipientClaims map[string]any
 
-					require.Error(t, recipient.Consume(context.Background(), token, &recipientClaims))
+					require.Error(t, recipient.Consume(t.Context(), token, &recipientClaims))
 				})
 			})
 
@@ -201,7 +200,7 @@ func TestAESCBC(t *testing.T) {
 
 				producerClaims := map[string]any{"foo": "bar"}
 
-				token, err := producer.Issue(context.Background(), producerClaims, nil)
+				token, err := producer.Issue(t.Context(), producerClaims, nil)
 				require.NoError(t, err)
 
 				cekDecoder := &fakeCEKDecoder{
@@ -219,7 +218,7 @@ func TestAESCBC(t *testing.T) {
 
 				var recipientClaims map[string]any
 
-				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
+				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
@@ -242,7 +241,7 @@ func TestAESCBC(t *testing.T) {
 
 				producerClaims := map[string]any{"foo": "bar"}
 
-				token, err := producer.Issue(context.Background(), producerClaims, nil)
+				token, err := producer.Issue(t.Context(), producerClaims, nil)
 				require.NoError(t, err)
 
 				cekDecoder := &fakeCEKDecoder{
@@ -261,7 +260,7 @@ func TestAESCBC(t *testing.T) {
 
 				var recipientClaims map[string]any
 
-				require.Error(t, recipient.Consume(context.Background(), token, &recipientClaims))
+				require.Error(t, recipient.Consume(t.Context(), token, &recipientClaims))
 			})
 		})
 	}

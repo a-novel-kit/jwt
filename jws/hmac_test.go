@@ -1,7 +1,6 @@
 package jws_test
 
 import (
-	"context"
 	"encoding/base64"
 	"strings"
 	"testing"
@@ -59,7 +58,7 @@ func TestHMAC(t *testing.T) {
 
 			producerClaims := map[string]any{"foo": "bar"}
 
-			token, err := producer.Issue(context.Background(), producerClaims, nil)
+			token, err := producer.Issue(t.Context(), producerClaims, nil)
 			require.NoError(t, err)
 
 			t.Run("OK", func(t *testing.T) {
@@ -67,7 +66,7 @@ func TestHMAC(t *testing.T) {
 
 				var recipientClaims map[string]any
 
-				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
+				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
 
 				require.Equal(t, producerClaims, recipientClaims)
 			})
@@ -81,7 +80,7 @@ func TestHMAC(t *testing.T) {
 				parts := strings.Split(token, ".")
 				newToken := strings.Join(append([]string{customHeader}, parts[1:]...), ".")
 
-				err := recipient.Consume(context.Background(), newToken, &recipientClaims)
+				err := recipient.Consume(t.Context(), newToken, &recipientClaims)
 				require.ErrorIs(t, err, jwt.ErrMismatchRecipientPlugin)
 			})
 
@@ -96,12 +95,12 @@ func TestHMAC(t *testing.T) {
 					Plugins: []jwt.ProducerPlugin{otherSigner},
 				})
 
-				otherToken, err := otherProducer.Issue(context.Background(), producerClaims, nil)
+				otherToken, err := otherProducer.Issue(t.Context(), producerClaims, nil)
 				require.NoError(t, err)
 
 				var recipientClaims map[string]any
 
-				err = recipient.Consume(context.Background(), otherToken, &recipientClaims)
+				err = recipient.Consume(t.Context(), otherToken, &recipientClaims)
 				require.ErrorIs(t, err, jws.ErrInvalidSignature)
 			})
 		})
@@ -155,7 +154,7 @@ func TestHMACSourcedSigner(t *testing.T) {
 			})
 
 			producerClaims := map[string]any{"foo": "bar"}
-			token, err := producer.Issue(context.Background(), producerClaims, nil)
+			token, err := producer.Issue(t.Context(), producerClaims, nil)
 			require.NoError(t, err)
 
 			// OK.
@@ -168,7 +167,7 @@ func TestHMACSourcedSigner(t *testing.T) {
 
 				var recipientClaims map[string]any
 
-				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
+				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
@@ -184,7 +183,7 @@ func TestHMACSourcedSigner(t *testing.T) {
 
 				require.ErrorIs(
 					t,
-					recipient.Consume(context.Background(), token, &recipientClaims),
+					recipient.Consume(t.Context(), token, &recipientClaims),
 					jws.ErrInvalidSignature,
 				)
 			})
@@ -239,7 +238,7 @@ func TestHMACSourcedVerifier(t *testing.T) {
 			})
 
 			producerClaims := map[string]any{"foo": "bar"}
-			token, err := producer.Issue(context.Background(), producerClaims, nil)
+			token, err := producer.Issue(t.Context(), producerClaims, nil)
 			require.NoError(t, err)
 
 			// OK.
@@ -252,7 +251,7 @@ func TestHMACSourcedVerifier(t *testing.T) {
 
 				var recipientClaims map[string]any
 
-				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
+				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
@@ -274,7 +273,7 @@ func TestHMACSourcedVerifier(t *testing.T) {
 
 				var recipientClaims map[string]any
 
-				require.NoError(t, recipient.Consume(context.Background(), token, &recipientClaims))
+				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
@@ -295,7 +294,7 @@ func TestHMACSourcedVerifier(t *testing.T) {
 
 				require.ErrorIs(
 					t,
-					recipient.Consume(context.Background(), token, &recipientClaims),
+					recipient.Consume(t.Context(), token, &recipientClaims),
 					jws.ErrInvalidSignature,
 				)
 			})

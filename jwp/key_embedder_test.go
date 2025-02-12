@@ -1,7 +1,6 @@
 package jwp_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -113,7 +112,7 @@ func TestKeyEmbedder(t *testing.T) {
 			t.Parallel()
 
 			embedder := jwp.NewEmbedKey(testCase.config)
-			header, err := embedder.Header(context.Background(), &jwa.JWH{})
+			header, err := embedder.Header(t.Context(), &jwa.JWH{})
 			require.NoError(t, err)
 			require.Equal(t, testCase.expect, header)
 		})

@@ -1,7 +1,6 @@
 package jwek_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -63,13 +62,13 @@ func TestECDHKeyAgr(t *testing.T) {
 				RecipientInfo: "recipient",
 			}, testCase.preset)
 
-			header, err := manager.SetHeader(context.Background(), &jwa.JWH{})
+			header, err := manager.SetHeader(t.Context(), &jwa.JWH{})
 			require.NoError(t, err)
 
-			computedCEK, err := manager.ComputeCEK(context.Background(), header)
+			computedCEK, err := manager.ComputeCEK(t.Context(), header)
 			require.NoError(t, err)
 
-			encryptedCEK, err := manager.EncryptCEK(context.Background(), header, computedCEK)
+			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, computedCEK)
 			require.NoError(t, err)
 			require.Nil(t, encryptedCEK)
 
@@ -80,7 +79,7 @@ func TestECDHKeyAgr(t *testing.T) {
 					RecipientKey: recipientPrivateKey.Key(),
 				}, testCase.preset)
 
-				decodedCEK, err := decoder.ComputeCEK(context.Background(), header, nil)
+				decodedCEK, err := decoder.ComputeCEK(t.Context(), header, nil)
 				require.NoError(t, err)
 				require.Equal(t, computedCEK, decodedCEK)
 			})
@@ -95,7 +94,7 @@ func TestECDHKeyAgr(t *testing.T) {
 					RecipientKey: fakeRecipientPrivateKey.Key(),
 				}, testCase.preset)
 
-				decodedCEK, err := decoder.ComputeCEK(context.Background(), header, nil)
+				decodedCEK, err := decoder.ComputeCEK(t.Context(), header, nil)
 				require.NoError(t, err)
 				require.NotEqual(t, computedCEK, decodedCEK)
 			})
@@ -110,7 +109,7 @@ func TestECDHKeyAgr(t *testing.T) {
 				common := header.JWHCommon
 				common.APU = "fake-producer"
 
-				decodedCEK, err := decoder.ComputeCEK(context.Background(), &jwa.JWH{JWHCommon: common}, nil)
+				decodedCEK, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, nil)
 				require.NoError(t, err)
 				require.NotEqual(t, computedCEK, decodedCEK)
 			})
@@ -125,7 +124,7 @@ func TestECDHKeyAgr(t *testing.T) {
 				common := header.JWHCommon
 				common.APV = "fake-recipient"
 
-				decodedCEK, err := decoder.ComputeCEK(context.Background(), &jwa.JWH{JWHCommon: common}, nil)
+				decodedCEK, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, nil)
 				require.NoError(t, err)
 				require.NotEqual(t, computedCEK, decodedCEK)
 			})
@@ -140,7 +139,7 @@ func TestECDHKeyAgr(t *testing.T) {
 				common := header.JWHCommon
 				common.EPK = nil
 
-				_, err = decoder.ComputeCEK(context.Background(), &jwa.JWH{JWHCommon: common}, nil)
+				_, err = decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, nil)
 				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 			})
 
@@ -151,7 +150,7 @@ func TestECDHKeyAgr(t *testing.T) {
 					RecipientKey: recipientPrivateKey.Key(),
 				}, testCase.preset)
 
-				_, err = decoder.ComputeCEK(context.Background(), header, []byte("fake-enc-key"))
+				_, err = decoder.ComputeCEK(t.Context(), header, []byte("fake-enc-key"))
 				require.Error(t, err)
 			})
 		})

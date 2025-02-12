@@ -180,7 +180,7 @@ func TestProducer(t *testing.T) {
 
 			producer := jwt.NewProducer(testCase.config)
 
-			token, err := producer.Issue(context.Background(), testCase.customClaims, testCase.customHeader)
+			token, err := producer.Issue(t.Context(), testCase.customClaims, testCase.customHeader)
 			require.ErrorIs(t, err, testCase.expectErr)
 
 			if testCase.expectErr == nil {
