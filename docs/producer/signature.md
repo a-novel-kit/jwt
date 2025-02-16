@@ -70,7 +70,7 @@ func main() {
 Available presets for HMAC signatures are:
 
 | Preset      | Target "alg" |
-|-------------|--------------|
+| ----------- | ------------ |
 | `jws.HS256` | HS256        |
 | `jws.HS384` | HS384        |
 | `jws.HS512` | HS512        |
@@ -105,7 +105,7 @@ func main() {
 Available presets for RSA signatures are:
 
 | Preset      | Target "alg" |
-|-------------|--------------|
+| ----------- | ------------ |
 | `jws.RS256` | RS256        |
 | `jws.RS384` | RS384        |
 | `jws.RS512` | RS512        |
@@ -140,7 +140,7 @@ func main() {
 Available presets for RSA PSS signatures are:
 
 | Preset      | Target "alg" |
-|-------------|--------------|
+| ----------- | ------------ |
 | `jws.PS256` | PS256        |
 | `jws.PS384` | PS384        |
 | `jws.PS512` | PS512        |
@@ -175,7 +175,7 @@ func main() {
 Available presets for ECDSA signatures are:
 
 | Preset      | Target "alg" |
-|-------------|--------------|
+| ----------- | ------------ |
 | `jws.ES256` | ES256        |
 | `jws.ES384` | ES384        |
 | `jws.ES512` | ES512        |
@@ -246,7 +246,7 @@ func main() {
 Available presets for HMAC signatures are:
 
 | Preset      | Target "alg" | Source preset |
-|-------------|--------------|---------------|
+| ----------- | ------------ | ------------- |
 | `jws.HS256` | HS256        | `jwk.HS256`   |
 | `jws.HS384` | HS384        | `jwk.HS384`   |
 | `jws.HS512` | HS512        | `jwk.HS512`   |
@@ -281,7 +281,7 @@ func main() {
 Available presets for RSA signatures are:
 
 | Preset      | Target "alg" | Source preset |
-|-------------|--------------|---------------|
+| ----------- | ------------ | ------------- |
 | `jws.RS256` | RS256        | `jwk.RS256`   |
 | `jws.RS384` | RS384        | `jwk.RS384`   |
 | `jws.RS512` | RS512        | `jwk.RS512`   |
@@ -316,7 +316,7 @@ func main() {
 Available presets for RSA PSS signatures are:
 
 | Preset      | Target "alg" | Source preset |
-|-------------|--------------|---------------|
+| ----------- | ------------ | ------------- |
 | `jws.PS256` | PS256        | `jwk.PS256`   |
 | `jws.PS384` | PS384        | `jwk.PS384`   |
 | `jws.PS512` | PS512        | `jwk.PS512`   |
@@ -351,7 +351,7 @@ func main() {
 Available presets for ECDSA signatures are:
 
 | Preset      | Target "alg" | Source preset |
-|-------------|--------------|---------------|
+| ----------- | ------------ | ------------- |
 | `jws.ES256` | ES256        | `jwk.ES256`   |
 | `jws.ES384` | ES384        | `jwk.ES384`   |
 | `jws.ES512` | ES512        | `jwk.ES512`   |

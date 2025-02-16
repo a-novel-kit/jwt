@@ -48,7 +48,7 @@ func main() {
 Available presets:
 
 | Preset        | Target "alg" |
-|---------------|--------------|
+| ------------- | ------------ |
 | `jwek.A128KW` | A128KW       |
 | `jwek.A192KW` | A192KW       |
 | `jwek.A256KW` | A256KW       |
@@ -78,7 +78,7 @@ func main() {
 Available presets:
 
 | Preset           | Target "alg" |
-|------------------|--------------|
+| ---------------- | ------------ |
 | `jwek.A128GCMKW` | A128GCMKW    |
 | `jwek.A192GCMKW` | A192GCMKW    |
 | `jwek.A256GCMKW` | A256GCMKW    |

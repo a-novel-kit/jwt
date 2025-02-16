@@ -77,4 +77,3 @@ func main() {
 	_ = recipient.Consume(context.Background(), token, &claims)
 }
 ```
-

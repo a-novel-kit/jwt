@@ -41,7 +41,7 @@ func main() {
 Available presets:
 
 | Preset            | Target "alg" |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | ⚠️ `jwek.RSAOAEP` | RSA-OAEP     |
 | `jwek.RSAOAEP256` | RSA-OAEP-256 |
 

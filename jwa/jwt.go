@@ -119,12 +119,12 @@ type Claims struct {
 }
 
 func (claims Claims) MarshalJSON() ([]byte, error) {
-	return internal.MarshalJSONJose(claims.ClaimsCommon, claims.Payload)
+	return internal.MarshalPartial(claims.ClaimsCommon, claims.Payload)
 }
 
 func (claims *Claims) UnmarshalJSON(src []byte) error {
 	var err error
-	claims.ClaimsCommon, claims.Payload, err = internal.UnmarshalJSONJose[ClaimsCommon](src)
+	claims.ClaimsCommon, claims.Payload, err = internal.UnmarshalPartial[ClaimsCommon](src)
 
 	return err
 }

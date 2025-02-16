@@ -62,7 +62,7 @@ func main() {
 Available presets:
 
 | Preset               | Target "enc" |
-|----------------------|--------------|
+| -------------------- | ------------ |
 | `jwek.ECDHESA128CBC` | A128CBC      |
 | `jwek.ECDHESA192CBC` | A192CBC      |
 | `jwek.ECDHESA256CBC` | A256CBC      |

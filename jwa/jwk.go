@@ -186,12 +186,12 @@ type JWK struct {
 }
 
 func (key JWK) MarshalJSON() ([]byte, error) {
-	return internal.MarshalJSONJose(key.JWKCommon, key.Payload)
+	return internal.MarshalPartial(key.JWKCommon, key.Payload)
 }
 
 func (key *JWK) UnmarshalJSON(src []byte) error {
 	var err error
-	key.JWKCommon, key.Payload, err = internal.UnmarshalJSONJose[JWKCommon](src)
+	key.JWKCommon, key.Payload, err = internal.UnmarshalPartial[JWKCommon](src)
 
 	return err
 }
