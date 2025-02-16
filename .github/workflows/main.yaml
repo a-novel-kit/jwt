@@ -10,7 +10,6 @@ jobs:
 
   docs:
     uses: a-novel-kit/workflows/.github/workflows/deploy-pages.yaml@master
-    if: github.ref == 'refs/heads/master' && success()
     permissions:
       contents: read
       pages: write

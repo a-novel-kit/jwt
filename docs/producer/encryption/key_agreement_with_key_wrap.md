@@ -51,7 +51,7 @@ func main() {
 Available presets:
 
 | Preset              | Target "alg"   |
-|---------------------|----------------|
+| ------------------- | -------------- |
 | `jwek.ECDHESA128KW` | ECDH-ES+A128KW |
 | `jwek.ECDHESA192KW` | ECDH-ES+A192KW |
 | `jwek.ECDHESA256KW` | ECDH-ES+A256KW |

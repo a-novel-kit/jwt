@@ -14,7 +14,7 @@ trap 'rm -rf -- "$GOCOVERTMPDIR"' EXIT
 #
 # Since we need a solution to accommodate both cases, I used a workaround;
 #  - `go list -m` starts by listing every module (usually just one when not working with workspaces)
-#  - `go list ${mod//$(go list .)/.}/...; done)` list every package inside a given sub module
+#  - `go list ${mod//$(go list .)/.}/...` list every package inside a given sub module
 #    - `go list ${package_list}` will print warnings when provided symlinks, which makes the output unusable (until
 #       its sanitized). To resolve this issue, we just edit out the prefix for each module (which normally equals the
 #       root module name), to turn those modules into relative paths.

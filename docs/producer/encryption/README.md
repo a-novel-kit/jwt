@@ -88,7 +88,7 @@ func main() {
 Available presets:
 
 | Preset             | Target "enc"  |
-|--------------------|---------------|
+| ------------------ | ------------- |
 | `jwe.A128CBCHS256` | A128CBC-HS256 |
 | `jwe.A192CBCHS384` | A192CBC-HS384 |
 | `jwe.A256CBCHS512` | A256CBC-HS512 |
@@ -121,7 +121,7 @@ func main() {
 Available presets:
 
 | Preset        | Target "enc"    |
-|---------------|-----------------|
+| ------------- | --------------- |
 | `jwe.A128GCM` | A128CBC-A128GCM |
 | `jwe.A192GCM` | A192CBC-A192GCM |
 | `jwe.A256GCM` | A256CBC-A256GCM |

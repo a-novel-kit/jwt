@@ -52,7 +52,7 @@ func main() {
 Available presets for use as Content-Encryption Keys (CEK) are:
 
 | Preset        | Target "enc"  |
-|---------------|---------------|
+| ------------- | ------------- |
 | `jwk.A128CBC` | A128CBC-HS256 |
 | `jwk.A192CBC` | A192CBC-HS384 |
 | `jwk.A256CBC` | A256CBC-HS512 |
@@ -78,7 +78,7 @@ func main() {
 Available presets for use as Key-Encryption Keys (KEK) are:
 
 | Preset          | Target "alg" |
-|-----------------|--------------|
+| --------------- | ------------ |
 | `jwk.A128KW`    | A128KW       |
 | `jwk.A192KW`    | A192KW       |
 | `jwk.A256KW`    | A256KW       |
@@ -104,7 +104,7 @@ func main() {
 Available presets for use as Signature keys are:
 
 | Preset      | Target "alg" |
-|-------------|--------------|
+| ----------- | ------------ |
 | `jwk.HS256` | HS256        |
 | `jwk.HS384` | HS384        |
 | `jwk.HS512` | HS512        |
@@ -148,7 +148,7 @@ func main() {
 Available presets for use as Signature keys are:
 
 | Preset      | Target "alg" |
-|-------------|--------------|
+| ----------- | ------------ |
 | `jwk.ES256` | ES256        |
 | `jwk.ES384` | ES384        |
 | `jwk.ES512` | ES512        |
@@ -186,7 +186,7 @@ func main() {
 Available presets for use as Signature keys are:
 
 | Preset      | Target "alg" |
-|-------------|--------------|
+| ----------- | ------------ |
 | `jwk.RS256` | RS256        |
 | `jwk.RS384` | RS384        |
 | `jwk.RS512` | RS512        |
@@ -212,7 +212,7 @@ func main() {
 Available presets for use as Key-Encryption keys are:
 
 | Preset           | Target "alg" |
-|------------------|--------------|
+| ---------------- | ------------ |
 | ⚠️ `jwk.RSAOAEP` | RSAOAEP      |
 | `jwk.RSAOAEP256` | RSAOAEP256   |
 

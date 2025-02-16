@@ -43,7 +43,7 @@ func main() {
 Available presets:
 
 | Preset             | Target "alg"       |
-|--------------------|--------------------|
+| ------------------ | ------------------ |
 | `jwek.PBES2A128KW` | PBES2-HS256+A128KW |
 | `jwek.PBES2A192KW` | PBES2-HS384+A192KW |
 | `jwek.PBES2A256KW` | PBES2-HS512+A256KW |

@@ -403,12 +403,12 @@ type JWH struct {
 }
 
 func (header JWH) MarshalJSON() ([]byte, error) {
-	return internal.MarshalJSONJose(header.JWHCommon, header.Payload)
+	return internal.MarshalPartial(header.JWHCommon, header.Payload)
 }
 
 func (header *JWH) UnmarshalJSON(src []byte) error {
 	var err error
-	header.JWHCommon, header.Payload, err = internal.UnmarshalJSONJose[JWHCommon](src)
+	header.JWHCommon, header.Payload, err = internal.UnmarshalPartial[JWHCommon](src)
 
 	return err
 }
