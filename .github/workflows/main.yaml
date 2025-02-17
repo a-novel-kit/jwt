@@ -3,13 +3,19 @@ name: main
 on: [ push ]
 
 jobs:
+  lint:
+    uses: a-novel-kit/workflows/.github/workflows/lint-go.yaml@master
+
   test:
-    uses: a-novel-kit/workflows/.github/workflows/test-go.yaml@master
-    secrets:
-      codecov_token: ${{ secrets.CODECOV_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: a-novel-kit/workflows/test/go@master
+        with:
+          codecov_token: ${{ secrets.CODECOV_TOKEN }}
 
   docs:
     uses: a-novel-kit/workflows/.github/workflows/deploy-pages.yaml@master
+    if: github.ref == 'refs/heads/master' && success()
     permissions:
       contents: read
       pages: write
