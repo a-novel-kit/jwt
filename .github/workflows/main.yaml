@@ -4,10 +4,14 @@ on: [ push ]
 
 jobs:
   lint:
+    permissions:
+      contents: read
     uses: a-novel-kit/workflows/.github/workflows/lint-go.yaml@master
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: a-novel-kit/workflows/test/go@master
         with:
