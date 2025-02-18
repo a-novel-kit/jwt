@@ -91,7 +91,7 @@ jwp.NewClaimsCheckTimestamp(5*time.Minute, true)
 
 Force the target in the claims to match the given configuration.
 
-```go 
+```go
 jwp.NewClaimsCheckTarget(jwt.TargetConfig{...})
 ```
 
