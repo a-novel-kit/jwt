@@ -12,13 +12,103 @@ import (
 
 var ErrInvalidClaims = errors.New("invalid claims")
 
+type RawClaimsCheck interface {
+	CheckRaw(raw []byte) error
+}
+
+type ClaimsCheck interface {
+	CheckClaims(claims *jwa.Claims) error
+}
+
+type ClaimsCheckTarget struct {
+	target jwt.TargetConfig
+}
+
+func (claimsCheck *ClaimsCheckTarget) CheckClaims(claims *jwa.Claims) error {
+	if claimsCheck.target.Audience != claims.Aud {
+		return fmt.Errorf(
+			"invalid audience %s, expected %s",
+			claims.Aud, claimsCheck.target.Audience,
+		)
+	}
+
+	if claimsCheck.target.Issuer != claims.Iss {
+		return fmt.Errorf(
+			"invalid issuer %s, expected %s",
+			claims.Iss, claimsCheck.target.Issuer,
+		)
+	}
+
+	if claimsCheck.target.Subject != claims.Sub {
+		return fmt.Errorf(
+			"invalid subject %s, expected %s",
+			claims.Sub, claimsCheck.target.Subject,
+		)
+	}
+
+	return nil
+}
+
+type ClaimsCheckTimestamp struct {
+	leeway     time.Duration
+	requireExp bool
+}
+
+func (claimsCheck *ClaimsCheckTimestamp) CheckClaims(claims *jwa.Claims) error {
+	exp := time.Unix(claims.Exp, 0)
+	if claims.Exp > 0 && exp.Before(time.Now().Add(-claimsCheck.leeway)) {
+		return fmt.Errorf(
+			"token expired at %s",
+			exp.String(),
+		)
+	}
+
+	if claimsCheck.requireExp && claims.Exp == 0 {
+		return errors.New("missing expiration date")
+	}
+
+	if claims.Nbf > 0 && time.Unix(claims.Nbf, 0).After(time.Now().Add(claimsCheck.leeway)) {
+		return fmt.Errorf(
+			"token not valid before %s",
+			time.Unix(claims.Nbf, 0).String(),
+		)
+	}
+
+	return nil
+}
+
+func NewClaimsCheckTarget(target jwt.TargetConfig) *ClaimsCheckTarget {
+	return &ClaimsCheckTarget{
+		target: target,
+	}
+}
+
+func NewClaimsCheckTimestamp(leeway time.Duration, requireExp bool) *ClaimsCheckTimestamp {
+	return &ClaimsCheckTimestamp{
+		leeway:     leeway,
+		requireExp: requireExp,
+	}
+}
+
+type RawClaimsChecker[T any] struct {
+	config   T
+	callback func(raw []byte, config T) error
+}
+
+func (claimsCheck *RawClaimsChecker[T]) CheckRaw(raw []byte) error {
+	return claimsCheck.callback(raw, claimsCheck.config)
+}
+
+func NewRawClaimsChecker[T any](config T, callback func(raw []byte, config T) error) *RawClaimsChecker[T] {
+	return &RawClaimsChecker[T]{
+		config:   config,
+		callback: callback,
+	}
+}
+
 type ClaimsCheckerConfig struct {
-	// If set, check that the target of a set of claims match the current recipient.
-	Target *jwt.TargetConfig
-	// Leeway is a margin of error allowed when checking the expiration date of a token.
-	Leeway time.Duration
-	// If set, require the expiration date to be set.
-	RequireExpiration bool
+	Checks    []ClaimsCheck
+	ChecksRaw []RawClaimsCheck
 
 	// Set a custom deserializer to decode the token's payload. Uses json.Unmarshal by default.
 	Deserializer func(raw []byte, dst any) error
@@ -34,46 +124,16 @@ func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 		return fmt.Errorf("(ClaimsChecker.Unmarshal) unmarshal claims: %w", err)
 	}
 
-	if checker.config.Target != nil {
-		if checker.config.Target.Audience != token.Aud {
-			return fmt.Errorf(
-				"(ClaimsChecker.Unmarshal) %w: invalid audience %s, expected %s",
-				ErrInvalidClaims, token.Aud, checker.config.Target.Audience,
-			)
-		}
-
-		if checker.config.Target.Issuer != token.Iss {
-			return fmt.Errorf(
-				"(ClaimsChecker.Unmarshal) %w: invalid issuer %s, expected %s",
-				ErrInvalidClaims, token.Iss, checker.config.Target.Issuer,
-			)
-		}
-
-		if checker.config.Target.Subject != token.Sub {
-			return fmt.Errorf(
-				"(ClaimsChecker.Unmarshal) %w: invalid subject %s, expected %s",
-				ErrInvalidClaims, token.Sub, checker.config.Target.Subject,
-			)
+	for _, check := range checker.config.Checks {
+		if err := check.CheckClaims(token); err != nil {
+			return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: %w", ErrInvalidClaims, err)
 		}
 	}
 
-	if checker.config.RequireExpiration && token.Exp == 0 {
-		return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: missing expiration date", ErrInvalidClaims)
-	}
-
-	exp := time.Unix(token.Exp, 0)
-	if token.Exp > 0 && exp.Before(time.Now().Add(-checker.config.Leeway)) {
-		return fmt.Errorf(
-			"(ClaimsChecker.Unmarshal) %w: token expired at %s",
-			ErrInvalidClaims, exp.String(),
-		)
-	}
-
-	if token.Nbf > 0 && time.Unix(token.Nbf, 0).After(time.Now().Add(checker.config.Leeway)) {
-		return fmt.Errorf(
-			"(ClaimsChecker.Unmarshal) %w: token not valid before %s",
-			ErrInvalidClaims, time.Unix(token.Nbf, 0).String(),
-		)
+	for _, check := range checker.config.ChecksRaw {
+		if err := check.CheckRaw(raw); err != nil {
+			return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: %w", ErrInvalidClaims, err)
+		}
 	}
 
 	if checker.config.Deserializer == nil {

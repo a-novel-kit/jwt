@@ -18,6 +18,7 @@ linters:
     - mnd
     - err113
     - forcetypeassert
+    - maintidx
 
 linters-settings:
   gci:
