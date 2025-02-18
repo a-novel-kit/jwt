@@ -32,12 +32,9 @@ func main() {
 }
 ```
 
-The default configuration:
+The default configuration doe nothing on its own, except deserializing. You can add checks from the config.
 
-- Checks `"nbf"` (if present), and rejects the token if it is in the future.
-- Checks `"exp"` (if present), and rejects the token if it is in the past.
-
-## Custom configuration
+## Configure checks
 
 ```go
 package main
@@ -56,24 +53,58 @@ func main() {
 
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
 		Deserializer: jwp.NewClaimsChecker(&jwp.ClaimsCheckerConfig{
-			// Ensure target information in the claims match.
-			Target: &jwt.TargetConfig{
-				Issuer:   "Bob",
-				Audience: "Alice",
-				Subject:  "auth",
+			Checks: []jwp.ClaimsCheck{
+				jwp.NewClaimsCheckTimestamp(5*time.Minute, true),
+				jwp.NewClaimsCheckTarget(jwt.TargetConfig{
+					Issuer:   "Bob",
+					Audience: "Alice",
+					Subject:  "auth",
+				}),
 			},
-			// Allow some leeway when checking dates.
-			Leeway: 5 * time.Minute,
-			// Fail if no expiration date is present.
-			RequireExpiration: true,
-
-			// Set up your own deserializer. Uses json.Unmarshal by default.
-			Deserializer: json.Unmarshal,
 		}),
 	})
 
 	// Common claims will be checked before deserialization, if present.
 	var claims map[string]any
 	_ = recipient.Consume(context.Background(), token, &claims)
+}
+```
+
+### NewClaimsCheckTimestamp
+
+Checks the `nbf` and `exp` claims against the current time.
+
+```go
+// First argument is a leeway, allowing margin of error
+// when checking for timestamp validity.
+jwp.NewClaimsCheckTimestamp(5*time.Minute, false)
+```
+
+By default, this checks allows token with no expiration date. You can change this behavior by setting the flag
+argument to true:
+
+```go
+jwp.NewClaimsCheckTimestamp(5*time.Minute, true)
+```
+
+### NewClaimsCheckTarget
+
+Force the target in the claims to match the given configuration.
+
+```go 
+jwp.NewClaimsCheckTarget(jwt.TargetConfig{...})
+```
+
+### Custom checks
+
+You can create your own checks by implementing the `ClaimsCheck` interface.
+
+```go
+package main
+
+import "github.com/a-novel-kit/jwt/jwa"
+
+type ClaimsCheck interface {
+	CheckClaims(claims *jwa.Claims) error
 }
 ```

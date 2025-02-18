@@ -2,6 +2,7 @@ package jwp_test
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 
 func TestClaimsChecker(t *testing.T) {
 	t.Parallel()
+
+	errFoo := errors.New("foo")
 
 	hourAgo := time.Now().Add(-time.Hour).Unix()
 	hourAfter := time.Now().Add(time.Hour).Unix()
@@ -42,10 +45,12 @@ func TestClaimsChecker(t *testing.T) {
 			name: "WithTarget/Success",
 
 			config: &jwp.ClaimsCheckerConfig{
-				Target: &jwt.TargetConfig{
-					Audience: "audience",
-					Issuer:   "issuer",
-					Subject:  "subject",
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTarget(jwt.TargetConfig{
+						Audience: "audience",
+						Issuer:   "issuer",
+						Subject:  "subject",
+					}),
 				},
 			},
 
@@ -69,10 +74,12 @@ func TestClaimsChecker(t *testing.T) {
 			name: "WithTarget/InvalidAudience",
 
 			config: &jwp.ClaimsCheckerConfig{
-				Target: &jwt.TargetConfig{
-					Audience: "audience",
-					Issuer:   "issuer",
-					Subject:  "subject",
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTarget(jwt.TargetConfig{
+						Audience: "audience",
+						Issuer:   "issuer",
+						Subject:  "subject",
+					}),
 				},
 			},
 
@@ -92,10 +99,12 @@ func TestClaimsChecker(t *testing.T) {
 			name: "WithTarget/InvalidIssuer",
 
 			config: &jwp.ClaimsCheckerConfig{
-				Target: &jwt.TargetConfig{
-					Audience: "audience",
-					Issuer:   "issuer",
-					Subject:  "subject",
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTarget(jwt.TargetConfig{
+						Audience: "audience",
+						Issuer:   "issuer",
+						Subject:  "subject",
+					}),
 				},
 			},
 
@@ -115,10 +124,12 @@ func TestClaimsChecker(t *testing.T) {
 			name: "WithTarget/InvalidSubject",
 
 			config: &jwp.ClaimsCheckerConfig{
-				Target: &jwt.TargetConfig{
-					Audience: "audience",
-					Issuer:   "issuer",
-					Subject:  "subject",
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTarget(jwt.TargetConfig{
+						Audience: "audience",
+						Issuer:   "issuer",
+						Subject:  "subject",
+					}),
 				},
 			},
 
@@ -137,7 +148,11 @@ func TestClaimsChecker(t *testing.T) {
 		{
 			name: "NotBefore/Success",
 
-			config: &jwp.ClaimsCheckerConfig{},
+			config: &jwp.ClaimsCheckerConfig{
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTimestamp(0, false),
+				},
+			},
 
 			raw: map[string]any{
 				"nbf": hourAgo,
@@ -154,7 +169,11 @@ func TestClaimsChecker(t *testing.T) {
 		{
 			name: "NotBefore/Failure",
 
-			config: &jwp.ClaimsCheckerConfig{},
+			config: &jwp.ClaimsCheckerConfig{
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTimestamp(0, false),
+				},
+			},
 
 			raw: map[string]any{
 				"nbf": hourAfter,
@@ -169,7 +188,11 @@ func TestClaimsChecker(t *testing.T) {
 		{
 			name: "Exp/Success",
 
-			config: &jwp.ClaimsCheckerConfig{},
+			config: &jwp.ClaimsCheckerConfig{
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTimestamp(0, false),
+				},
+			},
 
 			raw: map[string]any{
 				"exp": hourAfter,
@@ -186,7 +209,11 @@ func TestClaimsChecker(t *testing.T) {
 		{
 			name: "Exp/Failure",
 
-			config: &jwp.ClaimsCheckerConfig{},
+			config: &jwp.ClaimsCheckerConfig{
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTimestamp(0, false),
+				},
+			},
 
 			raw: map[string]any{
 				"exp": hourAgo,
@@ -203,7 +230,9 @@ func TestClaimsChecker(t *testing.T) {
 			name: "Exp/Failure/Required",
 
 			config: &jwp.ClaimsCheckerConfig{
-				RequireExpiration: true,
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTimestamp(0, true),
+				},
 			},
 
 			raw: map[string]any{
@@ -215,6 +244,57 @@ func TestClaimsChecker(t *testing.T) {
 			expect: map[string]any{},
 
 			expectErr: jwp.ErrInvalidClaims,
+		},
+		{
+			name: "CheckRaw/Success",
+
+			config: &jwp.ClaimsCheckerConfig{
+				ChecksRaw: []jwp.RawClaimsCheck{
+					jwp.NewRawClaimsChecker(nil, func(_ []byte, _ any) error {
+						return nil
+					}),
+				},
+			},
+
+			raw: map[string]any{
+				"aud": "audience",
+				"iss": "issuer",
+				"sub": "subject",
+				"foo": "bar",
+			},
+
+			dst: map[string]any{},
+
+			expect: map[string]any{
+				"aud": "audience",
+				"iss": "issuer",
+				"sub": "subject",
+				"foo": "bar",
+			},
+		},
+		{
+			name: "CheckRaw/Error",
+
+			config: &jwp.ClaimsCheckerConfig{
+				ChecksRaw: []jwp.RawClaimsCheck{
+					jwp.NewRawClaimsChecker(nil, func(_ []byte, _ any) error {
+						return errFoo
+					}),
+				},
+			},
+
+			raw: map[string]any{
+				"aud": "audience",
+				"iss": "issuer",
+				"sub": "subject",
+				"foo": "bar",
+			},
+
+			dst: map[string]any{},
+
+			expect: map[string]any{},
+
+			expectErr: errFoo,
 		},
 	}
 
