@@ -3,24 +3,36 @@ name: main
 on: [ push ]
 
 jobs:
-  lint:
-    permissions:
-      contents: read
-    uses: a-novel-kit/workflows/.github/workflows/lint-go.yaml@master
-
   test:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/test/go@master
+      - uses: a-novel-kit/workflows/go-actions/test-go@master
+
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: a-novel-kit/workflows/go-actions/lint-go@master
+
+  report-codecov:
+    runs-on: ubuntu-latest
+    needs: [ test, lint ]
+    permissions:
+      contents: read
+    steps:
+      - uses: a-novel-kit/workflows/go-actions/codecov-go@master
         with:
           codecov_token: ${{ secrets.CODECOV_TOKEN }}
 
-  docs:
-    uses: a-novel-kit/workflows/.github/workflows/deploy-pages.yaml@master
+  report-grc:
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' && success()
+    needs: [ test, lint ]
     permissions:
       contents: read
-      pages: write
-      id-token: write
+    steps:
+      - uses: a-novel-kit/workflows/go-actions/go-report-card@master
+        if: github.ref == 'refs/heads/master' && success()
