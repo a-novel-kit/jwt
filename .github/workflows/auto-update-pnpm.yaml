@@ -1,5 +1,8 @@
-name: dependabot auto-merge
-on: pull_request
+name: pnpm auto-update
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
 
 permissions:
   contents: write
@@ -11,9 +14,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'a-novel-kit/jwt'
     steps:
-      - uses: a-novel-kit/workflows/generic-actions/auto-merge-dependabot@master
+      - uses: a-novel-kit/workflows/node-actions/update-pnpm-version@master
         with:
           pull_request: ${{ github.event.pull_request.html_url }}
           pat: ${{ secrets.ACTION_PAT }}
