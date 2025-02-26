@@ -1,6 +1,6 @@
 name: main
 
-on: [ push ]
+on: [push]
 
 jobs:
   test:
@@ -10,16 +10,23 @@ jobs:
     steps:
       - uses: a-novel-kit/workflows/go-actions/test-go@master
 
-  lint:
+  lint-go:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: a-novel-kit/workflows/go-actions/lint-go@master
 
+  lint-prettier:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: a-novel-kit/workflows/node-actions/prettier@master
+
   report-codecov:
     runs-on: ubuntu-latest
-    needs: [ test, lint ]
+    needs: [test, lint-go]
     permissions:
       contents: read
     steps:
@@ -30,7 +37,7 @@ jobs:
   report-grc:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' && success()
-    needs: [ test, lint ]
+    needs: [test, lint-go]
     permissions:
       contents: read
     steps:

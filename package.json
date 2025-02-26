@@ -7,9 +7,7 @@
   "type": "module",
   "scripts": {
     "docs:dev": "vuepress dev docs",
-    "docs:build": "vuepress build docs",
-    "lint": "prettier --check './**/*.{js,jsx,ts,tsx,css,md,json,html}' --config ./prettier.config.js",
-    "format": "prettier --write './**/*.{js,jsx,ts,tsx,css,md,json,html}' --config ./prettier.config.js"
+    "docs:build": "vuepress build docs"
   },
   "keywords": [],
   "author": "",

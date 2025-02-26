@@ -6,6 +6,12 @@ updates:
     directory: /
     schedule:
       interval: daily
+  - package-ecosystem: pnpm
+    rebase-strategy: auto
+    open-pull-requests-limit: 25
+    directory: /
+    schedule:
+      interval: daily
   - package-ecosystem: "github-actions"
     rebase-strategy: auto
     open-pull-requests-limit: 25
