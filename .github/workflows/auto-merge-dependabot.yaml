@@ -6,6 +6,14 @@ permissions:
   pull-requests: write
 
 jobs:
+  debug-dependabot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug event
+        run: |
+          echo "user ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}"
+          echo "repo ${{ github.repository == 'a-novel-kit/jwt' }}"
+
   approve-dependabot:
     runs-on: ubuntu-latest
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'a-novel-kit/jwt'
