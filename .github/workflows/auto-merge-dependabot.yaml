@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: a-novel-kit/workflows/node-actions/prettier-dependabot@master
         with:
-          github_token: ${{ secrets.ACTION_PAT }}
+          pat: ${{ secrets.ACTION_PAT }}
       - uses: a-novel-kit/workflows/generic-actions/auto-merge-dependabot@master
         with:
           pull_request: ${{ github.event.pull_request.html_url }}
