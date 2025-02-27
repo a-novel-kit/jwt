@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Github Pages site",
   "main": "index.js",
-  "packageManager": "pnpm@10.4.0",
+  "packageManager": "pnpm@10.5.2",
   "type": "module",
   "scripts": {
     "docs:dev": "vuepress dev docs",
