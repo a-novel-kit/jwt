@@ -13,7 +13,7 @@ importers:
     devDependencies:
       "@trivago/prettier-plugin-sort-imports":
         specifier: ^5.2.2
-        version: 5.2.2(@vue/compiler-sfc@3.5.13)(prettier@3.5.2)
+        version: 5.2.2(@vue/compiler-sfc@3.5.13)(prettier@3.5.3)
       "@vuepress/bundler-vite":
         specifier: 2.0.0-rc.19
         version: 2.0.0-rc.19(@types/node@22.13.1)(sass-embedded@1.85.1)
@@ -27,8 +27,8 @@ importers:
         specifier: 2.0.0-rc.74
         version: 2.0.0-rc.74(markdown-it@14.1.0)(sass-embedded@1.85.1)(vuepress@2.0.0-rc.19(@vuepress/bundler-vite@2.0.0-rc.19(@types/node@22.13.1)(sass-embedded@1.85.1))(vue@3.5.13))
       prettier:
-        specifier: ^3.5.2
-        version: 3.5.2
+        specifier: ^3.5.3
+        version: 3.5.3
       sass-embedded:
         specifier: ^1.85.1
         version: 1.85.1
@@ -2177,9 +2177,9 @@ packages:
       { integrity: sha512-6oz2beyjc5VMn/KV1pPw8fliQkhBXrVn1Z3TVyqZxU8kZpzEKhBdmCFqI6ZbmGtamQvQGuU1sgPTk8ZrXDD7jQ== }
     engines: { node: ^10 || ^12 || >=14 }
 
-  prettier@3.5.2:
+  prettier@3.5.3:
     resolution:
-      { integrity: sha512-lc6npv5PH7hVqozBR7lkBNOGXV9vMwROAPlumdBkX0wTbbzPu/U1hk5yL8p2pt4Xoc+2mkT8t/sow2YrV/M5qg== }
+      { integrity: sha512-QQtaxnoDJeAkDvDKWCLiwIXkTgRhwYDEQCghU9Z6q03iyek/rxRh/2lC3HB7P8sWT2xC/y5JDctPLBIGzHKbhw== }
     engines: { node: ">=14" }
     hasBin: true
 
@@ -3424,7 +3424,7 @@ snapshots:
 
   "@stackblitz/sdk@1.11.0": {}
 
-  "@trivago/prettier-plugin-sort-imports@5.2.2(@vue/compiler-sfc@3.5.13)(prettier@3.5.2)":
+  "@trivago/prettier-plugin-sort-imports@5.2.2(@vue/compiler-sfc@3.5.13)(prettier@3.5.3)":
     dependencies:
       "@babel/generator": 7.26.5
       "@babel/parser": 7.26.7
@@ -3432,7 +3432,7 @@ snapshots:
       "@babel/types": 7.26.7
       javascript-natural-sort: 0.7.1
       lodash: 4.17.21
-      prettier: 3.5.2
+      prettier: 3.5.3
     optionalDependencies:
       "@vue/compiler-sfc": 3.5.13
     transitivePeerDependencies:
@@ -4716,7 +4716,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  prettier@3.5.2: {}
+  prettier@3.5.3: {}
 
   pretty-ms@9.2.0:
     dependencies:
