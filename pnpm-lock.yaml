@@ -2188,9 +2188,9 @@ packages:
       { integrity: sha512-4yf0QO/sllf/1zbZWYnvWw3NxCQwLXKzIj0G849LSufP15BXKM0rbD2Z3wVnkMfjdn/CB0Dpp444gYAACdsplg== }
     engines: { node: ">=18" }
 
-  prismjs@1.29.0:
+  prismjs@1.30.0:
     resolution:
-      { integrity: sha512-Kx/1w86q/epKcmte75LNrEoT+lX8pBpavuAbvJWRXar7Hz8jrtF+e3vY751p0R8H9HdArwaCTNDDzHg/ScJK1Q== }
+      { integrity: sha512-DEvV2ZF2r2/63V+tK8hQvrR2ZGn10srHbXviTlcv7Kpzw8jWiNTqbVgjO3IY8RxrrOUF8VPMQQFysYYYv0YZxw== }
     engines: { node: ">=6" }
 
   property-information@6.5.0:
@@ -3917,7 +3917,7 @@ snapshots:
     dependencies:
       "@vuepress/helper": 2.0.0-rc.74(vuepress@2.0.0-rc.19(@vuepress/bundler-vite@2.0.0-rc.19(@types/node@22.13.1)(sass-embedded@1.85.1))(vue@3.5.13))
       "@vuepress/highlighter-helper": 2.0.0-rc.71(@vueuse/core@12.5.0)(vuepress@2.0.0-rc.19(@vuepress/bundler-vite@2.0.0-rc.19(@types/node@22.13.1)(sass-embedded@1.85.1))(vue@3.5.13))
-      prismjs: 1.29.0
+      prismjs: 1.30.0
       vuepress: 2.0.0-rc.19(@vuepress/bundler-vite@2.0.0-rc.19(@types/node@22.13.1)(sass-embedded@1.85.1))(vue@3.5.13)
     transitivePeerDependencies:
       - "@vueuse/core"
@@ -4722,7 +4722,7 @@ snapshots:
     dependencies:
       parse-ms: 4.0.0
 
-  prismjs@1.29.0: {}
+  prismjs@1.30.0: {}
 
   property-information@6.5.0: {}
 
