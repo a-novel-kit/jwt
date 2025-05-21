@@ -52,7 +52,7 @@ func TestGenerateHMAC(t *testing.T) {
 			require.NotNil(t, key)
 
 			require.Len(t, key.Key(), testCase.preset.KeySize)
-			require.True(t, key.JWKCommon.MatchPreset(jwa.JWKCommon{
+			require.True(t, key.MatchPreset(jwa.JWKCommon{
 				KTY:    jwa.KTYOct,
 				Use:    jwa.UseSig,
 				KeyOps: []jwa.KeyOp{jwa.KeyOpSign, jwa.KeyOpVerify},

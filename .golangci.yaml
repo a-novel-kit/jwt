@@ -1,41 +1,49 @@
+version: "2"
+
+formatters:
+  settings:
+    gci:
+      sections:
+        - standard # Standard section: captures all standard packages.
+        - default # Default section: contains all imports that could not be matched to another section type.
+        - prefix(github.com/a-novel-kit)
+        - prefix(github.com/a-novel-kit/jwt)
+
 linters:
-  enable-all: true
+  default: all
   disable:
     - depguard
-    - tenv
     - dupl
-    - varnamelen
-    - goimports
-    - nilnil
-    - ireturn
-    - gochecknoglobals
-    - funlen
     - exhaustruct
+    - varnamelen
+    - revive
+    - ireturn
+    - gochecknoinits
+    - gochecknoglobals
+    - iface
+    - funlen
+    - funcorder
     - cyclop
-    - errname
-    - godox
+    - err113
     - wrapcheck
     - mnd
-    - err113
     - forcetypeassert
-    - maintidx
 
-linters-settings:
-  gci:
-    sections:
-      - standard # Standard section: captures all standard packages.
-      - default # Default section: contains all imports that could not be matched to another section type.
-      - prefix(github.com/a-novel-kit)
-      - prefix(github.com/a-novel-kit/jwt)
-    skip-generated: true
-  gosec:
-    excludes:
-      - G115
-  tagliatelle:
-    case:
-      rules:
-        json: snake # JWT standards uses snake case.
+  settings:
+    gosec:
+      excludes:
+        - G115
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+          yaml: goCamel
 
-issues:
-  exclude-dirs:
-    - mocks
+  exclusions:
+    paths:
+      - mocks
+    rules:
+      - path: (.+)_test.go
+        linters:
+          - maintidx
+          - paralleltest

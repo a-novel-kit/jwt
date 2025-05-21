@@ -74,7 +74,7 @@ func TestGenerateRSA(t *testing.T) {
 			privateKey, publicKey, err := jwk.GenerateRSA(testCase.preset)
 			require.NoError(t, err)
 
-			require.True(t, privateKey.JWKCommon.MatchPreset(jwa.JWKCommon{
+			require.True(t, privateKey.MatchPreset(jwa.JWKCommon{
 				KTY:    jwa.KTYRSA,
 				Use:    testCase.preset.Use,
 				KeyOps: testCase.preset.PrivateKeyOps,
@@ -82,7 +82,7 @@ func TestGenerateRSA(t *testing.T) {
 			}))
 			require.NotEmpty(t, privateKey.KID)
 
-			require.True(t, publicKey.JWKCommon.MatchPreset(jwa.JWKCommon{
+			require.True(t, publicKey.MatchPreset(jwa.JWKCommon{
 				KTY:    jwa.KTYRSA,
 				Use:    testCase.preset.Use,
 				KeyOps: testCase.preset.PublicKeyOps,

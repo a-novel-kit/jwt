@@ -30,7 +30,7 @@ func TestGenerateECDH(t *testing.T) {
 	privateKey, publicKey, err := jwk.GenerateECDH()
 	require.NoError(t, err)
 
-	require.True(t, privateKey.JWKCommon.MatchPreset(jwa.JWKCommon{
+	require.True(t, privateKey.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseEnc,
 		KeyOps: []jwa.KeyOp{jwa.KeyOpDeriveKey},
@@ -38,7 +38,7 @@ func TestGenerateECDH(t *testing.T) {
 	}))
 	require.NotEmpty(t, privateKey.KID)
 
-	require.True(t, publicKey.JWKCommon.MatchPreset(jwa.JWKCommon{
+	require.True(t, publicKey.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseEnc,
 		KeyOps: []jwa.KeyOp{jwa.KeyOpDeriveKey},

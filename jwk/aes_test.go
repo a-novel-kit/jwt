@@ -89,7 +89,7 @@ func TestGenerateAES(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Len(t, key.Key(), testCase.preset.KeySize)
-			require.True(t, key.JWKCommon.MatchPreset(jwa.JWKCommon{
+			require.True(t, key.MatchPreset(jwa.JWKCommon{
 				Alg:    testCase.preset.Alg,
 				KeyOps: testCase.preset.KeyOps,
 				KTY:    jwa.KTYOct,

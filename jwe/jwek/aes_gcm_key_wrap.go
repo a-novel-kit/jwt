@@ -158,12 +158,12 @@ func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, e
 		)
 	}
 
-	iv, err := base64.RawURLEncoding.DecodeString(header.JWHAESGCMKW.IV)
+	iv, err := base64.RawURLEncoding.DecodeString(header.IV)
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) decode IV: %w", err)
 	}
 
-	tag, err := base64.RawURLEncoding.DecodeString(header.JWHAESGCMKW.Tag)
+	tag, err := base64.RawURLEncoding.DecodeString(header.Tag)
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) decode tag: %w", err)
 	}

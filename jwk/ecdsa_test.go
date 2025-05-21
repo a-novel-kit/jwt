@@ -52,7 +52,7 @@ func TestGenerateECDSA(t *testing.T) {
 			privateKey, publicKey, err := jwk.GenerateECDSA(testCase.preset)
 			require.NoError(t, err)
 
-			require.True(t, privateKey.JWKCommon.MatchPreset(jwa.JWKCommon{
+			require.True(t, privateKey.MatchPreset(jwa.JWKCommon{
 				KTY:    jwa.KTYEC,
 				Use:    jwa.UseSig,
 				KeyOps: []jwa.KeyOp{jwa.KeyOpSign},
@@ -60,7 +60,7 @@ func TestGenerateECDSA(t *testing.T) {
 			}))
 			require.NotEmpty(t, privateKey.KID)
 
-			require.True(t, publicKey.JWKCommon.MatchPreset(jwa.JWKCommon{
+			require.True(t, publicKey.MatchPreset(jwa.JWKCommon{
 				KTY:    jwa.KTYEC,
 				Use:    jwa.UseSig,
 				KeyOps: []jwa.KeyOp{jwa.KeyOpVerify},
