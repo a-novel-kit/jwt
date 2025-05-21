@@ -23,7 +23,7 @@ func NewStaticKeysSource[T any](t *testing.T, keys []*jwk.Key[T]) *jwk.Source[T]
 		},
 	}, func(_ context.Context, jwk *jwa.JWK) (*jwk.Key[T], error) {
 		for _, key := range keys {
-			if key.JWK.KID == jwk.KID {
+			if key.KID == jwk.KID {
 				return key, nil
 			}
 		}

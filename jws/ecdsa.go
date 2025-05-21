@@ -87,7 +87,7 @@ func (signer *ECDSASigner) Transform(_ context.Context, _ *jwa.JWH, rawToken str
 		return "", fmt.Errorf("(ECDSASigner.Transform) %w", err)
 	}
 
-	keyBytes := inferECDSAKeySize(signer.secretKey.Curve.Params())
+	keyBytes := inferECDSAKeySize(signer.secretKey.Params())
 
 	// We serialize the outputs (r and s) into big-endian byte arrays
 	// padded with zeros on the left to make sure the sizes work out.
@@ -146,7 +146,7 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf("(ECDSAVerifier.Transform) decode signature: %w", err)
 	}
 
-	keyBytes := inferECDSAKeySize(verifier.publicKey.Curve.Params())
+	keyBytes := inferECDSAKeySize(verifier.publicKey.Params())
 	if len(sigBytes) != 2*keyBytes {
 		return nil, fmt.Errorf("(ECDSAVerifier.Transform) %w: invalid signature size", ErrInvalidSignature)
 	}
