@@ -18,21 +18,6 @@ Per the [specification](https://datatracker.ietf.org/doc/html/rfc7515):
 > specification. Related encryption capabilities are described in the
 > separate JSON Web Encryption (JWE) specification.
 
-::: info Workflow
-
-_Bob sends data to Alice. Alice then forwards it to Bob friend's John. John needs a way to ensure that the data packet
-he received from Alice was indeed created by Bob._
-
-_When Bob created the packet, he appended a signature to it, using a private key. A signature
-is computed from the data in the packet and the private key. Bob shares a public version of the key used to create
-the signature. Then, using this public key, John can apply it against the signature and the data packet he received._
-
-_If the data packet has been modified by Alice, or the signature was not created using Bob's private key, then the
-authentication will fail. If it works, John can be assured the data packet was created by no other than Bob itself
-(or at least, someone that has access to its private key)._
-
-:::
-
 Every signature algorithm is based on a private/public key pair. Most algorithms use asymmetric keys (where the
 public key only contains a subset of the private key information): the private key is kept secret to
 the producer, while the recipients can only access the public key. Some algorithms, however, use symmetric keys

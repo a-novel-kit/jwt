@@ -18,16 +18,6 @@ Per the [specification](https://datatracker.ietf.org/doc/html/rfc7516):
 > Authentication Code (MAC) capabilities are described in the separate
 > JSON Web Signature (JWS) specification.
 
-::: info Workflow
-
-_Bob sends data to Alice. This data is sensitive, so Bob must ensure that no third party will eavesdrop on it._
-
-_Bob encrypts the data using a symmetric Content-Encryption Key (CEK). He then forwards this key to Alice, using a
-secure channel. When he sends the packet moments later, he encrypted it so only someone that has access to the CEK,
-like Alice, can decrypt it._
-
-:::
-
 Token Decryption is a 2-step process, between the producer and the recipient:
 
 - **Key sharing**: both party agree on a way to share a Content-Encryption Key (CEK). This method is described in the
