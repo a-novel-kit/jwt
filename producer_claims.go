@@ -24,6 +24,7 @@ type TargetConfig struct {
 // ClaimsProducerConfig is a configuration struct used to issue standardized claims.
 type ClaimsProducerConfig struct {
 	TargetConfig
+
 	// TTL is the time to live of the token. If set to 0, the token will never expire.
 	TTL time.Duration
 }

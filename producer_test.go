@@ -110,7 +110,7 @@ func TestProducer(t *testing.T) {
 
 			customClaims: map[string]any{"foo": "bar"},
 			// {"cty":"test","alg":"test-alg","kid":"static-key-id"}.abcdefghi
-			expectToken: "eyJjdHkiOiJ0ZXN0IiwiYWxnIjoidGVzdC1hbGciLCJraWQiOiJzdGF0aWMta2V5LWlkIn0.abcdefghi",
+			expectToken: "eyJraWQiOiJzdGF0aWMta2V5LWlkIiwiY3R5IjoidGVzdCIsImFsZyI6InRlc3QtYWxnIn0.abcdefghi",
 		},
 		{
 			name: "StaticPluginError",

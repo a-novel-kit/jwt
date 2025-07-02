@@ -68,7 +68,8 @@ func (source *Source[K]) refresh(ctx context.Context) error {
 
 // List every key available.
 func (source *Source[K]) List(ctx context.Context) ([]*Key[K], error) {
-	if err := source.refresh(ctx); err != nil {
+	err := source.refresh(ctx)
+	if err != nil {
 		return nil, fmt.Errorf("(Source.List) refresh keys: %w", err)
 	}
 

@@ -111,7 +111,9 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 
 	// The IV used is a 128-bit value generated randomly or pseudorandomly for use in the cipher.
 	iv := make([]byte, 12)
-	if _, err := rand.Read(iv); err != nil {
+
+	_, err = rand.Read(iv)
+	if err != nil {
 		return "", fmt.Errorf("(AESGCMEncryption.Transform) generate IV: %w", err)
 	}
 

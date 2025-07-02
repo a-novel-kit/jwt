@@ -115,6 +115,7 @@ type ClaimsCommon struct {
 
 type Claims struct {
 	ClaimsCommon
+
 	Payload json.RawMessage
 }
 
@@ -124,6 +125,7 @@ func (claims Claims) MarshalJSON() ([]byte, error) {
 
 func (claims *Claims) UnmarshalJSON(src []byte) error {
 	var err error
+
 	claims.ClaimsCommon, claims.Payload, err = internal.UnmarshalPartial[ClaimsCommon](src)
 
 	return err

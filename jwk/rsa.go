@@ -224,7 +224,9 @@ func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[
 	}
 
 	var rsaPayload serializers.RSAPayload
-	if err := json.Unmarshal(source.Payload, &rsaPayload); err != nil {
+
+	err := json.Unmarshal(source.Payload, &rsaPayload)
+	if err != nil {
 		return nil, nil, fmt.Errorf("(ConsumeRSA) unmarshal payload: %w", err)
 	}
 

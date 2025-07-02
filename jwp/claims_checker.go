@@ -120,18 +120,22 @@ type ClaimsChecker struct {
 
 func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 	var token *jwa.Claims
-	if err := json.Unmarshal(raw, &token); err != nil {
+
+	err := json.Unmarshal(raw, &token)
+	if err != nil {
 		return fmt.Errorf("(ClaimsChecker.Unmarshal) unmarshal claims: %w", err)
 	}
 
 	for _, check := range checker.config.Checks {
-		if err := check.CheckClaims(token); err != nil {
+		err := check.CheckClaims(token)
+		if err != nil {
 			return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: %w", ErrInvalidClaims, err)
 		}
 	}
 
 	for _, check := range checker.config.ChecksRaw {
-		if err := check.CheckRaw(raw); err != nil {
+		err := check.CheckRaw(raw)
+		if err != nil {
 			return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: %w", ErrInvalidClaims, err)
 		}
 	}

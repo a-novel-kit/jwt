@@ -38,6 +38,14 @@ const CtyJWT CTY = "JWT"
 // Parameters in both the cases where the JWT is a JWS and where it is a
 // JWE.
 type JWHCommon struct {
+	JWHEmbeddedKey
+
+	JWHKeyAgreement
+	JWHPBES2
+	JWHAESGCMKW
+
+	J509
+
 	// JWT header.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7519#section-5.1
@@ -297,14 +305,6 @@ type JWHCommon struct {
 	// interpretation of audience values is generally application specific.
 	// Use of this claim is OPTIONAL.
 	Aud string `json:"aud,omitempty"`
-
-	JWHEmbeddedKey
-
-	JWHKeyAgreement
-	JWHPBES2
-	JWHAESGCMKW
-
-	J509
 }
 
 type JWHEmbeddedKey struct {
@@ -399,6 +399,7 @@ type JWHAESGCMKW struct {
 
 type JWH struct {
 	JWHCommon
+
 	Payload json.RawMessage
 }
 
@@ -408,6 +409,7 @@ func (header JWH) MarshalJSON() ([]byte, error) {
 
 func (header *JWH) UnmarshalJSON(src []byte) error {
 	var err error
+
 	header.JWHCommon, header.Payload, err = internal.UnmarshalPartial[JWHCommon](src)
 
 	return err

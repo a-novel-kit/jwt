@@ -129,7 +129,9 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 	}
 
 	var ecPayload serializers.ECPayload
-	if err := json.Unmarshal(source.Payload, &ecPayload); err != nil {
+
+	err := json.Unmarshal(source.Payload, &ecPayload)
+	if err != nil {
 		return nil, nil, fmt.Errorf("(ConsumeECDSA) unmarshal payload: %w", err)
 	}
 

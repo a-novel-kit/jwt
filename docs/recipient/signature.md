@@ -45,9 +45,9 @@ func main() {
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewHMACVerifier(secretKey, jws.HS256)
+	verifier := jws.NewHMACVerifier(secretKey, jws.HS256)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -83,9 +83,9 @@ func main() {
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewRSAVerifier(publicKey, jws.RS256)
+	verifier := jws.NewRSAVerifier(publicKey, jws.RS256)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -121,9 +121,9 @@ func main() {
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewRSAPSSVerifier(publicKey, jws.PS256)
+	verifier := jws.NewRSAPSSVerifier(publicKey, jws.PS256)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -159,9 +159,9 @@ func main() {
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewECDSAVerifier(publicKey, jws.ES256)
+	verifier := jws.NewECDSAVerifier(publicKey, jws.ES256)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -197,9 +197,9 @@ func main() {
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewED25519Verifier(publicKey)
+	verifier := jws.NewED25519Verifier(publicKey)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -211,7 +211,7 @@ func main() {
 
 ## Using auto-sourcing
 
-Passing keys manually and creating a new signer for each secret key can be cumbersome. To avoid this, you can use an
+Passing keys manually and creating a new verifier for each secret key can be cumbersome. To avoid this, you can use an
 alternate version that relies on a [dynamic source](../keys/consume/source.md) of keys.
 
 ::: tabs
@@ -230,15 +230,15 @@ import (
 
 func main() {
 	// See JWK documentation for how to configure the source.
-	// Preset for the source MUST match those of the signer.
+	// Preset for the source MUST match those of the verifier.
 	source := jwk.NewHMACSource(config, jwk.HS256)
 
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewSourcedHMACVerifier(source, jws.HS256)
+	verifier := jws.NewSourcedHMACVerifier(source, jws.HS256)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -268,15 +268,15 @@ import (
 
 func main() {
 	// See JWK documentation for how to configure the source.
-	// Preset for the source MUST match those of the signer.
+	// Preset for the source MUST match those of the verifier.
 	source := jwk.NewRSAPublicSource(config, jwk.RS256)
 
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewSourcedRSAVerifier(source, jws.RS256)
+	verifier := jws.NewSourcedRSAVerifier(source, jws.RS256)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -306,15 +306,15 @@ import (
 
 func main() {
 	// See JWK documentation for how to configure the source.
-	// Preset for the source MUST match those of the signer.
+	// Preset for the source MUST match those of the verifier.
 	source := jwk.NewRSAPublicSource(config, jwk.PS256)
 
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewSourcedRSAPSSVerifier(source, jws.PS256)
+	verifier := jws.NewSourcedRSAPSSVerifier(source, jws.PS256)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -344,15 +344,15 @@ import (
 
 func main() {
 	// See JWK documentation for how to configure the source.
-	// Preset for the source MUST match those of the signer.
+	// Preset for the source MUST match those of the verifier.
 	source := jwk.NewECDSAPublicSource(config, jwk.ES256)
 
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewSourcedECDSAVerifier(source, jws.ES256)
+	verifier := jws.NewSourcedECDSAVerifier(source, jws.ES256)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -382,15 +382,15 @@ import (
 
 func main() {
 	// See JWK documentation for how to configure the source.
-	// Preset for the source MUST match those of the signer.
+	// Preset for the source MUST match those of the verifier.
 	source := jwk.NewED25519PublicSource(config)
 
 	// The raw token received from the producer.
 	var token string
 
-	signer := jws.NewSourcedED25519Verifier(source)
+	verifier := jws.NewSourcedED25519Verifier(source)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{signer},
+		Plugins: []jwt.RecipientPlugin{verifier},
 	})
 
 	var claims map[string]any
@@ -399,3 +399,32 @@ func main() {
 ```
 
 :::
+
+You may also simply decode a token without verifying its signature, when you trust such signature or want to
+extract the claims for other purposes.
+
+```go
+package main
+
+import (
+	"context"
+	"github.com/a-novel-kit/jwt"
+	"github.com/a-novel-kit/jwt/jwk"
+	"github.com/a-novel-kit/jwt/jws"
+)
+
+func main() {
+	// The raw token received from the producer.
+	var token string
+
+	verifier := jws.NewInsecureVerifier()
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{verifier},
+	})
+
+	// This will not fail and extract the claims successfully, no matter the signature.
+	// Encoding errors can still occur if the token is malformed.
+	var claims map[string]any
+	_ := recipient.Consume(context.Background(), token, &claims)
+}
+```
