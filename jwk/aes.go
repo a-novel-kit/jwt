@@ -203,7 +203,9 @@ func ConsumeAES(source *jwa.JWK, preset AESPreset) (*Key[[]byte], error) {
 	}
 
 	var octPayload serializers.OctPayload
-	if err := json.Unmarshal(source.Payload, &octPayload); err != nil {
+
+	err := json.Unmarshal(source.Payload, &octPayload)
+	if err != nil {
 		return nil, fmt.Errorf("(ConsumeAES) unmarshal payload: %w", err)
 	}
 

@@ -69,7 +69,9 @@ func (manager *PBES2KeyEncKWConfig) SetHeader(_ context.Context, header *jwa.JWH
 
 	// Generate a random salt.
 	salt := make([]byte, manager.config.SaltSize)
-	if _, err := rand.Read(salt); err != nil {
+
+	_, err := rand.Read(salt)
+	if err != nil {
 		return nil, fmt.Errorf("(PBES2KeyEncKWConfig.SetHeader) generate salt: %w", err)
 	}
 

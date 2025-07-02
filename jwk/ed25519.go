@@ -91,7 +91,9 @@ func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.Pub
 	}
 
 	var ed2519Payload serializers.EDPayload
-	if err := json.Unmarshal(source.Payload, &ed2519Payload); err != nil {
+
+	err := json.Unmarshal(source.Payload, &ed2519Payload)
+	if err != nil {
 		return nil, nil, fmt.Errorf("(ConsumeED25519) unmarshal payload: %w", err)
 	}
 

@@ -90,7 +90,9 @@ func ConsumeECDH(source *jwa.JWK) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey]
 	}
 
 	var ecdhPayload serializers.ECDHPayload
-	if err := json.Unmarshal(source.Payload, &ecdhPayload); err != nil {
+
+	err := json.Unmarshal(source.Payload, &ecdhPayload)
+	if err != nil {
 		return nil, nil, fmt.Errorf("(ConsumeECDH) unmarshal payload: %w", err)
 	}
 

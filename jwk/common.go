@@ -10,6 +10,7 @@ var ErrJWKMismatch = errors.New("jwk and key mismatch")
 
 type Key[K any] struct {
 	*jwa.JWK
+
 	parsed K
 }
 

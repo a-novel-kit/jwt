@@ -17,11 +17,13 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 
 	var merged map[string]json.RawMessage
 
-	if err := json.Unmarshal(serializedCommon, &merged); err != nil {
+	err = json.Unmarshal(serializedCommon, &merged)
+	if err != nil {
 		return nil, fmt.Errorf("(MarshalPartial) convert common to map: %w", err)
 	}
 
-	if err := json.Unmarshal(custom, &merged); err != nil {
+	err = json.Unmarshal(custom, &merged)
+	if err != nil {
 		return nil, fmt.Errorf("(MarshalPartial) convert custom to map: %w", err)
 	}
 
@@ -36,7 +38,8 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 	var common T
 
-	if err := json.Unmarshal(src, &common); err != nil {
+	err := json.Unmarshal(src, &common)
+	if err != nil {
 		return common, nil, fmt.Errorf("(UnmarshalPartial) unmarshal common: %w", err)
 	}
 

@@ -39,6 +39,8 @@ import (
 // by Section 8.1 or be a value that contains a Collision-Resistant
 // Name.
 type JWKCommon struct {
+	J509
+
 	// KTY represents the "kty" (key type) parameter in a JSON web key.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.1
@@ -162,8 +164,6 @@ type JWKCommon struct {
 	// When used with a JWKCommon, the "kid" value is used to match a JWKCommon "kid"
 	// parameter value.
 	KID string `json:"kid,omitempty"`
-
-	J509
 }
 
 // MatchPreset is used to check is the description of a JSON Web Key matches the expected preset.
@@ -182,6 +182,7 @@ func (jwk JWKCommon) MatchPreset(other JWKCommon) bool {
 // JWK represents a JSON Web Key, with both generic and key-specific information.
 type JWK struct {
 	JWKCommon
+
 	Payload json.RawMessage
 }
 
@@ -191,6 +192,7 @@ func (key JWK) MarshalJSON() ([]byte, error) {
 
 func (key *JWK) UnmarshalJSON(src []byte) error {
 	var err error
+
 	key.JWKCommon, key.Payload, err = internal.UnmarshalPartial[JWKCommon](src)
 
 	return err

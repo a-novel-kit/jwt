@@ -34,12 +34,15 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 	}
 
 	var header *jwa.JWH
-	if err := json.Unmarshal(decodedHeader, &header); err != nil {
+
+	err = json.Unmarshal(decodedHeader, &header)
+	if err != nil {
 		return fmt.Errorf("(Recipient.Consume) unmarshal header: %w", err)
 	}
 
 	if len(header.Crit) > 0 {
-		if err := CheckCrit(decodedHeader, header.Crit); err != nil {
+		err = CheckCrit(decodedHeader, header.Crit)
+		if err != nil {
 			return fmt.Errorf("(Recipient.Consume) check crit: %w", err)
 		}
 	}
@@ -58,7 +61,8 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 			return fmt.Errorf("(Recipient.Consume) transform token: %w", err)
 		}
 
-		if err := recipient.config.Deserializer(rawClaims, dst); err != nil {
+		err = recipient.config.Deserializer(rawClaims, dst)
+		if err != nil {
 			return fmt.Errorf("(Recipient.Consume) unmarshal claims: %w", err)
 		}
 

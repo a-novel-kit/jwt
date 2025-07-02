@@ -8,12 +8,12 @@ import (
 )
 
 type HeaderProducerConfig struct {
+	TargetConfig
+
 	Typ jwa.Typ
 	CTY jwa.CTY
 
 	Crit []string
-
-	TargetConfig
 }
 
 type HeaderProducer struct {
@@ -26,7 +26,8 @@ func (producer *HeaderProducer) New(custom any) (*jwa.JWH, error) {
 		return nil, fmt.Errorf("(HeaderProducer.NewHeader) marshal custom header: %w", err)
 	}
 
-	if err := CheckCrit(customSerialized, producer.config.Crit); err != nil {
+	err = CheckCrit(customSerialized, producer.config.Crit)
+	if err != nil {
 		return nil, fmt.Errorf("(HeaderProducer.NewHeader) check crit: %w", err)
 	}
 

@@ -18,7 +18,9 @@ func CheckCrit(data json.RawMessage, crit []string) error {
 	}
 
 	var dataMap map[string]json.RawMessage
-	if err := json.Unmarshal(data, &dataMap); err != nil {
+
+	err := json.Unmarshal(data, &dataMap)
+	if err != nil {
 		return fmt.Errorf("unmarshal custom header: %w", err)
 	}
 

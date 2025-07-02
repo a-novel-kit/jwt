@@ -157,7 +157,9 @@ func (decoder *ECDHKeyAgrKWDecoder) ComputeCEK(_ context.Context, header *jwa.JW
 	}
 
 	var ecdhPayload serializers.ECDHPayload
-	if err := json.Unmarshal(header.EPK.Payload, &ecdhPayload); err != nil {
+
+	err := json.Unmarshal(header.EPK.Payload, &ecdhPayload)
+	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) unmarshal payload: %w", err)
 	}
 

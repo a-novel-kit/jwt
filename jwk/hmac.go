@@ -95,7 +95,9 @@ func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
 	}
 
 	var octPayload serializers.OctPayload
-	if err := json.Unmarshal(source.Payload, &octPayload); err != nil {
+
+	err := json.Unmarshal(source.Payload, &octPayload)
+	if err != nil {
 		return nil, fmt.Errorf("(ConsumeHMAC) unmarshal payload: %w", err)
 	}
 
