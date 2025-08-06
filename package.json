@@ -16,7 +16,7 @@
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@vuepress/bundler-vite": "2.0.0-rc.19",
     "@vuepress/plugin-markdown-container": "2.0.0-rc.30",
-    "@vuepress/plugin-shiki": "2.0.0-rc.74",
+    "@vuepress/plugin-shiki": "2.0.0-rc.112",
     "@vuepress/theme-default": "2.0.0-rc.74",
     "prettier": "^3.6.2",
     "sass-embedded": "^1.89.2",
