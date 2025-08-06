@@ -1,8 +1,5 @@
 ---
-title: Recipient
-icon: material-symbols:mark-as-unread-outline-rounded
-category:
-  - recipient
+outline: deep
 ---
 
 # Consuming tokens
@@ -79,4 +76,4 @@ Providing any plugin disables this possibility, so if you need you can restore i
 Use the `Plugins` field to set up common JWT operations:
 
 - [JWS](./signature.md): authenticate the data in a token, without hiding it.
-- [JWE](./encryption/README.md): encrypt the data in a token, to keep it confidential.
+- [JWE](./encryption/index.md): encrypt the data in a token, to keep it confidential.

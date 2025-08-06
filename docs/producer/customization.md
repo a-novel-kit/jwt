@@ -1,9 +1,5 @@
 ---
-title: Customize Token
-icon: material-symbols:tune-rounded
-category:
-  - producer
-  - customization
+outline: deep
 ---
 
 # Advanced customization

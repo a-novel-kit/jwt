@@ -58,3 +58,6 @@ jobs:
       id-token: write
     steps:
       - uses: a-novel-kit/workflows/github-pages-actions/publish-vuepress@master
+        with:
+          working_directory: ./docs
+          build_path: ./docs/.vitepress/dist/

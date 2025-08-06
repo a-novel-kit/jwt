@@ -1,9 +1,5 @@
 ---
-title: Verify Token (JWS)
-icon: material-symbols:verified-outline-rounded
-category:
-  - recipient
-  - signature
+outline: deep
 ---
 
 # Verify tokens
@@ -26,7 +22,7 @@ tokens.
 
 ::: tabs
 
-@tab HMAC
+== HMAC
 
 ```go
 package main
@@ -63,7 +59,7 @@ Available presets for HMAC signatures are:
 | `jws.HS384` | HS384        |
 | `jws.HS512` | HS512        |
 
-@tab RSA
+== RSA
 
 ```go
 package main
@@ -101,7 +97,7 @@ Available presets for RSA signatures are:
 | `jws.RS384` | RS384        |
 | `jws.RS512` | RS512        |
 
-@tab RSA PSS
+== RSA PSS
 
 ```go
 package main
@@ -139,7 +135,7 @@ Available presets for RSA PSS signatures are:
 | `jws.PS384` | PS384        |
 | `jws.PS512` | PS512        |
 
-@tab ECDSA
+== ECDSA
 
 ```go
 package main
@@ -177,7 +173,7 @@ Available presets for ECDSA signatures are:
 | `jws.ES384` | ES384        |
 | `jws.ES512` | ES512        |
 
-@tab ED25519
+== ED25519
 
 ```go
 package main
@@ -216,7 +212,7 @@ alternate version that relies on a [dynamic source](../keys/consume/source.md) o
 
 ::: tabs
 
-@tab HMAC
+== HMAC
 
 ```go
 package main
@@ -254,7 +250,7 @@ Available presets for HMAC signatures are:
 | `jws.HS384` | HS384        | `jwk.HS384`   |
 | `jws.HS512` | HS512        | `jwk.HS512`   |
 
-@tab RSA
+== RSA
 
 ```go
 package main
@@ -292,7 +288,7 @@ Available presets for RSA signatures are:
 | `jws.RS384` | RS384        | `jwk.RS384`   |
 | `jws.RS512` | RS512        | `jwk.RS512`   |
 
-@tab RSA PSS
+== RSA PSS
 
 ```go
 package main
@@ -330,7 +326,7 @@ Available presets for RSA PSS signatures are:
 | `jws.PS384` | PS384        | `jwk.PS384`   |
 | `jws.PS512` | PS512        | `jwk.PS512`   |
 
-@tab ECDSA
+== ECDSA
 
 ```go
 package main
@@ -368,7 +364,7 @@ Available presets for ECDSA signatures are:
 | `jws.ES384` | ES384        | `jwk.ES384`   |
 | `jws.ES512` | ES512        | `jwk.ES512`   |
 
-@tab ED25519
+== ED25519
 
 ```go
 package main

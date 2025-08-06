@@ -1,8 +1,5 @@
 ---
-title: JSON Web Keys
-icon: material-symbols:key-outline-rounded
-category:
-  - keys
+outline: deep
 ---
 
 # JSON Web Keys

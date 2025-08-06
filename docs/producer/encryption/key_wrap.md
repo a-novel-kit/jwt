@@ -1,10 +1,5 @@
 ---
-title: Key Wrapping
-icon: material-symbols:inventory-2-outline
-category:
-  - producer
-  - encryption
-  - key sharing
+outline: deep
 ---
 
 # Key Wrapping
@@ -23,7 +18,7 @@ algorithm.
 
 ::: tabs
 
-@tab AES KW
+== AES KW
 
 ```go
 package main
@@ -53,7 +48,7 @@ Available presets:
 | `jwek.A192KW` | A192KW       |
 | `jwek.A256KW` | A256KW       |
 
-@tab AES-GCM KW
+== AES-GCM KW
 
 ```go
 package main

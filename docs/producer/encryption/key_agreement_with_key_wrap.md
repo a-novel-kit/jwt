@@ -1,10 +1,5 @@
 ---
-title: Key Agreement with Key Wrapping
-icon: material-symbols:encrypted-add-outline-rounded
-category:
-  - producer
-  - encryption
-  - key sharing
+outline: deep
 ---
 
 # Key Agreement with Key Wrapping

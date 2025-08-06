@@ -1,8 +1,5 @@
 ---
-title: Claims check
-icon: material-symbols:frame-inspect-rounded
-category:
-  - recipient
+outline: deep
 ---
 
 # Claims check

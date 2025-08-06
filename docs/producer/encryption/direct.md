@@ -1,10 +1,5 @@
 ---
-title: Direct Key Encryption
-icon: material-symbols:share-outline
-category:
-  - producer
-  - encryption
-  - key sharing
+outline: deep
 ---
 
 # Direct Key Encryption

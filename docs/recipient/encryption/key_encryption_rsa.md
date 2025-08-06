@@ -1,10 +1,5 @@
 ---
-title: Key Encryption (RSAES)
-icon: material-symbols:lock-open-circle-outline
-category:
-  - recipient
-  - encryption
-  - key sharing
+outline: deep
 ---
 
 # Key Encryption (RSAES)

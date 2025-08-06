@@ -1,10 +1,5 @@
 ---
-title: Key Encryption (PBES2)
-icon: material-symbols:password-rounded
-category:
-  - recipient
-  - encryption
-  - key sharing
+outline: deep
 ---
 
 # Key Encryption (PBES2)

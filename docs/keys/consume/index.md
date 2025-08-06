@@ -1,8 +1,5 @@
 ---
-title: Consume JWK
-icon: material-symbols:stream-rounded
-category:
-  - keys
+outline: deep
 ---
 
 # Consume JWK
@@ -43,7 +40,7 @@ This is a security measure to prevent misusage of a key.
 
 ::: tabs
 
-@tab AES (CEK)
+== AES (CEK)
 
 ```go
 package main
@@ -76,7 +73,7 @@ Available presets for use as Content-Encryption Keys (CEK) are:
 | `jwk.A192GCM` | A192GCM       |
 | `jwk.A256GCM` | A256GCM       |
 
-@tab AES (KEK)
+== AES (KEK)
 
 ```go
 package main
@@ -109,7 +106,7 @@ Available presets for use as Key-Encryption Keys (KEK) are:
 | `jwk.A192GCMKW` | A192GCMKW    |
 | `jwk.A256GCMKW` | A256GCMKW    |
 
-@tab HMAC (Sig)
+== HMAC (Sig)
 
 ```go
 package main
@@ -145,7 +142,7 @@ Available presets for use as Signature keys are:
 
 ::: tabs
 
-@tab ECDH (Key Agr)
+== ECDH (Key Agr)
 
 ```go
 package main
@@ -167,7 +164,7 @@ func main() {
 }
 ```
 
-@tab ECDSA (Sig)
+== ECDSA (Sig)
 
 ```go
 package main
@@ -197,7 +194,7 @@ Available presets for use as Signature keys are:
 | `jwk.ES384` | ES384        |
 | `jwk.ES512` | ES512        |
 
-@tab ED25519 (Sig)
+== ED25519 (Sig)
 
 ```go
 package main
@@ -219,7 +216,7 @@ func main() {
 }
 ```
 
-@tab RSA (Sig)
+== RSA (Sig)
 
 ```go
 package main
@@ -252,7 +249,7 @@ Available presets for use as Signature keys are:
 | `jwk.PS384` | PS384        |
 | `jwk.PS512` | PS512        |
 
-@tab RSA (Key Enc)
+== RSA (Key Enc)
 
 ```go
 package main

@@ -1,12 +1,8 @@
 ---
-title: Encrypt Token (JWE)
-icon: material-symbols:lock-outline
-category:
-  - producer
-  - encryption
+outline: deep
 ---
 
-# Encrypt tokens
+# Decrypt Token (JWE)
 
 Per the [specification](https://datatracker.ietf.org/doc/html/rfc7516):
 
@@ -18,16 +14,16 @@ Per the [specification](https://datatracker.ietf.org/doc/html/rfc7516):
 > Authentication Code (MAC) capabilities are described in the separate
 > JSON Web Signature (JWS) specification.
 
-Token Encryption is a 2-step process, between the producer and the recipient:
+Token Decryption is a 2-step process, between the producer and the recipient:
 
 - **Key sharing**: both party agree on a way to share a Content-Encryption Key (CEK). This method is described in the
   "alg" header of the JWT.
-- **Encryption**: both party agree on an algorithm used to encrypt the claims of the token. This algorithm takes the
+- **Decryption**: both party agree on an algorithm used to decrypt the claims of the token. This algorithm takes the
   CEK as an input, and can either produce or decode claims. This algorithm is described in the "enc" header of the JWT.
 
 ## Key sharing
 
-First, choose a Key Manager to agree on a Content-Encryption Key with the recipient:
+First, choose a Key Decoder to retrieve the Content-Encryption Key from the token / producer:
 
 - [Direct Key Encryption](./direct.md)
 - [Key Wrapping](./key_wrap.md)
@@ -36,21 +32,13 @@ First, choose a Key Manager to agree on a Content-Encryption Key with the recipi
 - [Key Encryption (PBES2)](./key_encryption_pbes2.md)
 - [Key Encryption (RSA)](./key_encryption_rsa.md)
 
-## Encryption
+## Decryption
 
-Once you have a Key Manager, and a Content-Encryption Key, you can encrypt your token.
-
-::: warning
-
-The `CEK` MUST have a specific length, depending on the "enc" value used (depends on the selected method and preset).
-You can refer to [JSON Web Keys](../../keys/generate.md) for hints on how to generate a valid CEK for your
-algorithm.
-
-:::
+Once you have a Key Decoder, and a Content-Encryption Key, you can decrypt your token.
 
 ::: tabs
 
-@tab AES CBC
+== AES CBC
 
 ```go
 package main
@@ -62,15 +50,15 @@ import (
 
 func main() {
 	// Create one using any of the methods above.
-	var manager jwe.CEKManager
+	var decoder jwe.CEKDecoder
 
-	encrypter := jwe.NewAESCBCEncryption(
-		&jwe.AESCBCEncryptionConfig{CEKManager: manager},
+	decrypter := jwe.NewAESCBCDecryption(
+		&jwe.AESCBCDecryptionConfig{CEKDecoder: manager},
 		jwe.A128CBCHS256,
 	)
 
-	producer := jwt.NewProducer(jwt.ProducerConfig{
-		Plugins: []jwt.ProducerPlugin{encrypter},
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{decrypter},
 	})
 }
 ```
@@ -83,7 +71,7 @@ Available presets:
 | `jwe.A192CBCHS384` | A192CBC-HS384 |
 | `jwe.A256CBCHS512` | A256CBC-HS512 |
 
-@tab AES GCM
+== AES GCM
 
 ```go
 package main
@@ -95,15 +83,15 @@ import (
 
 func main() {
 	// Create one using any of the methods above.
-	var manager jwe.CEKManager
+	var decoder jwe.CEKDecoder
 
-	encrypter := jwe.NewAESGCMEncryption(
-		&jwe.AESGCMEncryptionConfig{CEKManager: manager},
+	decrypter := jwe.NewAESGCMDecryption(
+		&jwe.AESGCMDecryptionConfig{CEKDecoder: manager},
 		jwe.A128GCM,
 	)
 
-	producer := jwt.NewProducer(jwt.ProducerConfig{
-		Plugins: []jwt.ProducerPlugin{encrypter},
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{decrypter},
 	})
 }
 ```

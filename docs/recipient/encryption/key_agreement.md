@@ -1,10 +1,5 @@
 ---
-title: Key Agreement
-icon: material-symbols:handshake-outline-rounded
-category:
-  - recipient
-  - encryption
-  - key sharing
+outline: deep
 ---
 
 # Key Agreement
