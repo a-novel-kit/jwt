@@ -14,7 +14,7 @@
   "license": "ISC",
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
-    "@vuepress/bundler-vite": "2.0.0-rc.19",
+    "@vuepress/bundler-vite": "2.0.0-rc.24",
     "@vuepress/plugin-markdown-container": "2.0.0-rc.30",
     "@vuepress/plugin-shiki": "2.0.0-rc.74",
     "@vuepress/theme-default": "2.0.0-rc.74",
