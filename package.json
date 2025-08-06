@@ -24,6 +24,6 @@
     "vuepress": "2.0.0-rc.19"
   },
   "dependencies": {
-    "vuepress-theme-hope": "2.0.0-rc.71"
+    "vuepress-theme-hope": "2.0.0-rc.94"
   }
 }
