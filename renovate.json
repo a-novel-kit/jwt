@@ -1,5 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "postUpdateOptions": ["gomodTidy"],
+  "postUpgradeTasks": {
+    "commands": ["go tool golangci-lint run ./... --fix"],
+    "executionMode": "branch"
+  },
   "extends": ["config:recommended"]
 }
