@@ -22,12 +22,12 @@ jobs:
     steps:
       - uses: a-novel-kit/workflows/go-actions/lint-go@master
 
-  lint-prettier:
+  lint-node:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/node-actions/prettier@master
+      - uses: a-novel-kit/workflows/node-actions/lint-node@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           app_private_key: ${{ secrets.DEPENDENCY_BOT_PRIVATE_KEY }}
@@ -56,7 +56,7 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' && success()
-    needs: [test, lint-go, lint-prettier]
+    needs: [test, lint-go, lint-node]
     permissions:
       contents: read
       pages: write

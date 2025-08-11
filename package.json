@@ -1,0 +1,17 @@
+{
+  "name": "jwt",
+  "version": "1.0.0",
+  "license": "AGPL-3.0",
+  "scripts": {
+    "format": "prettier --write .",
+    "lint": "pnpm run lint:prettier",
+    "lint:prettier": "prettier --check .",
+    "publish:major": "pnpm version major && git push --follow-tags",
+    "publish:minor": "pnpm version minor && git push --follow-tags",
+    "publish:patch": "pnpm version patch && git push --follow-tags"
+  },
+  "packageManager": "pnpm@10.14.0",
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}
