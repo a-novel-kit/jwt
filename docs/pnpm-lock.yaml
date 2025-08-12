@@ -16,7 +16,7 @@ importers:
         version: 24.2.1
       vite:
         specifier: ^7.0.6
-        version: 7.1.1(@types/node@24.2.1)
+        version: 7.1.2(@types/node@24.2.1)
       vitepress:
         specifier: ^1.6.3
         version: 1.6.4(@algolia/client-search@5.35.0)(@types/node@24.2.1)(postcss@8.5.6)(search-insights@2.17.3)
@@ -1023,8 +1023,8 @@ packages:
       terser:
         optional: true
 
-  vite@7.1.1:
-    resolution: {integrity: sha512-yJ+Mp7OyV+4S+afWo+QyoL9jFWD11QFH0i5i7JypnfTcA1rmgxCbiA8WwAICDEtZ1Z1hzrVhN8R8rGTqkTY8ZQ==}
+  vite@7.1.2:
+    resolution: {integrity: sha512-J0SQBPlQiEXAF7tajiH+rUooJPo0l8KQgyg4/aMunNtrOa7bwuZJsJbDWzeljqQpgftxuq5yNJxQ91O9ts29UQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -2024,7 +2024,7 @@ snapshots:
       '@types/node': 24.2.1
       fsevents: 2.3.3
 
-  vite@7.1.1(@types/node@24.2.1):
+  vite@7.1.2(@types/node@24.2.1):
     dependencies:
       esbuild: 0.25.8
       fdir: 6.4.6(picomatch@4.0.3)
