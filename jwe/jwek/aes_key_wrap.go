@@ -43,6 +43,23 @@ type AESKWManager struct {
 	keyLen int
 }
 
+// NewAESKWManager creates a new jwe.CEKManager for a key derived using AES Key Wrap.
+//
+// Use any of the AESKWPreset constants to set the algorithm and key length.
+//   - A128KW: 16 bytes key length
+//   - A192KW: 24 bytes key length
+//   - A256KW: 32 bytes key length
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.4
+func NewAESKWManager(config *AESKWManagerConfig, preset AESKWPreset) *AESKWManager {
+	return &AESKWManager{
+		cek:     config.CEK,
+		wrapKey: config.WrapKey,
+		alg:     preset.Alg,
+		keyLen:  preset.KeyLen,
+	}
+}
+
 func (manager *AESKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(AESKW.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -78,23 +95,6 @@ func (manager *AESKWManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byt
 	return wrapped, nil
 }
 
-// NewAESKWManager creates a new jwe.CEKManager for a key derived using AES Key Wrap.
-//
-// Use any of the AESKWPreset constants to set the algorithm and key length.
-//   - A128KW: 16 bytes key length
-//   - A192KW: 24 bytes key length
-//   - A256KW: 32 bytes key length
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-4.4
-func NewAESKWManager(config *AESKWManagerConfig, preset AESKWPreset) *AESKWManager {
-	return &AESKWManager{
-		cek:     config.CEK,
-		wrapKey: config.WrapKey,
-		alg:     preset.Alg,
-		keyLen:  preset.KeyLen,
-	}
-}
-
 type AESKWDecoderConfig struct {
 	WrapKey []byte
 }
@@ -104,6 +104,22 @@ type AESKWDecoder struct {
 
 	alg    jwa.Alg
 	keyLen int
+}
+
+// NewAESKWDecoder creates a new jwe.CEKDecoder for a key derived using AES Key Wrap.
+//
+// Use any of the AESKWPreset constants to set the algorithm and key length.
+//   - A128KW: 16 bytes key length
+//   - A192KW: 24 bytes key length
+//   - A256KW: 32 bytes key length
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.4
+func NewAESKWDecoder(secret *AESKWDecoderConfig, preset AESKWPreset) *AESKWDecoder {
+	return &AESKWDecoder{
+		wrapKey: secret.WrapKey,
+		alg:     preset.Alg,
+		keyLen:  preset.KeyLen,
+	}
 }
 
 func (decoder *AESKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
@@ -139,20 +155,4 @@ func (decoder *AESKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encK
 	}
 
 	return cek, nil
-}
-
-// NewAESKWDecoder creates a new jwe.CEKDecoder for a key derived using AES Key Wrap.
-//
-// Use any of the AESKWPreset constants to set the algorithm and key length.
-//   - A128KW: 16 bytes key length
-//   - A192KW: 24 bytes key length
-//   - A256KW: 32 bytes key length
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-4.4
-func NewAESKWDecoder(secret *AESKWDecoderConfig, preset AESKWPreset) *AESKWDecoder {
-	return &AESKWDecoder{
-		wrapKey: secret.WrapKey,
-		alg:     preset.Alg,
-		keyLen:  preset.KeyLen,
-	}
 }

@@ -16,6 +16,15 @@ type ED25519Signer struct {
 	secretKey ed25519.PrivateKey
 }
 
+// NewED25519Signer creates a new jwt.ProducerPlugin for a signed token using Edwards-Curve Digital Signature Algorithm.
+//
+// https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
+func NewED25519Signer(secretKey ed25519.PrivateKey) *ED25519Signer {
+	return &ED25519Signer{
+		secretKey: secretKey,
+	}
+}
+
 func (signer *ED25519Signer) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(ED25519Signer.Header) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -41,17 +50,18 @@ func (signer *ED25519Signer) Transform(_ context.Context, _ *jwa.JWH, rawToken s
 	}.String(), nil
 }
 
-// NewED25519Signer creates a new jwt.ProducerPlugin for a signed token using Edwards-Curve Digital Signature Algorithm.
-//
-// https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
-func NewED25519Signer(secretKey ed25519.PrivateKey) *ED25519Signer {
-	return &ED25519Signer{
-		secretKey: secretKey,
-	}
-}
-
 type ED25519Verifier struct {
 	publicKey ed25519.PublicKey
+}
+
+// NewED25519Verifier creates a new jwt.RecipientPlugin for a signed token using Edwards-Curve Digital Signature
+// Algorithm.
+//
+// https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
+func NewED25519Verifier(publicKey ed25519.PublicKey) *ED25519Verifier {
+	return &ED25519Verifier{
+		publicKey: publicKey,
+	}
 }
 
 func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
@@ -86,18 +96,18 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 	return decoded, nil
 }
 
-// NewED25519Verifier creates a new jwt.RecipientPlugin for a signed token using Edwards-Curve Digital Signature
-// Algorithm.
-//
-// https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
-func NewED25519Verifier(publicKey ed25519.PublicKey) *ED25519Verifier {
-	return &ED25519Verifier{
-		publicKey: publicKey,
-	}
-}
-
 type SourcedED25519Signer struct {
 	source *jwk.Source[ed25519.PrivateKey]
+}
+
+// NewSourcedED25519Signer creates a new jwt.ProducerPlugin for a signed token using Edwards-Curve Digital
+// Signature Algorithm.
+//
+// https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
+func NewSourcedED25519Signer(source *jwk.Source[ed25519.PrivateKey]) *SourcedED25519Signer {
+	return &SourcedED25519Signer{
+		source: source,
+	}
 }
 
 func (signer *SourcedED25519Signer) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
@@ -123,18 +133,18 @@ func (signer *SourcedED25519Signer) Transform(ctx context.Context, header *jwa.J
 	return NewED25519Signer(key.Key()).Transform(ctx, header, rawToken)
 }
 
-// NewSourcedED25519Signer creates a new jwt.ProducerPlugin for a signed token using Edwards-Curve Digital
+type SourcedED25519Verifier struct {
+	source *jwk.Source[ed25519.PublicKey]
+}
+
+// NewSourcedED25519Verifier creates a new jwt.RecipientPlugin for a signed token using Edwards-Curve Digital
 // Signature Algorithm.
 //
 // https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
-func NewSourcedED25519Signer(source *jwk.Source[ed25519.PrivateKey]) *SourcedED25519Signer {
-	return &SourcedED25519Signer{
+func NewSourcedED25519Verifier(source *jwk.Source[ed25519.PublicKey]) *SourcedED25519Verifier {
+	return &SourcedED25519Verifier{
 		source: source,
 	}
-}
-
-type SourcedED25519Verifier struct {
-	source *jwk.Source[ed25519.PublicKey]
 }
 
 func (verifier *SourcedED25519Verifier) Transform(
@@ -162,14 +172,4 @@ func (verifier *SourcedED25519Verifier) Transform(
 	}
 
 	return nil, fmt.Errorf("(SourcedED25519Verifier.Transform) %w", ErrInvalidSignature)
-}
-
-// NewSourcedED25519Verifier creates a new jwt.RecipientPlugin for a signed token using Edwards-Curve Digital
-// Signature Algorithm.
-//
-// https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
-func NewSourcedED25519Verifier(source *jwk.Source[ed25519.PublicKey]) *SourcedED25519Verifier {
-	return &SourcedED25519Verifier{
-		source: source,
-	}
 }

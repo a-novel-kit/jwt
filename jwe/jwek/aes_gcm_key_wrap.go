@@ -46,6 +46,25 @@ type AESGCMKWManager struct {
 	keyLen int
 }
 
+// NewAESGCMKWManager creates a new jwe.CEKManager for a key derived using AES GCM Key Wrap.
+//
+// Use any of the AESGCMKWPreset constants to set the algorithm and key length.
+//   - A128GCMKW: 16 bytes key length
+//   - A192GCMKW: 24 bytes key length
+//   - A256GCMKW: 32 bytes key length
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.7
+func NewAESGCMKWManager(
+	config *AESGCMKWManagerConfig, preset AESGCMKWPreset,
+) *AESGCMKWManager {
+	return &AESGCMKWManager{
+		cek:     config.CEK,
+		wrapKey: config.WrapKey,
+		alg:     preset.Alg,
+		keyLen:  preset.KeyLen,
+	}
+}
+
 func (manager *AESGCMKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(AESGCMKW.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -107,25 +126,6 @@ func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, c
 	return ciphertext, nil
 }
 
-// NewAESGCMKWManager creates a new jwe.CEKManager for a key derived using AES GCM Key Wrap.
-//
-// Use any of the AESGCMKWPreset constants to set the algorithm and key length.
-//   - A128GCMKW: 16 bytes key length
-//   - A192GCMKW: 24 bytes key length
-//   - A256GCMKW: 32 bytes key length
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-4.7
-func NewAESGCMKWManager(
-	config *AESGCMKWManagerConfig, preset AESGCMKWPreset,
-) *AESGCMKWManager {
-	return &AESGCMKWManager{
-		cek:     config.CEK,
-		wrapKey: config.WrapKey,
-		alg:     preset.Alg,
-		keyLen:  preset.KeyLen,
-	}
-}
-
 type AESGCMKWDecoderConfig struct {
 	WrapKey []byte
 }
@@ -134,6 +134,22 @@ type AESGCMKWDecoder struct {
 	wrapKey []byte
 	alg     jwa.Alg
 	keyLen  int
+}
+
+// NewAESGCMKWDecoder creates a new jwe.CEKDecoder for a key derived using AES GCM Key Wrap.
+//
+// Use any of the AESGCMKWPreset constants to set the algorithm and key length.
+//   - A128GCMKW: 16 bytes key length
+//   - A192GCMKW: 24 bytes key length
+//   - A256GCMKW: 32 bytes key length
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.7
+func NewAESGCMKWDecoder(config *AESGCMKWDecoderConfig, preset AESGCMKWPreset) *AESGCMKWDecoder {
+	return &AESGCMKWDecoder{
+		wrapKey: config.WrapKey,
+		alg:     preset.Alg,
+		keyLen:  preset.KeyLen,
+	}
 }
 
 func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
@@ -192,20 +208,4 @@ func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, e
 	}
 
 	return cek, nil
-}
-
-// NewAESGCMKWDecoder creates a new jwe.CEKDecoder for a key derived using AES GCM Key Wrap.
-//
-// Use any of the AESGCMKWPreset constants to set the algorithm and key length.
-//   - A128GCMKW: 16 bytes key length
-//   - A192GCMKW: 24 bytes key length
-//   - A256GCMKW: 32 bytes key length
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-4.7
-func NewAESGCMKWDecoder(config *AESGCMKWDecoderConfig, preset AESGCMKWPreset) *AESGCMKWDecoder {
-	return &AESGCMKWDecoder{
-		wrapKey: config.WrapKey,
-		alg:     preset.Alg,
-		keyLen:  preset.KeyLen,
-	}
 }

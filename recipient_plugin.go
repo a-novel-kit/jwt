@@ -17,6 +17,10 @@ type RecipientPlugin interface {
 
 type DefaultRecipientPlugin struct{}
 
+func NewDefaultRecipientPlugin() *DefaultRecipientPlugin {
+	return &DefaultRecipientPlugin{}
+}
+
 func (plugin *DefaultRecipientPlugin) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
 	if header.Alg != "" && header.Alg != jwa.None {
 		return nil, fmt.Errorf(
@@ -36,8 +40,4 @@ func (plugin *DefaultRecipientPlugin) Transform(_ context.Context, header *jwa.J
 	}
 
 	return decodedPayload, nil
-}
-
-func NewDefaultRecipientPlugin() *DefaultRecipientPlugin {
-	return &DefaultRecipientPlugin{}
 }

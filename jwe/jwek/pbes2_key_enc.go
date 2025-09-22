@@ -62,6 +62,21 @@ type PBES2KeyEncKWConfig struct {
 	keySize int
 }
 
+// NewPBES2KeyEncKWManager creates a new jwe.CEKManager for a key derived using PBES2.
+//
+// Use any of the PBES2KeyEncKWPreset constants to set the algorithm and key length.
+//   - PBES2A128KW: PBES2 using HMAC with SHA-256 and a key size of 128 bits
+//   - PBES2A192KW: PBES2 using HMAC with SHA-384 and a key size of 192 bits
+//   - PBES2A256KW: PBES2 using HMAC with SHA-512 and a key size of 256 bits
+func NewPBES2KeyEncKWManager(config *PBES2KeyEncKWManagerConfig, preset PBES2KeyEncKWPreset) *PBES2KeyEncKWConfig {
+	return &PBES2KeyEncKWConfig{
+		config:  *config,
+		alg:     preset.Alg,
+		hash:    preset.Hash,
+		keySize: preset.KeySize,
+	}
+}
+
 func (manager *PBES2KeyEncKWConfig) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(PBES2KeyEncKWConfig.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -112,21 +127,6 @@ func (manager *PBES2KeyEncKWConfig) EncryptCEK(_ context.Context, header *jwa.JW
 	return wrapped, nil
 }
 
-// NewPBES2KeyEncKWManager creates a new jwe.CEKManager for a key derived using PBES2.
-//
-// Use any of the PBES2KeyEncKWPreset constants to set the algorithm and key length.
-//   - PBES2A128KW: PBES2 using HMAC with SHA-256 and a key size of 128 bits
-//   - PBES2A192KW: PBES2 using HMAC with SHA-384 and a key size of 192 bits
-//   - PBES2A256KW: PBES2 using HMAC with SHA-512 and a key size of 256 bits
-func NewPBES2KeyEncKWManager(config *PBES2KeyEncKWManagerConfig, preset PBES2KeyEncKWPreset) *PBES2KeyEncKWConfig {
-	return &PBES2KeyEncKWConfig{
-		config:  *config,
-		alg:     preset.Alg,
-		hash:    preset.Hash,
-		keySize: preset.KeySize,
-	}
-}
-
 type PBES2KeyEncKWDecoderConfig struct {
 	// Secret used to decrypt the CEK.
 	Secret string
@@ -138,6 +138,21 @@ type PBES2KeyEncKWDecoder struct {
 	alg     jwa.Alg
 	hash    crypto.Hash
 	keySize int
+}
+
+// NewPBES2KeyEncKWDecoder creates a new jwe.CEKDecoder for a key derived using PBES2.
+//
+// Use any of the PBES2KeyEncKWPreset constants to set the algorithm and key length.
+//   - PBES2A128KW: PBES2 using HMAC with SHA-256 and a key size of 128 bits
+//   - PBES2A192KW: PBES2 using HMAC with SHA-384 and a key size of 192 bits
+//   - PBES2A256KW: PBES2 using HMAC with SHA-512 and a key size of 256 bits
+func NewPBES2KeyEncKWDecoder(config *PBES2KeyEncKWDecoderConfig, preset PBES2KeyEncKWPreset) *PBES2KeyEncKWDecoder {
+	return &PBES2KeyEncKWDecoder{
+		config:  *config,
+		alg:     preset.Alg,
+		hash:    preset.Hash,
+		keySize: preset.KeySize,
+	}
 }
 
 func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
@@ -174,19 +189,4 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 	}
 
 	return cek, nil
-}
-
-// NewPBES2KeyEncKWDecoder creates a new jwe.CEKDecoder for a key derived using PBES2.
-//
-// Use any of the PBES2KeyEncKWPreset constants to set the algorithm and key length.
-//   - PBES2A128KW: PBES2 using HMAC with SHA-256 and a key size of 128 bits
-//   - PBES2A192KW: PBES2 using HMAC with SHA-384 and a key size of 192 bits
-//   - PBES2A256KW: PBES2 using HMAC with SHA-512 and a key size of 256 bits
-func NewPBES2KeyEncKWDecoder(config *PBES2KeyEncKWDecoderConfig, preset PBES2KeyEncKWPreset) *PBES2KeyEncKWDecoder {
-	return &PBES2KeyEncKWDecoder{
-		config:  *config,
-		alg:     preset.Alg,
-		hash:    preset.Hash,
-		keySize: preset.KeySize,
-	}
 }

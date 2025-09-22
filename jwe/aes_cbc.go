@@ -68,20 +68,24 @@ type AESCBCEncryption struct {
 	tagLength    int
 }
 
-func (enc *AESCBCEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byte, error) {
-	secret, err := enc.cekManager.ComputeCEK(ctx, header)
-	if err != nil {
-		return nil, fmt.Errorf("(AESCBCEncryption.getCEK) compute cek: %w", err)
+// NewAESCBCEncryption creates a new jwt.ProducerPlugin for an encrypted token using AES_CBC_HMAC_SHA2.
+//
+// Use any of the AESCBCPreset constants to set the algorithm and hash function.
+//   - A128CBCHS256: AES-128-CBC with HMAC-SHA-256
+//   - A192CBCHS384: AES-192-CBC with HMAC-SHA-384
+//   - A256CBCHS512: AES-256-CBC with HMAC-SHA-512
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
+func NewAESCBCEncryption(config *AESCBCEncryptionConfig, presets AESCBCPreset) *AESCBCEncryption {
+	return &AESCBCEncryption{
+		cekManager:     config.CEKManager,
+		additionalData: config.AdditionalData,
+		enc:            presets.Enc,
+		hash:           presets.Hash,
+		keyLength:      presets.EncKeyLen,
+		macKeyLength:   presets.MACKeyLen,
+		tagLength:      presets.TagLength,
 	}
-
-	if len(secret) != enc.keyLength+enc.macKeyLength {
-		return nil, fmt.Errorf(
-			"(AESCBCEncryption.getCEK) %w: cek has length %d, expected %d",
-			ErrInvalidSecret, len(secret), enc.keyLength+enc.macKeyLength,
-		)
-	}
-
-	return secret, nil
 }
 
 func (enc *AESCBCEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
@@ -206,24 +210,20 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}.String(), nil
 }
 
-// NewAESCBCEncryption creates a new jwt.ProducerPlugin for an encrypted token using AES_CBC_HMAC_SHA2.
-//
-// Use any of the AESCBCPreset constants to set the algorithm and hash function.
-//   - A128CBCHS256: AES-128-CBC with HMAC-SHA-256
-//   - A192CBCHS384: AES-192-CBC with HMAC-SHA-384
-//   - A256CBCHS512: AES-256-CBC with HMAC-SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
-func NewAESCBCEncryption(config *AESCBCEncryptionConfig, presets AESCBCPreset) *AESCBCEncryption {
-	return &AESCBCEncryption{
-		cekManager:     config.CEKManager,
-		additionalData: config.AdditionalData,
-		enc:            presets.Enc,
-		hash:           presets.Hash,
-		keyLength:      presets.EncKeyLen,
-		macKeyLength:   presets.MACKeyLen,
-		tagLength:      presets.TagLength,
+func (enc *AESCBCEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byte, error) {
+	secret, err := enc.cekManager.ComputeCEK(ctx, header)
+	if err != nil {
+		return nil, fmt.Errorf("(AESCBCEncryption.getCEK) compute cek: %w", err)
 	}
+
+	if len(secret) != enc.keyLength+enc.macKeyLength {
+		return nil, fmt.Errorf(
+			"(AESCBCEncryption.getCEK) %w: cek has length %d, expected %d",
+			ErrInvalidSecret, len(secret), enc.keyLength+enc.macKeyLength,
+		)
+	}
+
+	return secret, nil
 }
 
 type AESCBCDecryptionConfig struct {
@@ -240,6 +240,26 @@ type AESCBCDecryption struct {
 	keyLength    int
 	macKeyLength int
 	tagLength    int
+}
+
+// NewAESCBCDecryption creates a new jwt.RecipientPlugin for a decrypted token using AES_CBC_HMAC_SHA2.
+//
+// Use any of the AESCBCPreset constants to set the algorithm and hash function.
+//   - A128CBCHS256: AES-128-CBC with HMAC-SHA-256
+//   - A192CBCHS384: AES-192-CBC with HMAC-SHA-384
+//   - A256CBCHS512: AES-256-CBC with HMAC-SHA-512
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
+func NewAESCBCDecryption(config *AESCBCDecryptionConfig, presets AESCBCPreset) *AESCBCDecryption {
+	return &AESCBCDecryption{
+		cekDecoder:     config.CEKDecoder,
+		additionalData: config.AdditionalData,
+		enc:            presets.Enc,
+		hash:           presets.Hash,
+		keyLength:      presets.EncKeyLen,
+		macKeyLength:   presets.MACKeyLen,
+		tagLength:      presets.TagLength,
+	}
 }
 
 func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
@@ -345,24 +365,4 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	blockMode.CryptBlocks(origData, cipherText)
 
 	return internal.PKCS7UnPadding(origData), nil
-}
-
-// NewAESCBCDecryption creates a new jwt.RecipientPlugin for a decrypted token using AES_CBC_HMAC_SHA2.
-//
-// Use any of the AESCBCPreset constants to set the algorithm and hash function.
-//   - A128CBCHS256: AES-128-CBC with HMAC-SHA-256
-//   - A192CBCHS384: AES-192-CBC with HMAC-SHA-384
-//   - A256CBCHS512: AES-256-CBC with HMAC-SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
-func NewAESCBCDecryption(config *AESCBCDecryptionConfig, presets AESCBCPreset) *AESCBCDecryption {
-	return &AESCBCDecryption{
-		cekDecoder:     config.CEKDecoder,
-		additionalData: config.AdditionalData,
-		enc:            presets.Enc,
-		hash:           presets.Hash,
-		keyLength:      presets.EncKeyLen,
-		macKeyLength:   presets.MACKeyLen,
-		tagLength:      presets.TagLength,
-	}
 }

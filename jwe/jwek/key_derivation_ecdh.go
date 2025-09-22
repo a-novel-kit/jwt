@@ -63,6 +63,33 @@ type ECDHKeyAgrManager struct {
 	keyLen int
 }
 
+// NewECDHKeyAgrManager creates a new jwe.CEKManager factory for a key derivation using ECDH.
+//
+// Use any of the ECDHKeyAgrPreset constants to set the algorithm and key length.
+//   - ECDHESA128CBC: ECDH-ES using Concat KDF and CEK length of 128 bits
+//   - ECDHESA192CBC: ECDH-ES using Concat KDF and CEK length of 192 bits
+//   - ECDHESA256CBC: ECDH-ES using Concat KDF and CEK length of 256 bits
+//   - ECDHESA128GCM: ECDH-ES using Concat KDF and CEK length of 128 bits
+//   - ECDHESA192GCM: ECDH-ES using Concat KDF and CEK length of 192 bits
+//   - ECDHESA256GCM: ECDH-ES using Concat KDF and CEK length of 256 bits
+//
+// This manager is NOT encryption agnostic.
+//   - ECDHESA128CBC requires jwe.A128CBCHS256 encryption
+//   - ECDHESA192CBC requires jwe.A192CBCHS384 encryption
+//   - ECDHESA256CBC requires jwe.A256CBCHS512 encryption
+//   - ECDHESA128GCM requires jwe.A128GCM encryption
+//   - ECDHESA192GCM requires jwe.A192GCM encryption
+//   - ECDHESA256GCM requires jwe.A256GCM encryption
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
+func NewECDHKeyAgrManager(config *ECDHKeyAgrManagerConfig, preset ECDHKeyAgrPreset) *ECDHKeyAgrManager {
+	return &ECDHKeyAgrManager{
+		config: *config,
+		enc:    preset.Enc,
+		keyLen: preset.KeyLen,
+	}
+}
+
 func (manager *ECDHKeyAgrManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(ECDHKeyAgrManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -109,7 +136,18 @@ func (manager *ECDHKeyAgrManager) EncryptCEK(_ context.Context, _ *jwa.JWH, _ []
 	return nil, nil
 }
 
-// NewECDHKeyAgrManager creates a new jwe.CEKManager factory for a key derivation using ECDH.
+type ECDHKeyAgrDecoderConfig struct {
+	RecipientKey *ecdh.PrivateKey
+}
+
+type ECDHKeyAgrDecoder struct {
+	config ECDHKeyAgrDecoderConfig
+
+	enc    jwa.Enc
+	keyLen int
+}
+
+// NewECDHKeyAgrDecoder creates a new jwe.CEKDecoder factory for a key derivation using ECDH.
 //
 // Use any of the ECDHKeyAgrPreset constants to set the algorithm and key length.
 //   - ECDHESA128CBC: ECDH-ES using Concat KDF and CEK length of 128 bits
@@ -128,23 +166,12 @@ func (manager *ECDHKeyAgrManager) EncryptCEK(_ context.Context, _ *jwa.JWH, _ []
 //   - ECDHESA256GCM requires jwe.A256GCM encryption
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
-func NewECDHKeyAgrManager(config *ECDHKeyAgrManagerConfig, preset ECDHKeyAgrPreset) *ECDHKeyAgrManager {
-	return &ECDHKeyAgrManager{
+func NewECDHKeyAgrDecoder(config *ECDHKeyAgrDecoderConfig, preset ECDHKeyAgrPreset) *ECDHKeyAgrDecoder {
+	return &ECDHKeyAgrDecoder{
 		config: *config,
 		enc:    preset.Enc,
 		keyLen: preset.KeyLen,
 	}
-}
-
-type ECDHKeyAgrDecoderConfig struct {
-	RecipientKey *ecdh.PrivateKey
-}
-
-type ECDHKeyAgrDecoder struct {
-	config ECDHKeyAgrDecoderConfig
-
-	enc    jwa.Enc
-	keyLen int
 }
 
 func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
@@ -199,31 +226,4 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 	}
 
 	return cek, nil
-}
-
-// NewECDHKeyAgrDecoder creates a new jwe.CEKDecoder factory for a key derivation using ECDH.
-//
-// Use any of the ECDHKeyAgrPreset constants to set the algorithm and key length.
-//   - ECDHESA128CBC: ECDH-ES using Concat KDF and CEK length of 128 bits
-//   - ECDHESA192CBC: ECDH-ES using Concat KDF and CEK length of 192 bits
-//   - ECDHESA256CBC: ECDH-ES using Concat KDF and CEK length of 256 bits
-//   - ECDHESA128GCM: ECDH-ES using Concat KDF and CEK length of 128 bits
-//   - ECDHESA192GCM: ECDH-ES using Concat KDF and CEK length of 192 bits
-//   - ECDHESA256GCM: ECDH-ES using Concat KDF and CEK length of 256 bits
-//
-// This manager is NOT encryption agnostic.
-//   - ECDHESA128CBC requires jwe.A128CBCHS256 encryption
-//   - ECDHESA192CBC requires jwe.A192CBCHS384 encryption
-//   - ECDHESA256CBC requires jwe.A256CBCHS512 encryption
-//   - ECDHESA128GCM requires jwe.A128GCM encryption
-//   - ECDHESA192GCM requires jwe.A192GCM encryption
-//   - ECDHESA256GCM requires jwe.A256GCM encryption
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
-func NewECDHKeyAgrDecoder(config *ECDHKeyAgrDecoderConfig, preset ECDHKeyAgrPreset) *ECDHKeyAgrDecoder {
-	return &ECDHKeyAgrDecoder{
-		config: *config,
-		enc:    preset.Enc,
-		keyLen: preset.KeyLen,
-	}
 }

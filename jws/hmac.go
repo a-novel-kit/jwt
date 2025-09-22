@@ -40,6 +40,22 @@ type HMACSigner struct {
 	hash crypto.Hash
 }
 
+// NewHMACSigner creates a new jwt.ProducerPlugin for a signed token using HMAC with SHA-2.
+//
+// Use any of the HMACPreset constants to configure the signing parameters.
+//   - HS256: HMAC using SHA-256
+//   - HS384: HMAC using SHA-384
+//   - HS512: HMAC using SHA-512
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
+func NewHMACSigner(secretKey []byte, preset HMACPreset) *HMACSigner {
+	return &HMACSigner{
+		secretKey: secretKey,
+		alg:       preset.Alg,
+		hash:      preset.Hash,
+	}
+}
+
 func (signer *HMACSigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(HMACSigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -68,7 +84,14 @@ func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw stri
 	}.String(), nil
 }
 
-// NewHMACSigner creates a new jwt.ProducerPlugin for a signed token using HMAC with SHA-2.
+type HMACVerifier struct {
+	secretKey []byte
+
+	alg  jwa.Alg
+	hash crypto.Hash
+}
+
+// NewHMACVerifier creates a new jwt.RecipientPlugin for a signed token using HMAC with SHA-2.
 //
 // Use any of the HMACPreset constants to configure the signing parameters.
 //   - HS256: HMAC using SHA-256
@@ -76,19 +99,12 @@ func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw stri
 //   - HS512: HMAC using SHA-512
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
-func NewHMACSigner(secretKey []byte, preset HMACPreset) *HMACSigner {
-	return &HMACSigner{
+func NewHMACVerifier(secretKey []byte, preset HMACPreset) *HMACVerifier {
+	return &HMACVerifier{
 		secretKey: secretKey,
 		alg:       preset.Alg,
 		hash:      preset.Hash,
 	}
-}
-
-type HMACVerifier struct {
-	secretKey []byte
-
-	alg  jwa.Alg
-	hash crypto.Hash
 }
 
 func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
@@ -126,7 +142,12 @@ func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawT
 	return decoded, nil
 }
 
-// NewHMACVerifier creates a new jwt.RecipientPlugin for a signed token using HMAC with SHA-2.
+type SourceHMACSigner struct {
+	source *jwk.Source[[]byte]
+	preset HMACPreset
+}
+
+// NewSourcedHMACSigner creates a new jwt.ProducerPlugin for a signed token using HMAC with SHA-2.
 //
 // Use any of the HMACPreset constants to configure the signing parameters.
 //   - HS256: HMAC using SHA-256
@@ -134,17 +155,11 @@ func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawT
 //   - HS512: HMAC using SHA-512
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
-func NewHMACVerifier(secretKey []byte, preset HMACPreset) *HMACVerifier {
-	return &HMACVerifier{
-		secretKey: secretKey,
-		alg:       preset.Alg,
-		hash:      preset.Hash,
+func NewSourcedHMACSigner(source *jwk.Source[[]byte], preset HMACPreset) *SourceHMACSigner {
+	return &SourceHMACSigner{
+		source: source,
+		preset: preset,
 	}
-}
-
-type SourceHMACSigner struct {
-	source *jwk.Source[[]byte]
-	preset HMACPreset
 }
 
 func (signer *SourceHMACSigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
@@ -170,7 +185,12 @@ func (signer *SourceHMACSigner) Transform(ctx context.Context, header *jwa.JWH, 
 	return NewHMACSigner(key.Key(), signer.preset).Transform(ctx, header, rawToken)
 }
 
-// NewSourceHMACSigner creates a new jwt.ProducerPlugin for a signed token using HMAC with SHA-2.
+type SourceHMACVerifier struct {
+	source *jwk.Source[[]byte]
+	preset HMACPreset
+}
+
+// NewSourcedHMACVerifier creates a new jwt.RecipientPlugin for a signed token using HMAC with SHA-2.
 //
 // Use any of the HMACPreset constants to configure the signing parameters.
 //   - HS256: HMAC using SHA-256
@@ -178,16 +198,11 @@ func (signer *SourceHMACSigner) Transform(ctx context.Context, header *jwa.JWH, 
 //   - HS512: HMAC using SHA-512
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
-func NewSourcedHMACSigner(source *jwk.Source[[]byte], preset HMACPreset) *SourceHMACSigner {
-	return &SourceHMACSigner{
+func NewSourcedHMACVerifier(source *jwk.Source[[]byte], preset HMACPreset) *SourceHMACVerifier {
+	return &SourceHMACVerifier{
 		source: source,
 		preset: preset,
 	}
-}
-
-type SourceHMACVerifier struct {
-	source *jwk.Source[[]byte]
-	preset HMACPreset
 }
 
 func (verifier *SourceHMACVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
@@ -213,19 +228,4 @@ func (verifier *SourceHMACVerifier) Transform(ctx context.Context, header *jwa.J
 	}
 
 	return nil, fmt.Errorf("(SourceHMACVerifier.Transform) %w", ErrInvalidSignature)
-}
-
-// NewSourceHMACVerifier creates a new jwt.RecipientPlugin for a signed token using HMAC with SHA-2.
-//
-// Use any of the HMACPreset constants to configure the signing parameters.
-//   - HS256: HMAC using SHA-256
-//   - HS384: HMAC using SHA-384
-//   - HS512: HMAC using SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
-func NewSourcedHMACVerifier(source *jwk.Source[[]byte], preset HMACPreset) *SourceHMACVerifier {
-	return &SourceHMACVerifier{
-		source: source,
-		preset: preset,
-	}
 }

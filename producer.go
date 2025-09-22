@@ -21,6 +21,13 @@ type Producer struct {
 	header *HeaderProducer
 }
 
+func NewProducer(config ProducerConfig) *Producer {
+	return &Producer{
+		config: config,
+		header: NewHeaderProducer(config.Header),
+	}
+}
+
 func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader any) (string, error) {
 	header, err := producer.header.New(customHeader)
 	if err != nil {
@@ -68,11 +75,4 @@ func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader 
 	}
 
 	return token, nil
-}
-
-func NewProducer(config ProducerConfig) *Producer {
-	return &Producer{
-		config: config,
-		header: NewHeaderProducer(config.Header),
-	}
 }

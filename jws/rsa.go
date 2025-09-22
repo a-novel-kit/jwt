@@ -41,6 +41,23 @@ type RSASigner struct {
 	hash crypto.Hash
 }
 
+// NewRSASigner creates a new jwt.ProducerPlugin for a signed token using RSASSA-PKCS1-v1_5.
+// A key of size 2048 bits or larger MUST be used with these algorithms.
+//
+// Use any of the RSAPreset constants to configure the signing parameters.
+//   - RS256: RSASSA-PKCS1-v1_5 using SHA-256
+//   - RS384: RSASSA-PKCS1-v1_5 using SHA-384
+//   - RS512: RSASSA-PKCS1-v1_5 using SHA-512
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
+func NewRSASigner(secretKey *rsa.PrivateKey, preset RSAPreset) *RSASigner {
+	return &RSASigner{
+		secretKey: secretKey,
+		alg:       preset.Alg,
+		hash:      preset.Hash,
+	}
+}
+
 func (signer *RSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(RSASigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -72,7 +89,14 @@ func (signer *RSASigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw strin
 	}.String(), nil
 }
 
-// NewRSASigner creates a new jwt.ProducerPlugin for a signed token using RSASSA-PKCS1-v1_5.
+type RSAVerifier struct {
+	publicKey *rsa.PublicKey
+
+	alg  jwa.Alg
+	hash crypto.Hash
+}
+
+// NewRSAVerifier creates a new jwt.RecipientPlugin for a signed token using RSASSA-PKCS1-v1_5.
 // A key of size 2048 bits or larger MUST be used with these algorithms.
 //
 // Use any of the RSAPreset constants to configure the signing parameters.
@@ -81,19 +105,12 @@ func (signer *RSASigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw strin
 //   - RS512: RSASSA-PKCS1-v1_5 using SHA-512
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
-func NewRSASigner(secretKey *rsa.PrivateKey, preset RSAPreset) *RSASigner {
-	return &RSASigner{
-		secretKey: secretKey,
+func NewRSAVerifier(publicKey *rsa.PublicKey, preset RSAPreset) *RSAVerifier {
+	return &RSAVerifier{
+		publicKey: publicKey,
 		alg:       preset.Alg,
 		hash:      preset.Hash,
 	}
-}
-
-type RSAVerifier struct {
-	publicKey *rsa.PublicKey
-
-	alg  jwa.Alg
-	hash crypto.Hash
 }
 
 func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
@@ -136,7 +153,12 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 	return decoded, nil
 }
 
-// NewRSAVerifier creates a new jwt.RecipientPlugin for a signed token using RSASSA-PKCS1-v1_5.
+type SourcedRSASigner struct {
+	source *jwk.Source[*rsa.PrivateKey]
+	preset RSAPreset
+}
+
+// NewSourcedRSASigner creates a new jwt.ProducerPlugin for a signed token using RSASSA-PKCS1-v1_5.
 // A key of size 2048 bits or larger MUST be used with these algorithms.
 //
 // Use any of the RSAPreset constants to configure the signing parameters.
@@ -145,17 +167,11 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 //   - RS512: RSASSA-PKCS1-v1_5 using SHA-512
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
-func NewRSAVerifier(publicKey *rsa.PublicKey, preset RSAPreset) *RSAVerifier {
-	return &RSAVerifier{
-		publicKey: publicKey,
-		alg:       preset.Alg,
-		hash:      preset.Hash,
+func NewSourcedRSASigner(source *jwk.Source[*rsa.PrivateKey], preset RSAPreset) *SourcedRSASigner {
+	return &SourcedRSASigner{
+		source: source,
+		preset: preset,
 	}
-}
-
-type SourcedRSASigner struct {
-	source *jwk.Source[*rsa.PrivateKey]
-	preset RSAPreset
 }
 
 func (signer *SourcedRSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
@@ -181,7 +197,12 @@ func (signer *SourcedRSASigner) Transform(ctx context.Context, header *jwa.JWH, 
 	return NewRSASigner(key.Key(), signer.preset).Transform(ctx, header, rawToken)
 }
 
-// NewSourcedRSASigner creates a new jwt.ProducerPlugin for a signed token using RSASSA-PKCS1-v1_5.
+type SourcedRSAVerifier struct {
+	source *jwk.Source[*rsa.PublicKey]
+	preset RSAPreset
+}
+
+// NewSourcedRSAVerifier creates a new jwt.RecipientPlugin for a signed token using RSASSA-PKCS1-v1_5.
 // A key of size 2048 bits or larger MUST be used with these algorithms.
 //
 // Use any of the RSAPreset constants to configure the signing parameters.
@@ -190,16 +211,11 @@ func (signer *SourcedRSASigner) Transform(ctx context.Context, header *jwa.JWH, 
 //   - RS512: RSASSA-PKCS1-v1_5 using SHA-512
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
-func NewSourcedRSASigner(source *jwk.Source[*rsa.PrivateKey], preset RSAPreset) *SourcedRSASigner {
-	return &SourcedRSASigner{
+func NewSourcedRSAVerifier(source *jwk.Source[*rsa.PublicKey], preset RSAPreset) *SourcedRSAVerifier {
+	return &SourcedRSAVerifier{
 		source: source,
 		preset: preset,
 	}
-}
-
-type SourcedRSAVerifier struct {
-	source *jwk.Source[*rsa.PublicKey]
-	preset RSAPreset
 }
 
 func (verifier *SourcedRSAVerifier) Transform(
@@ -227,20 +243,4 @@ func (verifier *SourcedRSAVerifier) Transform(
 	}
 
 	return nil, fmt.Errorf("(SourcedRSAVerifier.Transform) %w", ErrInvalidSignature)
-}
-
-// NewSourcedRSAVerifier creates a new jwt.RecipientPlugin for a signed token using RSASSA-PKCS1-v1_5.
-// A key of size 2048 bits or larger MUST be used with these algorithms.
-//
-// Use any of the RSAPreset constants to configure the signing parameters.
-//   - RS256: RSASSA-PKCS1-v1_5 using SHA-256
-//   - RS384: RSASSA-PKCS1-v1_5 using SHA-384
-//   - RS512: RSASSA-PKCS1-v1_5 using SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
-func NewSourcedRSAVerifier(source *jwk.Source[*rsa.PublicKey], preset RSAPreset) *SourcedRSAVerifier {
-	return &SourcedRSAVerifier{
-		source: source,
-		preset: preset,
-	}
 }

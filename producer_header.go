@@ -20,6 +20,10 @@ type HeaderProducer struct {
 	config HeaderProducerConfig
 }
 
+func NewHeaderProducer(config HeaderProducerConfig) *HeaderProducer {
+	return &HeaderProducer{config: config}
+}
+
 func (producer *HeaderProducer) New(custom any) (*jwa.JWH, error) {
 	customSerialized, err := json.Marshal(custom)
 	if err != nil {
@@ -43,8 +47,4 @@ func (producer *HeaderProducer) New(custom any) (*jwa.JWH, error) {
 		},
 		Payload: customSerialized,
 	}, nil
-}
-
-func NewHeaderProducer(config HeaderProducerConfig) *HeaderProducer {
-	return &HeaderProducer{config: config}
 }

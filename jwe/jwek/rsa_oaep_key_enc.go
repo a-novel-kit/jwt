@@ -43,6 +43,24 @@ type RSAOAEPKeyEncManager struct {
 	hash hash.Hash
 }
 
+// NewRSAOAEPKeyEncManager creates a new jwe.CEKManager for a key encrypted using RSAES-OAEP.
+//
+// Use any of the RSAOAEPKeyEncPreset to set the algorithm and hash function.
+//   - RSAOAEP: RSAES-OAEP using SHA-1 and MGF1 with SHA-1.
+//   - RSAOAEP256: RSAES-OAEP using SHA-256 and MGF1 with SHA-256.
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.3
+func NewRSAOAEPKeyEncManager(
+	config *RSAOAEPKeyEncManagerConfig, preset RSAOAEPKeyEncPreset,
+) *RSAOAEPKeyEncManager {
+	return &RSAOAEPKeyEncManager{
+		cek:    config.CEK,
+		encKey: config.EncKey,
+		alg:    preset.Alg,
+		hash:   preset.Hash,
+	}
+}
+
 func (manager *RSAOAEPKeyEncManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf(
@@ -69,24 +87,6 @@ func (manager *RSAOAEPKeyEncManager) EncryptCEK(_ context.Context, _ *jwa.JWH, c
 	return encoded, nil
 }
 
-// NewRSAOAEPKeyEncManager creates a new jwe.CEKManager for a key encrypted using RSAES-OAEP.
-//
-// Use any of the RSAOAEPKeyEncPreset to set the algorithm and hash function.
-//   - RSAOAEP: RSAES-OAEP using SHA-1 and MGF1 with SHA-1.
-//   - RSAOAEP256: RSAES-OAEP using SHA-256 and MGF1 with SHA-256.
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-4.3
-func NewRSAOAEPKeyEncManager(
-	config *RSAOAEPKeyEncManagerConfig, preset RSAOAEPKeyEncPreset,
-) *RSAOAEPKeyEncManager {
-	return &RSAOAEPKeyEncManager{
-		cek:    config.CEK,
-		encKey: config.EncKey,
-		alg:    preset.Alg,
-		hash:   preset.Hash,
-	}
-}
-
 type RSAOAEPKeyEncDecoderConfig struct {
 	EncKey *rsa.PrivateKey
 }
@@ -96,6 +96,23 @@ type RSAOAEPKeyEncDecoder struct {
 
 	alg  jwa.Alg
 	hash hash.Hash
+}
+
+// NewRSAOAEPKeyEncDecoder creates a new jwe.CEKDecoder for a key encrypted using RSAES-OAEP.
+//
+// Use any of the RSAOAEPKeyEncPreset to set the algorithm and hash function.
+//   - RSAOAEP: RSAES-OAEP using SHA-1 and MGF1 with SHA-1.
+//   - RSAOAEP256: RSAES-OAEP using SHA-256 and MGF1 with SHA-256.
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.3
+func NewRSAOAEPKeyEncDecoder(
+	config *RSAOAEPKeyEncDecoderConfig, preset RSAOAEPKeyEncPreset,
+) *RSAOAEPKeyEncDecoder {
+	return &RSAOAEPKeyEncDecoder{
+		encKey: config.EncKey,
+		alg:    preset.Alg,
+		hash:   preset.Hash,
+	}
 }
 
 func (decoder *RSAOAEPKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
@@ -119,21 +136,4 @@ func (decoder *RSAOAEPKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.J
 	}
 
 	return cek, nil
-}
-
-// NewRSAOAEPKeyEncDecoder creates a new jwe.CEKDecoder for a key encrypted using RSAES-OAEP.
-//
-// Use any of the RSAOAEPKeyEncPreset to set the algorithm and hash function.
-//   - RSAOAEP: RSAES-OAEP using SHA-1 and MGF1 with SHA-1.
-//   - RSAOAEP256: RSAES-OAEP using SHA-256 and MGF1 with SHA-256.
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-4.3
-func NewRSAOAEPKeyEncDecoder(
-	config *RSAOAEPKeyEncDecoderConfig, preset RSAOAEPKeyEncPreset,
-) *RSAOAEPKeyEncDecoder {
-	return &RSAOAEPKeyEncDecoder{
-		encKey: config.EncKey,
-		alg:    preset.Alg,
-		hash:   preset.Hash,
-	}
 }
