@@ -24,6 +24,12 @@ type ClaimsCheckTarget struct {
 	target jwt.TargetConfig
 }
 
+func NewClaimsCheckTarget(target jwt.TargetConfig) *ClaimsCheckTarget {
+	return &ClaimsCheckTarget{
+		target: target,
+	}
+}
+
 func (claimsCheck *ClaimsCheckTarget) CheckClaims(claims *jwa.Claims) error {
 	if claimsCheck.target.Audience != claims.Aud {
 		return fmt.Errorf(
@@ -54,6 +60,13 @@ type ClaimsCheckTimestamp struct {
 	requireExp bool
 }
 
+func NewClaimsCheckTimestamp(leeway time.Duration, requireExp bool) *ClaimsCheckTimestamp {
+	return &ClaimsCheckTimestamp{
+		leeway:     leeway,
+		requireExp: requireExp,
+	}
+}
+
 func (claimsCheck *ClaimsCheckTimestamp) CheckClaims(claims *jwa.Claims) error {
 	exp := time.Unix(claims.Exp, 0)
 	if claims.Exp > 0 && exp.Before(time.Now().Add(-claimsCheck.leeway)) {
@@ -77,26 +90,9 @@ func (claimsCheck *ClaimsCheckTimestamp) CheckClaims(claims *jwa.Claims) error {
 	return nil
 }
 
-func NewClaimsCheckTarget(target jwt.TargetConfig) *ClaimsCheckTarget {
-	return &ClaimsCheckTarget{
-		target: target,
-	}
-}
-
-func NewClaimsCheckTimestamp(leeway time.Duration, requireExp bool) *ClaimsCheckTimestamp {
-	return &ClaimsCheckTimestamp{
-		leeway:     leeway,
-		requireExp: requireExp,
-	}
-}
-
 type RawClaimsChecker[T any] struct {
 	config   T
 	callback func(raw []byte, config T) error
-}
-
-func (claimsCheck *RawClaimsChecker[T]) CheckRaw(raw []byte) error {
-	return claimsCheck.callback(raw, claimsCheck.config)
 }
 
 func NewRawClaimsChecker[T any](config T, callback func(raw []byte, config T) error) *RawClaimsChecker[T] {
@@ -104,6 +100,10 @@ func NewRawClaimsChecker[T any](config T, callback func(raw []byte, config T) er
 		config:   config,
 		callback: callback,
 	}
+}
+
+func (claimsCheck *RawClaimsChecker[T]) CheckRaw(raw []byte) error {
+	return claimsCheck.callback(raw, claimsCheck.config)
 }
 
 type ClaimsCheckerConfig struct {
@@ -116,6 +116,13 @@ type ClaimsCheckerConfig struct {
 
 type ClaimsChecker struct {
 	config ClaimsCheckerConfig
+}
+
+// NewClaimsChecker is a custom claims unmarshaler, that performs extra checks on the claims.
+func NewClaimsChecker(config *ClaimsCheckerConfig) *ClaimsChecker {
+	return &ClaimsChecker{
+		config: *config,
+	}
 }
 
 func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
@@ -145,11 +152,4 @@ func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 	}
 
 	return json.Unmarshal(raw, dst)
-}
-
-// NewClaimsChecker is a custom claims unmarshaler, that performs extra checks on the claims.
-func NewClaimsChecker(config *ClaimsCheckerConfig) *ClaimsChecker {
-	return &ClaimsChecker{
-		config: *config,
-	}
 }

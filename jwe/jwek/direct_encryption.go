@@ -12,6 +12,15 @@ type DirectKeyManager struct {
 	cek []byte
 }
 
+// NewDirectKeyManager creates a new instance of DirectKeyManager.
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.5
+func NewDirectKeyManager(cek []byte) *DirectKeyManager {
+	return &DirectKeyManager{
+		cek: cek,
+	}
+}
+
 func (manager *DirectKeyManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(DirectKeyManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -30,21 +39,21 @@ func (manager *DirectKeyManager) EncryptCEK(_ context.Context, _ []byte) ([]byte
 	return nil, nil
 }
 
-// NewDirectKeyManager creates a new instance of DirectKeyManager.
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-4.5
-func NewDirectKeyManager(cek []byte) *DirectKeyManager {
-	return &DirectKeyManager{
-		cek: cek,
-	}
-}
-
 type DirectKeyDecoderConfig struct {
 	CEK []byte
 }
 
 type DirectKeyDecoder struct {
 	cek []byte
+}
+
+// NewDirectKeyDecoder creates a new instance of DirectKeyDecoder.
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.5
+func NewDirectKeyDecoder(config *DirectKeyDecoderConfig) *DirectKeyDecoder {
+	return &DirectKeyDecoder{
+		cek: config.CEK,
+	}
 }
 
 func (decoder *DirectKeyDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, _ []byte) ([]byte, error) {
@@ -56,13 +65,4 @@ func (decoder *DirectKeyDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, 
 	}
 
 	return decoder.cek, nil
-}
-
-// NewDirectKeyDecoder creates a new instance of DirectKeyDecoder.
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-4.5
-func NewDirectKeyDecoder(config *DirectKeyDecoderConfig) *DirectKeyDecoder {
-	return &DirectKeyDecoder{
-		cek: config.CEK,
-	}
 }

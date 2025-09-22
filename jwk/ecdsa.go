@@ -34,7 +34,7 @@ var (
 	}
 )
 
-// GenerateECDSa generates a new ECDSA key pair.
+// GenerateECDSA generates a new ECDSA key pair.
 //
 // You can either retrieve the secret key directly (using res.Key()), or marshal the result into a JSON Web Key,
 // using json.Marshal.

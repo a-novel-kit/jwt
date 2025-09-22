@@ -11,6 +11,10 @@ import (
 
 type InsecureVerifier struct{}
 
+func NewInsecureVerifier() *InsecureVerifier {
+	return &InsecureVerifier{}
+}
+
 func (verifier *InsecureVerifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
 	token, err := jwt.DecodeToken(rawToken, &jwt.SignedTokenDecoder{})
 	if err != nil {
@@ -25,8 +29,4 @@ func (verifier *InsecureVerifier) Transform(_ context.Context, header *jwa.JWH, 
 	}
 
 	return decoded, nil
-}
-
-func NewInsecureVerifier() *InsecureVerifier {
-	return &InsecureVerifier{}
 }

@@ -59,6 +59,23 @@ type ECDSASigner struct {
 	crv  elliptic.Curve
 }
 
+// NewECDSASigner creates a new jwt.ProducerPlugin for a signed token using ECDSA.
+//
+// Use any of the ECDSAPreset constants to configure the signing parameters.
+//   - ES256: ECDSA using P-256 and SHA-256
+//   - ES384: ECDSA using P-384 and SHA-384
+//   - ES512: ECDSA using P-521 and SHA-512
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-3.4
+func NewECDSASigner(secretKey *ecdsa.PrivateKey, preset ECDSAPreset) *ECDSASigner {
+	return &ECDSASigner{
+		secretKey: secretKey,
+		alg:       preset.Alg,
+		hash:      preset.Hash,
+		crv:       preset.Crv,
+	}
+}
+
 func (signer *ECDSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(ECDSASigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -103,27 +120,26 @@ func (signer *ECDSASigner) Transform(_ context.Context, _ *jwa.JWH, rawToken str
 	}.String(), nil
 }
 
-// NewECDSASigner creates a new jwt.ProducerPlugin for a signed token using ECDSA.
+type ECDSAVerifier struct {
+	publicKey *ecdsa.PublicKey
+	alg       jwa.Alg
+	hash      crypto.Hash
+}
+
+// NewECDSAVerifier creates a new jwt.RecipientPlugin for a signed token using ECDSA.
 //
-// Use any of the ECDSAPreset constants to configure the signing parameters.
+// Use any of the ECDSAPreset constants to configure the verification parameters.
 //   - ES256: ECDSA using P-256 and SHA-256
 //   - ES384: ECDSA using P-384 and SHA-384
 //   - ES512: ECDSA using P-521 and SHA-512
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-3.4
-func NewECDSASigner(secretKey *ecdsa.PrivateKey, preset ECDSAPreset) *ECDSASigner {
-	return &ECDSASigner{
-		secretKey: secretKey,
+func NewECDSAVerifier(publicKey *ecdsa.PublicKey, preset ECDSAPreset) *ECDSAVerifier {
+	return &ECDSAVerifier{
+		publicKey: publicKey,
 		alg:       preset.Alg,
 		hash:      preset.Hash,
-		crv:       preset.Crv,
 	}
-}
-
-type ECDSAVerifier struct {
-	publicKey *ecdsa.PublicKey
-	alg       jwa.Alg
-	hash      crypto.Hash
 }
 
 func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
@@ -169,25 +185,24 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 	return decoded, nil
 }
 
-// NewECDSAVerifier creates a new jwt.RecipientPlugin for a signed token using ECDSA.
+type SourcedECDSASigner struct {
+	source *jwk.Source[*ecdsa.PrivateKey]
+	preset ECDSAPreset
+}
+
+// NewSourcedECDSASigner creates a new jwt.ProducerPlugin for a signed token using ECDSA.
 //
-// Use any of the ECDSAPreset constants to configure the verification parameters.
+// Use any of the ECDSAPreset constants to configure the signing parameters.
 //   - ES256: ECDSA using P-256 and SHA-256
 //   - ES384: ECDSA using P-384 and SHA-384
 //   - ES512: ECDSA using P-521 and SHA-512
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-3.4
-func NewECDSAVerifier(publicKey *ecdsa.PublicKey, preset ECDSAPreset) *ECDSAVerifier {
-	return &ECDSAVerifier{
-		publicKey: publicKey,
-		alg:       preset.Alg,
-		hash:      preset.Hash,
+func NewSourcedECDSASigner(source *jwk.Source[*ecdsa.PrivateKey], preset ECDSAPreset) *SourcedECDSASigner {
+	return &SourcedECDSASigner{
+		source: source,
+		preset: preset,
 	}
-}
-
-type SourcedECDSASigner struct {
-	source *jwk.Source[*ecdsa.PrivateKey]
-	preset ECDSAPreset
 }
 
 func (signer *SourcedECDSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
@@ -213,24 +228,24 @@ func (signer *SourcedECDSASigner) Transform(ctx context.Context, header *jwa.JWH
 	return NewECDSASigner(key.Key(), signer.preset).Transform(ctx, header, rawToken)
 }
 
-// NewSourcedECDSASigner creates a new jwt.ProducerPlugin for a signed token using ECDSA.
+type SourcedECDSAVerifier struct {
+	source *jwk.Source[*ecdsa.PublicKey]
+	preset ECDSAPreset
+}
+
+// NewSourcedECDSAVerifier creates a new jwt.RecipientPlugin for a signed token using ECDSA.
 //
-// Use any of the ECDSAPreset constants to configure the signing parameters.
+// Use any of the ECDSAPreset constants to configure the verification parameters.
 //   - ES256: ECDSA using P-256 and SHA-256
 //   - ES384: ECDSA using P-384 and SHA-384
 //   - ES512: ECDSA using P-521 and SHA-512
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-3.4
-func NewSourcedECDSASigner(source *jwk.Source[*ecdsa.PrivateKey], preset ECDSAPreset) *SourcedECDSASigner {
-	return &SourcedECDSASigner{
+func NewSourcedECDSAVerifier(source *jwk.Source[*ecdsa.PublicKey], preset ECDSAPreset) *SourcedECDSAVerifier {
+	return &SourcedECDSAVerifier{
 		source: source,
 		preset: preset,
 	}
-}
-
-type SourcedECDSAVerifier struct {
-	source *jwk.Source[*ecdsa.PublicKey]
-	preset ECDSAPreset
 }
 
 func (verifier *SourcedECDSAVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
@@ -256,19 +271,4 @@ func (verifier *SourcedECDSAVerifier) Transform(ctx context.Context, header *jwa
 	}
 
 	return nil, fmt.Errorf("(SourcedECDSAVerifier.Transform) %w", ErrInvalidSignature)
-}
-
-// NewSourcedECDSAVerifier creates a new jwt.RecipientPlugin for a signed token using ECDSA.
-//
-// Use any of the ECDSAPreset constants to configure the verification parameters.
-//   - ES256: ECDSA using P-256 and SHA-256
-//   - ES384: ECDSA using P-384 and SHA-384
-//   - ES512: ECDSA using P-521 and SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.4
-func NewSourcedECDSAVerifier(source *jwk.Source[*ecdsa.PublicKey], preset ECDSAPreset) *SourcedECDSAVerifier {
-	return &SourcedECDSAVerifier{
-		source: source,
-		preset: preset,
-	}
 }

@@ -52,6 +52,22 @@ type ECDHKeyAgrKWManager struct {
 	keyLen int
 }
 
+// NewECDHKeyAgrKWManager creates a new jwe.CEKManager for a key derivation using ECDH and AES Key Wrap.
+//
+// Use any of the ECDHKeyAgrKWPreset constants to set the algorithm and key length.
+//   - ECDHESA128KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
+//   - ECDHESA192KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
+//   - ECDHESA256KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
+func NewECDHKeyAgrKWManager(
+	config *ECDHKeyAgrKWManagerConfig, preset ECDHKeyAgrKWPreset,
+) *ECDHKeyAgrKWManager {
+	return &ECDHKeyAgrKWManager{
+		config: *config,
+		alg:    preset.Alg,
+		keyLen: preset.KeyLen,
+	}
+}
+
 func (manager *ECDHKeyAgrKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
@@ -107,22 +123,6 @@ func (manager *ECDHKeyAgrKWManager) EncryptCEK(_ context.Context, header *jwa.JW
 	return wrapped, nil
 }
 
-// NewECDHKeyAgrKWManager creates a new jwe.CEKManager for a key derivation using ECDH and AES Key Wrap.
-//
-// Use any of the ECDHKeyAgrKWPreset constants to set the algorithm and key length.
-//   - ECDHESA128KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-//   - ECDHESA192KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-//   - ECDHESA256KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-func NewECDHKeyAgrKWManager(
-	config *ECDHKeyAgrKWManagerConfig, preset ECDHKeyAgrKWPreset,
-) *ECDHKeyAgrKWManager {
-	return &ECDHKeyAgrKWManager{
-		config: *config,
-		alg:    preset.Alg,
-		keyLen: preset.KeyLen,
-	}
-}
-
 type ECDHKeyAgrKWDecoderConfig struct {
 	RecipientKey *ecdh.PrivateKey
 }
@@ -132,6 +132,20 @@ type ECDHKeyAgrKWDecoder struct {
 
 	alg    jwa.Alg
 	keyLen int
+}
+
+// NewECDHKeyAgrKWDecoder creates a new jwe.CEKDecoder factory for a key derivation using ECDH and AES Key Wrap.
+//
+// Use any of the ECDHKeyAgrKWPreset constants to set the algorithm and key length.
+//   - ECDHESA128KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
+//   - ECDHESA192KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
+//   - ECDHESA256KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
+func NewECDHKeyAgrKWDecoder(config *ECDHKeyAgrKWDecoderConfig, preset ECDHKeyAgrKWPreset) *ECDHKeyAgrKWDecoder {
+	return &ECDHKeyAgrKWDecoder{
+		config: *config,
+		alg:    preset.Alg,
+		keyLen: preset.KeyLen,
+	}
 }
 
 func (decoder *ECDHKeyAgrKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
@@ -196,18 +210,4 @@ func (decoder *ECDHKeyAgrKWDecoder) ComputeCEK(_ context.Context, header *jwa.JW
 	}
 
 	return cek, nil
-}
-
-// NewECDHKeyAgrKWDecoder creates a new jwe.CEKDecoder factory for a key derivation using ECDH and AES Key Wrap.
-//
-// Use any of the ECDHKeyAgrKWPreset constants to set the algorithm and key length.
-//   - ECDHESA128KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-//   - ECDHESA192KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-//   - ECDHESA256KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-func NewECDHKeyAgrKWDecoder(config *ECDHKeyAgrKWDecoderConfig, preset ECDHKeyAgrKWPreset) *ECDHKeyAgrKWDecoder {
-	return &ECDHKeyAgrKWDecoder{
-		config: *config,
-		alg:    preset.Alg,
-		keyLen: preset.KeyLen,
-	}
 }

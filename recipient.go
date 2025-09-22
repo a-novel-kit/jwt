@@ -22,6 +22,16 @@ type Recipient struct {
 	config RecipientConfig
 }
 
+func NewRecipient(config RecipientConfig) *Recipient {
+	if config.Plugins == nil {
+		config.Plugins = []RecipientPlugin{NewDefaultRecipientPlugin()}
+	}
+
+	return &Recipient{
+		config: config,
+	}
+}
+
 func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst any) error {
 	rawHeader, err := DecodeToken(rawToken, &HeaderDecoder{})
 	if err != nil {
@@ -70,14 +80,4 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 	}
 
 	return fmt.Errorf("(Recipient.Consume) %w: no compatible plugin found", ErrMismatchRecipientPlugin)
-}
-
-func NewRecipient(config RecipientConfig) *Recipient {
-	if config.Plugins == nil {
-		config.Plugins = []RecipientPlugin{NewDefaultRecipientPlugin()}
-	}
-
-	return &Recipient{
-		config: config,
-	}
 }

@@ -85,6 +85,7 @@ func TestProducer(t *testing.T) {
 						token: func(tokenRaw string) string {
 							token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
 							require.NoError(t, err)
+
 							token.Payload = "foobarqux"
 
 							return token.String()
@@ -100,6 +101,7 @@ func TestProducer(t *testing.T) {
 						token: func(tokenRaw string) string {
 							token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
 							require.NoError(t, err)
+
 							token.Payload = "abcdefghi"
 
 							return token.String()
@@ -139,6 +141,7 @@ func TestProducer(t *testing.T) {
 						token: func(tokenRaw string) string {
 							token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
 							require.NoError(t, err)
+
 							token.Payload = "foobarqux"
 
 							return token.String()

@@ -46,20 +46,19 @@ type AESGCMEncryption struct {
 	keyLength int
 }
 
-func (enc *AESGCMEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byte, error) {
-	secret, err := enc.cekManager.ComputeCEK(ctx, header)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMEncryption.getCEK) compute cek: %w", err)
+// NewAESGCMEncryption creates a new jwt.ProducerPlugin for an encrypted token using AES-GCM.
+//
+// Use any of the AESGCMPreset constants to set the algorithm and hash function.
+//   - A128GCM: AES-128-GCM
+//   - A192GCM: AES-192-GCM
+//   - A256GCM: AES-256-GCM
+func NewAESGCMEncryption(config *AESGCMEncryptionConfig, presets AESGCMPreset) *AESGCMEncryption {
+	return &AESGCMEncryption{
+		cekManager:     config.CEKManager,
+		additionalData: config.AdditionalData,
+		enc:            presets.Enc,
+		keyLength:      presets.KeyLen,
 	}
-
-	if len(secret) != enc.keyLength {
-		return nil, fmt.Errorf(
-			"(AESGCMEncryption.getCEK) %w: cek has length %d, expected %d",
-			ErrInvalidSecret, len(secret), enc.keyLength,
-		)
-	}
-
-	return secret, nil
 }
 
 func (enc *AESGCMEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
@@ -146,19 +145,20 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}.String(), nil
 }
 
-// NewAESGCMEncryption creates a new jwt.ProducerPlugin for an encrypted token using AES-GCM.
-//
-// Use any of the AESGCMPreset constants to set the algorithm and hash function.
-//   - A128GCM: AES-128-GCM
-//   - A192GCM: AES-192-GCM
-//   - A256GCM: AES-256-GCM
-func NewAESGCMEncryption(config *AESGCMEncryptionConfig, presets AESGCMPreset) *AESGCMEncryption {
-	return &AESGCMEncryption{
-		cekManager:     config.CEKManager,
-		additionalData: config.AdditionalData,
-		enc:            presets.Enc,
-		keyLength:      presets.KeyLen,
+func (enc *AESGCMEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byte, error) {
+	secret, err := enc.cekManager.ComputeCEK(ctx, header)
+	if err != nil {
+		return nil, fmt.Errorf("(AESGCMEncryption.getCEK) compute cek: %w", err)
 	}
+
+	if len(secret) != enc.keyLength {
+		return nil, fmt.Errorf(
+			"(AESGCMEncryption.getCEK) %w: cek has length %d, expected %d",
+			ErrInvalidSecret, len(secret), enc.keyLength,
+		)
+	}
+
+	return secret, nil
 }
 
 type AESGCMDecryptionConfig struct {
@@ -172,6 +172,21 @@ type AESGCMDecryption struct {
 
 	enc       jwa.Enc
 	keyLength int
+}
+
+// NewAESGCMDecryption creates a new jwt.RecipientPlugin for an encrypted token using AES-GCM.
+//
+// Use any of the AESGCMPreset constants to set the algorithm and hash function.
+//   - A128GCM: AES-128-GCM
+//   - A192GCM: AES-192-GCM
+//   - A256GCM: AES-256-GCM
+func NewAESGCMDecryption(config *AESGCMDecryptionConfig, presets AESGCMPreset) *AESGCMDecryption {
+	return &AESGCMDecryption{
+		cekDecoder:     config.CEKDecoder,
+		additionalData: config.AdditionalData,
+		enc:            presets.Enc,
+		keyLength:      presets.KeyLen,
+	}
 }
 
 func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
@@ -243,19 +258,4 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}
 
 	return plainText, nil
-}
-
-// NewAESGCMDecryption creates a new jwt.RecipientPlugin for an encrypted token using AES-GCM.
-//
-// Use any of the AESGCMPreset constants to set the algorithm and hash function.
-//   - A128GCM: AES-128-GCM
-//   - A192GCM: AES-192-GCM
-//   - A256GCM: AES-256-GCM
-func NewAESGCMDecryption(config *AESGCMDecryptionConfig, presets AESGCMPreset) *AESGCMDecryption {
-	return &AESGCMDecryption{
-		cekDecoder:     config.CEKDecoder,
-		additionalData: config.AdditionalData,
-		enc:            presets.Enc,
-		keyLength:      presets.KeyLen,
-	}
 }
