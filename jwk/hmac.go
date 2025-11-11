@@ -58,7 +58,7 @@ func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {
 	header := jwa.JWKCommon{
 		KTY:    jwa.KTYOct,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpSign, jwa.KeyOpVerify},
+		KeyOps: jwa.KeyOps{jwa.KeyOpSign, jwa.KeyOpVerify},
 		Alg:    preset.Alg,
 		KID:    uuid.NewString(),
 	}
@@ -88,7 +88,7 @@ func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
 	if !source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOct,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpSign, jwa.KeyOpVerify},
+		KeyOps: jwa.KeyOps{jwa.KeyOpSign, jwa.KeyOpVerify},
 		Alg:    preset.Alg,
 	}) {
 		return nil, fmt.Errorf("(ConsumeHMAC) %w", ErrJWKMismatch)

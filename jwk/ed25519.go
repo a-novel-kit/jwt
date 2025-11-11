@@ -31,14 +31,14 @@ func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error
 	privateHeader := jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpSign},
+		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		Alg:    jwa.EdDSA,
 		KID:    kid,
 	}
 	publicHeader := jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpVerify},
+		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
 		Alg:    jwa.EdDSA,
 		KID:    kid,
 	}
@@ -76,13 +76,13 @@ func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.Pub
 	matchPrivate := source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpSign},
+		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		Alg:    jwa.EdDSA,
 	})
 	matchPublic := source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpVerify},
+		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
 		Alg:    jwa.EdDSA,
 	})
 

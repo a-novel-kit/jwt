@@ -11,6 +11,10 @@ import (
 // https://datatracker.ietf.org/doc/html/rfc7519#section-5.1
 type Typ string
 
+func (typ Typ) String() string {
+	return string(typ)
+}
+
 const (
 	TypJWT     Typ = "JWT"
 	TypJOSE    Typ = "JOSE"

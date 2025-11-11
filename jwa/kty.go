@@ -3,6 +3,8 @@ package jwa
 // KTY is used to determine the type of key in a JWA protocol.
 type KTY string
 
+func (k KTY) String() string { return string(k) }
+
 const (
 	// KTYOct Parameters for Symmetric Keys.
 	//

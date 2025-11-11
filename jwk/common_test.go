@@ -15,7 +15,7 @@ func newBullshitKey[K any](t *testing.T, kid string) *jwk.Key[K] {
 			JWKCommon: jwa.JWKCommon{
 				KTY:    "01",
 				Use:    "10",
-				KeyOps: []jwa.KeyOp{"11"},
+				KeyOps: jwa.KeyOps{"11"},
 				Alg:    "00",
 				KID:    kid,
 			},

@@ -55,7 +55,7 @@ func TestGenerateHMAC(t *testing.T) {
 			require.True(t, key.MatchPreset(jwa.JWKCommon{
 				KTY:    jwa.KTYOct,
 				Use:    jwa.UseSig,
-				KeyOps: []jwa.KeyOp{jwa.KeyOpSign, jwa.KeyOpVerify},
+				KeyOps: jwa.KeyOps{jwa.KeyOpSign, jwa.KeyOpVerify},
 				Alg:    testCase.preset.Alg,
 			}))
 			require.NotEmpty(t, key.KID)

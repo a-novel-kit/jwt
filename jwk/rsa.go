@@ -16,8 +16,8 @@ import (
 type RSAPreset struct {
 	Alg           jwa.Alg
 	Use           jwa.Use
-	PrivateKeyOps []jwa.KeyOp
-	PublicKeyOps  []jwa.KeyOp
+	PrivateKeyOps jwa.KeyOps
+	PublicKeyOps  jwa.KeyOps
 	KeySize       int
 }
 
@@ -26,8 +26,8 @@ var (
 	RS256 = RSAPreset{
 		Alg:           jwa.RS256,
 		Use:           jwa.UseSig,
-		PrivateKeyOps: []jwa.KeyOp{jwa.KeyOpSign},
-		PublicKeyOps:  []jwa.KeyOp{jwa.KeyOpVerify},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
 		// to the next integer.
 		//
@@ -39,8 +39,8 @@ var (
 	RS384 = RSAPreset{
 		Alg:           jwa.RS384,
 		Use:           jwa.UseSig,
-		PrivateKeyOps: []jwa.KeyOp{jwa.KeyOpSign},
-		PublicKeyOps:  []jwa.KeyOp{jwa.KeyOpVerify},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
 		// to the next integer.
 		//
@@ -52,8 +52,8 @@ var (
 	RS512 = RSAPreset{
 		Alg:           jwa.RS512,
 		Use:           jwa.UseSig,
-		PrivateKeyOps: []jwa.KeyOp{jwa.KeyOpSign},
-		PublicKeyOps:  []jwa.KeyOp{jwa.KeyOpVerify},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
 		// to the next integer.
 		//
@@ -66,8 +66,8 @@ var (
 	PS256 = RSAPreset{
 		Alg:           jwa.PS256,
 		Use:           jwa.UseSig,
-		PrivateKeyOps: []jwa.KeyOp{jwa.KeyOpSign},
-		PublicKeyOps:  []jwa.KeyOp{jwa.KeyOpVerify},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
 		// to the next integer.
 		//
@@ -79,8 +79,8 @@ var (
 	PS384 = RSAPreset{
 		Alg:           jwa.PS384,
 		Use:           jwa.UseSig,
-		PrivateKeyOps: []jwa.KeyOp{jwa.KeyOpSign},
-		PublicKeyOps:  []jwa.KeyOp{jwa.KeyOpVerify},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
 		// to the next integer.
 		//
@@ -92,8 +92,8 @@ var (
 	PS512 = RSAPreset{
 		Alg:           jwa.PS512,
 		Use:           jwa.UseSig,
-		PrivateKeyOps: []jwa.KeyOp{jwa.KeyOpSign},
-		PublicKeyOps:  []jwa.KeyOp{jwa.KeyOpVerify},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
 		// to the next integer.
 		//
@@ -109,15 +109,15 @@ var (
 	RSAOAEP = RSAPreset{
 		Alg:           jwa.RSAOAEP,
 		Use:           jwa.UseEnc,
-		PrivateKeyOps: []jwa.KeyOp{jwa.KeyOpEncrypt},
-		PublicKeyOps:  []jwa.KeyOp{jwa.KeyOpDecrypt},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpEncrypt},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpDecrypt},
 		KeySize:       4096,
 	}
 	RSAOAEP256 = RSAPreset{
 		Alg:           jwa.RSAOAEP256,
 		Use:           jwa.UseEnc,
-		PrivateKeyOps: []jwa.KeyOp{jwa.KeyOpEncrypt},
-		PublicKeyOps:  []jwa.KeyOp{jwa.KeyOpDecrypt},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpEncrypt},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpDecrypt},
 		KeySize:       4096,
 	}
 )

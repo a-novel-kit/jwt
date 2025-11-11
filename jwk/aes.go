@@ -14,7 +14,7 @@ import (
 
 type AESPreset struct {
 	Alg     jwa.Alg
-	KeyOps  []jwa.KeyOp
+	KeyOps  jwa.KeyOps
 	KeySize int
 }
 
@@ -22,7 +22,7 @@ type AESPreset struct {
 var (
 	A128CBC = AESPreset{
 		Alg: jwa.Alg(jwa.A128CBC),
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpEncrypt,
 			jwa.KeyOpDecrypt,
 		},
@@ -30,7 +30,7 @@ var (
 	}
 	A192CBC = AESPreset{
 		Alg: jwa.Alg(jwa.A192CBC),
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpEncrypt,
 			jwa.KeyOpDecrypt,
 		},
@@ -38,7 +38,7 @@ var (
 	}
 	A256CBC = AESPreset{
 		Alg: jwa.Alg(jwa.A256CBC),
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpEncrypt,
 			jwa.KeyOpDecrypt,
 		},
@@ -47,7 +47,7 @@ var (
 
 	A128GCM = AESPreset{
 		Alg: jwa.Alg(jwa.A128GCM),
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpEncrypt,
 			jwa.KeyOpDecrypt,
 		},
@@ -55,7 +55,7 @@ var (
 	}
 	A192GCM = AESPreset{
 		Alg: jwa.Alg(jwa.A192GCM),
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpEncrypt,
 			jwa.KeyOpDecrypt,
 		},
@@ -63,7 +63,7 @@ var (
 	}
 	A256GCM = AESPreset{
 		Alg: jwa.Alg(jwa.A256GCM),
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpEncrypt,
 			jwa.KeyOpDecrypt,
 		},
@@ -75,7 +75,7 @@ var (
 var (
 	A128KW = AESPreset{
 		Alg: jwa.A128KW,
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpWrapKey,
 			jwa.KeyOpUnwrapKey,
 		},
@@ -83,7 +83,7 @@ var (
 	}
 	A192KW = AESPreset{
 		Alg: jwa.A192KW,
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpWrapKey,
 			jwa.KeyOpUnwrapKey,
 		},
@@ -91,7 +91,7 @@ var (
 	}
 	A256KW = AESPreset{
 		Alg: jwa.A256KW,
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpWrapKey,
 			jwa.KeyOpUnwrapKey,
 		},
@@ -100,7 +100,7 @@ var (
 
 	A128GCMKW = AESPreset{
 		Alg: jwa.A128GCMKW,
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpWrapKey,
 			jwa.KeyOpUnwrapKey,
 		},
@@ -108,7 +108,7 @@ var (
 	}
 	A192GCMKW = AESPreset{
 		Alg: jwa.A192GCMKW,
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpWrapKey,
 			jwa.KeyOpUnwrapKey,
 		},
@@ -116,7 +116,7 @@ var (
 	}
 	A256GCMKW = AESPreset{
 		Alg: jwa.A256GCMKW,
-		KeyOps: []jwa.KeyOp{
+		KeyOps: jwa.KeyOps{
 			jwa.KeyOpWrapKey,
 			jwa.KeyOpUnwrapKey,
 		},

@@ -40,14 +40,14 @@ func GenerateECDH() (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
 	privateHeader := jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseEnc,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpDeriveKey},
+		KeyOps: jwa.KeyOps{jwa.KeyOpDeriveKey},
 		Alg:    jwa.ECDHES,
 		KID:    kid,
 	}
 	publicHeader := jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseEnc,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpDeriveKey},
+		KeyOps: jwa.KeyOps{jwa.KeyOpDeriveKey},
 		Alg:    jwa.ECDHES,
 		KID:    kid,
 	}
@@ -83,7 +83,7 @@ func ConsumeECDH(source *jwa.JWK) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey]
 	if !source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseEnc,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpDeriveKey},
+		KeyOps: jwa.KeyOps{jwa.KeyOpDeriveKey},
 		Alg:    jwa.ECDHES,
 	}) {
 		return nil, nil, fmt.Errorf("(ConsumeECDH) %w", ErrJWKMismatch)
