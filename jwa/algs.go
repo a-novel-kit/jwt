@@ -2,6 +2,10 @@ package jwa
 
 type Alg string
 
+func (alg Alg) String() string {
+	return string(alg)
+}
+
 const None Alg = "none"
 
 func (alg Alg) Empty() bool {

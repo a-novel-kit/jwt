@@ -2,6 +2,10 @@ package jwa
 
 type Enc string
 
+func (enc Enc) String() string {
+	return string(enc)
+}
+
 // https://datatracker.ietf.org/doc/html/rfc7518#section-5.1
 const (
 	// A128CBC encryption algorithm.

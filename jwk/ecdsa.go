@@ -66,14 +66,14 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 	privateHeader := jwa.JWKCommon{
 		KTY:    jwa.KTYEC,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpSign},
+		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		Alg:    preset.Alg,
 		KID:    kid,
 	}
 	publicHeader := jwa.JWKCommon{
 		KTY:    jwa.KTYEC,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpVerify},
+		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
 		Alg:    preset.Alg,
 		KID:    kid,
 	}
@@ -114,13 +114,13 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 	matchPrivate := source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYEC,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpSign},
+		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		Alg:    preset.Alg,
 	})
 	matchPublic := source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYEC,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpVerify},
+		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
 		Alg:    preset.Alg,
 	})
 

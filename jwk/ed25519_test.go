@@ -33,7 +33,7 @@ func TestGenerateED25519(t *testing.T) {
 	require.True(t, privateKey.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpSign},
+		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		Alg:    jwa.EdDSA,
 	}))
 	require.NotEmpty(t, privateKey.KID)
@@ -41,7 +41,7 @@ func TestGenerateED25519(t *testing.T) {
 	require.True(t, publicKey.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
-		KeyOps: []jwa.KeyOp{jwa.KeyOpVerify},
+		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
 		Alg:    jwa.EdDSA,
 	}))
 	require.Equal(t, privateKey.KID, publicKey.KID)
