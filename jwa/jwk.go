@@ -139,7 +139,7 @@ type JWKCommon struct {
 	// however, if both are used, the information they convey MUST be
 	// consistent. Applications should specify which of these members they
 	// use, if either is to be used by the application.
-	KeyOps []KeyOp `json:"key_ops,omitempty"`
+	KeyOps KeyOps `json:"key_ops,omitempty"`
 	// Alg represents the algorithm used in a JSON web key.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7517#section-4.4
