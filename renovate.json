@@ -1,9 +1,21 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "postUpdateOptions": ["gomodTidy"],
-  "postUpgradeTasks": {
-    "commands": ["go tool golangci-lint run ./... --fix"],
-    "executionMode": "branch"
-  },
+  "postUpdateOptions": ["gomodTidy", "pnpmDedupe"],
+  "packageRules": [
+    {
+      "matchManagers": ["gomod"],
+      "postUpgradeTasks": {
+        "commands": ["go mod tidy", "go tool golangci-lint run ./... --fix"],
+        "executionMode": "branch"
+      }
+    },
+    {
+      "matchManagers": ["npm"],
+      "postUpgradeTasks": {
+        "commands": ["pnpm i", "pnpm format"],
+        "executionMode": "branch"
+      }
+    }
+  ],
   "extends": ["config:recommended"]
 }
