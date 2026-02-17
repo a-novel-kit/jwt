@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"math/big"
 )
@@ -72,6 +73,64 @@ type ECPayload struct {
 	D string `json:"d,omitempty"`
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Imported from go internal package.
+
+// pointFromAffine is used to convert the PublicKey to a nistec SetBytes input.
+func pointFromAffine(curve elliptic.Curve, x, y *big.Int) ([]byte, error) {
+	bitSize := curve.Params().BitSize
+	// Reject values that would not get correctly encoded.
+	if x.Sign() < 0 || y.Sign() < 0 {
+		return nil, errors.New("negative coordinate")
+	}
+
+	if x.BitLen() > bitSize || y.BitLen() > bitSize {
+		return nil, errors.New("overflowing coordinate")
+	}
+	// Encode the coordinates and let [ecdsa.NewPublicKey] reject invalid points.
+	byteLen := (bitSize + 7) / 8
+	buf := make([]byte, 1+2*byteLen)
+	buf[0] = 4 // uncompressed point
+	x.FillBytes(buf[1 : 1+byteLen])
+	y.FillBytes(buf[1+byteLen : 1+2*byteLen])
+
+	return buf, nil
+}
+
+// pointToAffine is used to convert a nistec Bytes encoding to a PublicKey.
+//
+//nolint:nonamedreturns
+func pointToAffine(curve elliptic.Curve, p []byte) (x, y *big.Int, err error) {
+	if len(p) == 1 && p[0] == 0 {
+		// This is the encoding of the point at infinity.
+		return nil, nil, errors.New("ecdsa: public key point is the infinity")
+	}
+
+	byteLen := (curve.Params().BitSize + 7) / 8
+	x = new(big.Int).SetBytes(p[1 : 1+byteLen])
+	y = new(big.Int).SetBytes(p[1+byteLen:])
+
+	return x, y, nil
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+func parsePublicKeyParams(key *ecdsa.PublicKey) (*big.Int, *big.Int, elliptic.Curve, error) {
+	raw, err := key.Bytes()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parse public key params: %w", err)
+	}
+
+	crv := key.Curve
+
+	x, y, err := pointToAffine(crv, raw)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parse public key params: %w", err)
+	}
+
+	return x, y, crv, nil
+}
+
 // DecodeEC takes the representation of a ECPayload and computes the key it contains.
 func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	var curve elliptic.Curve
@@ -97,10 +156,14 @@ func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 		return nil, nil, fmt.Errorf("decode y: %w", err)
 	}
 
-	keyPub := &ecdsa.PublicKey{
-		Curve: curve,
-		X:     new(big.Int).SetBytes(x),
-		Y:     new(big.Int).SetBytes(y),
+	rawKey, err := pointFromAffine(curve, new(big.Int).SetBytes(x), new(big.Int).SetBytes(y))
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse public key params: %w", err)
+	}
+
+	keyPub, err := ecdsa.ParseUncompressedPublicKey(curve, rawKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse uncompressed public key: %w", err)
 	}
 
 	if src.D == "" {
@@ -112,9 +175,9 @@ func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 		return nil, nil, fmt.Errorf("decode d: %w", err)
 	}
 
-	keyPriv := &ecdsa.PrivateKey{
-		PublicKey: *keyPub,
-		D:         new(big.Int).SetBytes(d),
+	keyPriv, err := ecdsa.ParseRawPrivateKey(curve, d)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse raw private key: %w", err)
 	}
 
 	return keyPriv, keyPub, nil
@@ -126,19 +189,37 @@ func EncodeEC[Key *ecdsa.PublicKey | *ecdsa.PrivateKey](key Key) (*ECPayload, er
 
 	pubKey, ok := any(key).(*ecdsa.PublicKey)
 	if ok {
-		payload.Crv = pubKey.Curve.Params().Name
-		payload.X = base64.RawURLEncoding.EncodeToString(pubKey.X.Bytes())
-		payload.Y = base64.RawURLEncoding.EncodeToString(pubKey.Y.Bytes())
+		x, y, crv, err := parsePublicKeyParams(pubKey)
+		if err != nil {
+			return nil, fmt.Errorf("parse public key params: %w", err)
+		}
+
+		payload.Crv = crv.Params().Name
+		payload.X = base64.RawURLEncoding.EncodeToString(x.Bytes())
+		payload.Y = base64.RawURLEncoding.EncodeToString(y.Bytes())
 
 		return payload, nil
 	}
 
-	privKey := any(key).(*ecdsa.PrivateKey)
+	privKey, ok := any(key).(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("invalid key type: %T", key)
+	}
 
-	payload.Crv = privKey.PublicKey.Curve.Params().Name
-	payload.X = base64.RawURLEncoding.EncodeToString(privKey.X.Bytes())
-	payload.Y = base64.RawURLEncoding.EncodeToString(privKey.Y.Bytes())
-	payload.D = base64.RawURLEncoding.EncodeToString(privKey.D.Bytes())
+	x, y, crv, err := parsePublicKeyParams(&privKey.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("parse public key params: %w", err)
+	}
+
+	privKeyBytes, err := privKey.Bytes()
+	if err != nil {
+		return nil, fmt.Errorf("serialize private key: %w", err)
+	}
+
+	payload.Crv = crv.Params().Name
+	payload.X = base64.RawURLEncoding.EncodeToString(x.Bytes())
+	payload.Y = base64.RawURLEncoding.EncodeToString(y.Bytes())
+	payload.D = base64.RawURLEncoding.EncodeToString(privKeyBytes)
 
 	return payload, nil
 }
