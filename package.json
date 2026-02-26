@@ -12,9 +12,15 @@
     "publish:minor": "pnpm version minor && git push --follow-tags",
     "publish:patch": "pnpm version patch && git push --follow-tags"
   },
+  "overrides": {
+    "esbuild<=0.24.2": ">=0.25.0",
+    "rollup<=4.59.0": ">=4.59.0"
+  },
   "devDependencies": {
+    "esbuild": "^0.27.3",
     "prettier": "^3.6.2",
-    "prettier-plugin-packagejson": "^3.0.0"
+    "prettier-plugin-packagejson": "^3.0.0",
+    "rollup": "^4.59.0"
   },
   "packageManager": "pnpm@10.30.3"
 }
