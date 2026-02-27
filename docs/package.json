@@ -9,10 +9,6 @@
     "docs:dev": "vitepress dev",
     "docs:preview": "vitepress preview"
   },
-  "overrides": {
-    "esbuild<=0.24.2": ">=0.25.0",
-    "rollup<=4.59.0": ">=4.59.0"
-  },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.0",
     "@types/node": "^24.10.14",

@@ -1,3 +1,7 @@
 onlyBuiltDependencies:
   - esbuild
   - vue-demi
+
+overrides:
+  esbuild@<=0.24.2: ">=0.25.0"
+  minimatch@>=9.0.0 <9.0.7: ">=9.0.7"
