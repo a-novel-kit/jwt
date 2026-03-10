@@ -4,11 +4,11 @@ test:
 
 # Check code quality.
 lint:
-	go tool golangci-lint run
+	go tool -modfile=golangci-lint.mod golangci-lint run ./...
 	pnpm lint
 
 # Reformat code so it passes the code style lint checks.
 format:
 	go mod tidy
-	go tool golangci-lint run --fix
+	go tool -modfile=golangci-lint.mod golangci-lint run ./... --fix
 	pnpm format

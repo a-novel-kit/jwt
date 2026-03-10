@@ -14,6 +14,8 @@ jobs:
       contents: read
     steps:
       - uses: a-novel-kit/workflows/go-actions/test-go@master
+        with:
+          modfile: gotestsum.mod
 
   lint-go:
     runs-on: ubuntu-latest
