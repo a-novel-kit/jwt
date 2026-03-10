@@ -24,7 +24,11 @@ jobs:
             [
               "^pnpm format$", 
               "^go mod download$", 
-              "^go tool golangci-lint run .* --fix$"
+              "^go mod download .*", 
+              "^rm -f .*",
+              "^go generate .*", 
+              "^go get .*", 
+              "^go tool .*"
             ]
           github_token: ${{ secrets.GITHUB_TOKEN }}
           app_private_key: ${{ secrets.DEPENDENCY_BOT_PRIVATE_KEY }}
