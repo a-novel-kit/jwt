@@ -5,7 +5,7 @@ go 1.26.1
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 require (
-	github.com/a-novel-kit/jwt v1.1.45
+	github.com/a-novel-kit/jwt v1.1.46
 	github.com/google/uuid v1.6.0
 	github.com/samber/lo v1.53.0
 	github.com/stretchr/testify v1.11.1
