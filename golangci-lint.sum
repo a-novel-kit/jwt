@@ -55,6 +55,8 @@ github.com/OpenPeeDeeP/depguard/v2 v2.2.1/go.mod h1:q4DKzC4UcVaAvcfd41CZh0PWpGgz
 github.com/a-novel-kit/jwt v1.1.49/go.mod h1:pRK3dLCUDA74IS6cSHkB3A8+yVAvL2HM5MzVuB2fuwc=
 github.com/a-novel-kit/jwt v1.1.50 h1:XHtHdXQODIbNpVDIysbsdEJBNjZWlbFtiE6auGH91SQ=
 github.com/a-novel-kit/jwt v1.1.50/go.mod h1:IegZVa2g9VUei37XMh1ltwtaNQptr+BEfpVXO4nWlJA=
+github.com/a-novel-kit/jwt v1.1.51 h1:Y88CFmwdFTDAwk9uTqBgzEJgTY0CYF12eQInUuEMKSU=
+github.com/a-novel-kit/jwt v1.1.51/go.mod h1:IegZVa2g9VUei37XMh1ltwtaNQptr+BEfpVXO4nWlJA=
 github.com/alecthomas/chroma/v2 v2.23.1/go.mod h1:NqVhfBR0lte5Ouh3DcthuUCTUpDC9cxBOfyMbMQPs3o=
 github.com/alecthomas/go-check-sumtype v0.3.1/go.mod h1:A8TSiN3UPRw3laIgWEUOHHLPa6/r9MtoigdlP5h3K/E=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
