@@ -4,6 +4,8 @@ import (
 	"crypto/ecdh"
 	"encoding/base64"
 	"fmt"
+
+	"github.com/a-novel-kit/jwt/jwa"
 )
 
 // ECDHPayload wraps a ECDH-ES key in a JWKCommon format.
@@ -29,7 +31,7 @@ type ECDHPayload struct {
 
 // DecodeECDH decodes the ECDH-ES key from a JWKCommon format.
 func DecodeECDH(src *ECDHPayload) (*ecdh.PrivateKey, *ecdh.PublicKey, error) {
-	if src.Crv != "X25519" {
+	if src.Crv != jwa.CrvX25519 {
 		return nil, nil, ErrUnsupportedCurve
 	}
 

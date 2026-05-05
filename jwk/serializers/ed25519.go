@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+
+	"github.com/a-novel-kit/jwt/jwa"
 )
 
 // EDPayload wraps a EDDSA key in a JWKCommon format.
@@ -32,7 +34,7 @@ var ErrInvalidEDKey = errors.New("invalid EdDSA key")
 
 // DecodeED decodes the EdDSA key from a JWKCommon format.
 func DecodeED(src *EDPayload) (ed25519.PrivateKey, ed25519.PublicKey, error) {
-	if src.Crv != "Ed25519" {
+	if src.Crv != jwa.CrvEd25519 {
 		return nil, nil, ErrUnsupportedCurve
 	}
 
