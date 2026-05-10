@@ -79,6 +79,8 @@ github.com/a-novel-kit/jwt v1.1.56 h1:HSpMpd+LuE2G8bEpQLgLHlW6szXwXHSFBEFDJiIwTm
 github.com/a-novel-kit/jwt v1.1.56/go.mod h1:IegZVa2g9VUei37XMh1ltwtaNQptr+BEfpVXO4nWlJA=
 github.com/a-novel-kit/jwt v1.1.57 h1:AmoZ04pjtWXa5orKaalbRcB5JGdjouUo4ElPEKFUGXs=
 github.com/a-novel-kit/jwt v1.1.57/go.mod h1:IegZVa2g9VUei37XMh1ltwtaNQptr+BEfpVXO4nWlJA=
+github.com/a-novel-kit/jwt v1.1.58 h1:+y+eKsNI4daz2wQU+4Btyh6ajW1ZJ2T94dM0cfYlTuA=
+github.com/a-novel-kit/jwt v1.1.58/go.mod h1:C8vBO63pmAh1afGl7B+0KExZ1X0d/Dwn/erB8I6Vhw8=
 github.com/alecthomas/chroma/v2 v2.24.1 h1:m5ffpfZbIb++k8AqFEKy9uVgY12xIQtBsQlc6DfZJQM=
 github.com/alecthomas/chroma/v2 v2.24.1/go.mod h1:l+ohZ9xRXIbGe7cIW+YZgOGbvuVLjMps/FYN/CwuabI=
 github.com/alecthomas/go-check-sumtype v0.3.1 h1:u9aUvbGINJxLVXiFvHUlPEaD7VDULsrxJb4Aq31NLkU=
@@ -778,6 +780,8 @@ golang.org/x/text v0.3.7/go.mod h1:u+2+/6zg+i71rQMx5EYifcz6MCKuco9NR6JIITiCfzQ=
 golang.org/x/text v0.7.0/go.mod h1:mrYo+phRRbMaCq/xk9113O4dZlRixOauAjOtrjsXDZ8=
 golang.org/x/text v0.36.0 h1:JfKh3XmcRPqZPKevfXVpI1wXPTqbkE5f7JA92a55Yxg=
 golang.org/x/text v0.36.0/go.mod h1:NIdBknypM8iqVmPiuco0Dh6P5Jcdk8lJL0CUebqK164=
+golang.org/x/text v0.37.0 h1:Cqjiwd9eSg8e0QAkyCaQTNHFIIzWtidPahFWR83rTrc=
+golang.org/x/text v0.37.0/go.mod h1:a5sjxXGs9hsn/AJVwuElvCAo9v8QYLzvavO5z2PiM38=
 golang.org/x/time v0.0.0-20181108054448-85acf8d2951c/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
 golang.org/x/time v0.0.0-20190308202827-9d24e82272b4/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
 golang.org/x/time v0.0.0-20191024005414-555d28b269f0/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
