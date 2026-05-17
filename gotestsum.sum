@@ -1,4 +1,4 @@
-github.com/a-novel-kit/jwt v1.1.59/go.mod h1:C8vBO63pmAh1afGl7B+0KExZ1X0d/Dwn/erB8I6Vhw8=
+github.com/a-novel-kit/jwt v1.1.60/go.mod h1:C8vBO63pmAh1afGl7B+0KExZ1X0d/Dwn/erB8I6Vhw8=
 github.com/bitfield/gotestdox v0.2.2 h1:x6RcPAbBbErKLnapz1QeAlf3ospg8efBsedU93CDsnE=
 github.com/bitfield/gotestdox v0.2.2/go.mod h1:D+gwtS0urjBrzguAkTM2wodsTQYFHdpx8eqRJ3N+9pY=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
