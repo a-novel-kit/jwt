@@ -3,6 +3,15 @@ import { tabsMarkdownPlugin } from "vitepress-plugin-tabs";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  // Vite 8's default browser target makes esbuild try to downlevel
+  // destructuring in the VitePress client bundle, which esbuild 0.28 can't do
+  // ("Transforming destructuring ... is not supported yet"). Docs ship to
+  // modern browsers, so target esnext and skip the downleveling entirely.
+  vite: {
+    build: {
+      target: "esnext",
+    },
+  },
   title: "JWT",
   titleTemplate: "A-Novel Kit",
   themeConfig: {
