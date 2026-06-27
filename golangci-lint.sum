@@ -95,6 +95,8 @@ github.com/a-novel-kit/jwt v1.1.69 h1:CGv9N2DJD0NAqexDECkiloVYRVm7RpCx7A/14szGsC
 github.com/a-novel-kit/jwt v1.1.69/go.mod h1:hWpErr7XayiUNcUkwhd5LM4u767VCGCcRvvUpC7niqc=
 github.com/a-novel-kit/jwt v1.1.70 h1:vQm5wVwkB1cFYGD6HuyWdVq/hW/hlNofis9tRqDbekc=
 github.com/a-novel-kit/jwt v1.1.70/go.mod h1:hWpErr7XayiUNcUkwhd5LM4u767VCGCcRvvUpC7niqc=
+github.com/a-novel-kit/jwt v1.1.71 h1:bqHXL7FxNPfaqozIago8K8xnEofPQuwE1OB4eEyWl8U=
+github.com/a-novel-kit/jwt v1.1.71/go.mod h1:hWpErr7XayiUNcUkwhd5LM4u767VCGCcRvvUpC7niqc=
 github.com/alecthomas/chroma/v2 v2.24.1 h1:m5ffpfZbIb++k8AqFEKy9uVgY12xIQtBsQlc6DfZJQM=
 github.com/alecthomas/chroma/v2 v2.24.1/go.mod h1:l+ohZ9xRXIbGe7cIW+YZgOGbvuVLjMps/FYN/CwuabI=
 github.com/alecthomas/go-check-sumtype v0.3.1 h1:u9aUvbGINJxLVXiFvHUlPEaD7VDULsrxJb4Aq31NLkU=
