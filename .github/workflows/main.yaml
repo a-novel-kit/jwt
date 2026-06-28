@@ -13,7 +13,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/go-actions/test-go@v1.0.3
+      - uses: a-novel-kit/workflows/go-actions/test-go@v1.2.1
         with:
           modfile: gotestsum.mod
 
@@ -22,14 +22,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/go-actions/lint-go@v1.0.3
+      - uses: a-novel-kit/workflows/go-actions/lint-go@v1.2.1
 
   lint-node:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/node-actions/lint-node@v1.0.3
+      - uses: a-novel-kit/workflows/node-actions/lint-node@v1.2.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           app_private_key: ${{ secrets.DEPENDENCY_BOT_PRIVATE_KEY }}
@@ -41,7 +41,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/generic-actions/codecov@v1.0.3
+      - uses: a-novel-kit/workflows/generic-actions/codecov@v1.2.1
         with:
           codecov_token: ${{ secrets.CODECOV_TOKEN }}
           coverage_files: coverage.txt
@@ -54,7 +54,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/go-actions/go-report-card@v1.0.3
+      - uses: a-novel-kit/workflows/go-actions/go-report-card@v1.2.1
         if: github.ref == 'refs/heads/master' && success()
 
   docs:
@@ -66,7 +66,7 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - uses: a-novel-kit/workflows/github-pages-actions/publish-vuepress@v1.0.3
+      - uses: a-novel-kit/workflows/github-pages-actions/publish-vuepress@v1.2.1
         with:
           working_directory: ./docs
           build_path: ./docs/.vitepress/dist/
