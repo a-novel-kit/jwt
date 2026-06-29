@@ -8,7 +8,7 @@ on:
       - "**"
 
 jobs:
-  test:
+  test-go:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: a-novel-kit/workflows/go-actions/lint-go@v1.3.0
 
-  lint-node:
+  lint-js:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,7 +37,7 @@ jobs:
 
   report-codecov:
     runs-on: ubuntu-latest
-    needs: [test, lint-go]
+    needs: [test-go, lint-go]
     permissions:
       contents: read
     steps:
@@ -50,7 +50,7 @@ jobs:
   report-grc:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' && success()
-    needs: [test, lint-go]
+    needs: [test-go, lint-go]
     permissions:
       contents: read
     steps:
@@ -60,7 +60,7 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' && success()
-    needs: [test, lint-go, lint-node]
+    needs: [test-go, lint-go, lint-js]
     permissions:
       contents: read
       pages: write
