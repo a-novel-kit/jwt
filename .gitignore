@@ -3,9 +3,4 @@
 cover.out
 cover.html
 
-docs/.vitepress/cache
-docs/.vitepress/.temp
-docs/.vitepress/dist
-docs/node_modules
-
 node_modules
