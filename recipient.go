@@ -30,6 +30,10 @@ type RecipientConfig struct {
 
 	// MaxTokenBytes rejects tokens larger than this before parsing. Non-positive selects DefaultMaxTokenBytes.
 	MaxTokenBytes int
+
+	// CriticalHeaders names the "crit" extensions this recipient understands and will process. A
+	// token whose crit list names anything outside this set is rejected (RFC 7515 §4.1.11).
+	CriticalHeaders []string
 }
 
 // A Recipient verifies and decodes JWTs against a fixed set of plugins.
@@ -87,8 +91,16 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		return fmt.Errorf("(Recipient.Consume) unmarshal header: %w", err)
 	}
 
-	if len(header.Crit) > 0 {
-		err = CheckCrit(decodedHeader, header.Crit)
+	// A header segment of JSON "null" unmarshals into a nil pointer without error; reject it before
+	// dereferencing rather than panicking on untrusted input.
+	if header == nil {
+		return fmt.Errorf("(Recipient.Consume) %w: null header", ErrUnsupportedTokenFormat)
+	}
+
+	// A non-nil Crit means the "crit" member is present in the header. Whether it is well-formed —
+	// including the RFC 7515 §4.1.11 rule that it must not be empty — is CheckCritUnderstood's call.
+	if header.Crit != nil {
+		err = CheckCritUnderstood(decodedHeader, header.Crit, recipient.config.CriticalHeaders)
 		if err != nil {
 			return fmt.Errorf("(Recipient.Consume) check crit: %w", err)
 		}
