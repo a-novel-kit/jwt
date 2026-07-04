@@ -191,4 +191,22 @@ func TestProducer(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("UnmarshalableClaims", func(t *testing.T) {
+		t.Parallel()
+
+		producer := jwt.NewProducer(jwt.ProducerConfig{})
+
+		_, err := producer.Issue(t.Context(), map[string]any{"bad": make(chan int)}, nil)
+		require.Error(t, err)
+	})
+
+	t.Run("UnmarshalableHeader", func(t *testing.T) {
+		t.Parallel()
+
+		producer := jwt.NewProducer(jwt.ProducerConfig{})
+
+		_, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, map[string]any{"bad": make(chan int)})
+		require.Error(t, err)
+	})
 }
