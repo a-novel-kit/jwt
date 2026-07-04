@@ -327,5 +327,10 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	origData := make([]byte, len(cipherText))
 	blockMode.CryptBlocks(origData, cipherText)
 
-	return internal.PKCS7UnPadding(origData), nil
+	plainText, err := internal.PKCS7UnPadding(origData)
+	if err != nil {
+		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: %w", ErrInvalidToken, err)
+	}
+
+	return plainText, nil
 }

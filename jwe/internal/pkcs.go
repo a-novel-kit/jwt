@@ -2,6 +2,8 @@ package internal
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 )
 
 // PKCS7Padding appends PKCS#7 padding to bring ciphertext up to a whole multiple of blockSize. A
@@ -13,10 +15,25 @@ func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
 	return append(ciphertext, padtext...)
 }
 
-// PKCS7UnPadding strips the PKCS#7 padding that PKCS7Padding added, returning the original plaintext.
-func PKCS7UnPadding(plaintText []byte) []byte {
+// PKCS7UnPadding strips the PKCS#7 padding that PKCS7Padding added, returning the original
+// plaintext. It validates the padding rather than trusting the last byte: an out-of-range or
+// inconsistent pad length would otherwise slice out of bounds and panic.
+func PKCS7UnPadding(plaintText []byte) ([]byte, error) {
 	length := len(plaintText)
-	unpadding := int(plaintText[length-1])
+	if length == 0 {
+		return nil, errors.New("pkcs7: empty input")
+	}
 
-	return plaintText[:(length - unpadding)]
+	unpadding := int(plaintText[length-1])
+	if unpadding == 0 || unpadding > length {
+		return nil, fmt.Errorf("pkcs7: invalid padding length %d", unpadding)
+	}
+
+	for _, b := range plaintText[length-unpadding:] {
+		if int(b) != unpadding {
+			return nil, errors.New("pkcs7: inconsistent padding")
+		}
+	}
+
+	return plaintText[:length-unpadding], nil
 }
