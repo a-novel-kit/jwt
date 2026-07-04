@@ -66,10 +66,10 @@ func (signer *RSAPSSSigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH
 		return nil, fmt.Errorf("(RSAPSSSigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
-	if signer.secretKey.N.BitLen() < minRSAKeyBits {
+	if signer.secretKey == nil || signer.secretKey.N == nil || signer.secretKey.N.BitLen() < minRSAKeyBits {
 		return nil, fmt.Errorf(
-			"(RSAPSSSigner.Header) %w: RSA key is %d bits, need at least %d (RFC 7518 §3.5)",
-			jwt.ErrInvalidSecretKey, signer.secretKey.N.BitLen(), minRSAKeyBits,
+			"(RSAPSSSigner.Header) %w: RSA key must be a valid modulus of at least %d bits (RFC 7518 §3.5)",
+			jwt.ErrInvalidSecretKey, minRSAKeyBits,
 		)
 	}
 
@@ -130,10 +130,10 @@ func (verifier *RSAPSSVerifier) Transform(_ context.Context, header *jwa.JWH, ra
 		)
 	}
 
-	if verifier.publicKey.N.BitLen() < minRSAKeyBits {
+	if verifier.publicKey == nil || verifier.publicKey.N == nil || verifier.publicKey.N.BitLen() < minRSAKeyBits {
 		return nil, fmt.Errorf(
-			"(RSAPSSVerifier.Transform) %w: RSA key is %d bits, need at least %d (RFC 7518 §3.5)",
-			jwt.ErrInvalidSecretKey, verifier.publicKey.N.BitLen(), minRSAKeyBits,
+			"(RSAPSSVerifier.Transform) %w: RSA key must be a valid modulus of at least %d bits (RFC 7518 §3.5)",
+			jwt.ErrInvalidSecretKey, minRSAKeyBits,
 		)
 	}
 

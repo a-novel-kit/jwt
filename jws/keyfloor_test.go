@@ -84,3 +84,24 @@ func TestRSAPSSWeakKey(t *testing.T) {
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 }
+
+func TestRSANilKey(t *testing.T) {
+	t.Parallel()
+
+	// The size floor must fail closed on a nil key or nil modulus, not panic.
+	t.Run("SignerNil", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := jws.NewRSASigner(nil, jws.RS256).Header(t.Context(), &jwa.JWH{})
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
+	t.Run("VerifierNilModulus", func(t *testing.T) {
+		t.Parallel()
+
+		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}}
+
+		_, err := jws.NewRSAVerifier(&rsa.PublicKey{}, jws.RS256).Transform(t.Context(), header, "a.b.c")
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+}
