@@ -128,3 +128,57 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 
 	return fmt.Errorf("(Recipient.Consume) %w: no compatible plugin found", ErrMismatchRecipientPlugin)
 }
+
+// DecodeUnverified decodes rawToken's claims into dst WITHOUT verifying its signature. The result is
+// therefore untrusted — anyone can forge such a token — so never base a trust decision on it. Use it
+// only to read a token whose authenticity is already established by other means: one just minted
+// locally, or one a separate step has already verified. To verify and decode, use
+// [Recipient.Consume].
+//
+// It reads the payload of a signed (JWS) token; it does not decrypt JWE. The size limit still
+// applies, but no plugin runs and the header's crit list is not enforced.
+func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
+	if len(rawToken) > recipient.config.MaxTokenBytes {
+		// Only lengths in the message — never the token itself (a bearer credential).
+		return fmt.Errorf(
+			"(Recipient.DecodeUnverified) %w: %d bytes exceeds limit %d",
+			ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes,
+		)
+	}
+
+	token, err := DecodeToken(rawToken, &SignedTokenDecoder{})
+	if err != nil {
+		return fmt.Errorf("(Recipient.DecodeUnverified) decode token: %w", err)
+	}
+
+	// Confirm the input is a structurally valid JWS: the header must be base64url-encoded JSON, not
+	// null or garbage. Signature and crit are deliberately not checked — that is what "unverified"
+	// means — but a non-JWT input should not silently yield claims.
+	decodedHeader, err := base64.RawURLEncoding.DecodeString(token.Header)
+	if err != nil {
+		return fmt.Errorf("(Recipient.DecodeUnverified) decode header: %w", err)
+	}
+
+	var header *jwa.JWH
+
+	err = json.Unmarshal(decodedHeader, &header)
+	if err != nil {
+		return fmt.Errorf("(Recipient.DecodeUnverified) unmarshal header: %w", err)
+	}
+
+	if header == nil {
+		return fmt.Errorf("(Recipient.DecodeUnverified) %w: null header", ErrUnsupportedTokenFormat)
+	}
+
+	rawClaims, err := base64.RawURLEncoding.DecodeString(token.Payload)
+	if err != nil {
+		return fmt.Errorf("(Recipient.DecodeUnverified) decode payload: %w", err)
+	}
+
+	err = recipient.config.Deserializer(rawClaims, dst)
+	if err != nil {
+		return fmt.Errorf("(Recipient.DecodeUnverified) unmarshal claims: %w", err)
+	}
+
+	return nil
+}

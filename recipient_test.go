@@ -192,3 +192,61 @@ func TestRecipientConcurrentConsume(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestRecipientDecodeUnverified(t *testing.T) {
+	t.Parallel()
+
+	// A signed token whose signature would never verify — DecodeUnverified reads its claims anyway.
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256"}`))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"alice","jti":"abc"}`))
+	token := header + "." + payload + ".not-a-real-signature"
+
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{})
+
+	var claims map[string]any
+
+	require.NoError(t, recipient.DecodeUnverified(token, &claims))
+	require.Equal(t, map[string]any{"sub": "alice", "jti": "abc"}, claims)
+}
+
+func TestRecipientDecodeUnverifiedTooLarge(t *testing.T) {
+	t.Parallel()
+
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{MaxTokenBytes: 8})
+
+	var claims map[string]any
+
+	require.ErrorIs(t, recipient.DecodeUnverified("aaaa.bbbb.cccc", &claims), jwt.ErrTokenTooLarge)
+}
+
+func TestRecipientDecodeUnverifiedRejects(t *testing.T) {
+	t.Parallel()
+
+	b64 := func(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
+	goodHeader := b64(`{"alg":"HS256"}`)
+	goodPayload := b64(`{"sub":"alice"}`)
+
+	testCases := []struct {
+		name  string
+		token string
+	}{
+		{"NotThreeSegments", goodHeader + "." + goodPayload},
+		{"HeaderNotBase64", "!!!." + goodPayload + ".sig"},
+		{"HeaderNotJSON", b64("not json") + "." + goodPayload + ".sig"},
+		{"NullHeader", b64("null") + "." + goodPayload + ".sig"},
+		{"PayloadNotBase64", goodHeader + ".!!!.sig"},
+		{"PayloadNotJSON", goodHeader + "." + b64("not json") + ".sig"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			recipient := jwt.NewRecipient(jwt.RecipientConfig{})
+
+			var claims map[string]any
+
+			require.Error(t, recipient.DecodeUnverified(testCase.token, &claims))
+		})
+	}
+}
