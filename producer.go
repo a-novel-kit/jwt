@@ -31,14 +31,14 @@ func NewProducer(config ProducerConfig) *Producer {
 func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader any) (string, error) {
 	header, err := producer.header.New(customHeader)
 	if err != nil {
-		return "", fmt.Errorf("(Issuer.Issue) issue header: %w", err)
+		return "", fmt.Errorf("(Producer.Issue) issue header: %w", err)
 	}
 
 	// Transform static operations first.
 	for _, operation := range producer.config.StaticPlugins {
 		header, err = operation.Header(ctx, header)
 		if err != nil {
-			return "", fmt.Errorf("(Issuer.Issue) static operation: %w", err)
+			return "", fmt.Errorf("(Producer.Issue) static operation: %w", err)
 		}
 	}
 
@@ -46,20 +46,20 @@ func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader 
 	for _, operation := range producer.config.Plugins {
 		header, err = operation.Header(ctx, header)
 		if err != nil {
-			return "", fmt.Errorf("(Issuer.Issue) operation: %w", err)
+			return "", fmt.Errorf("(Producer.Issue) operation: %w", err)
 		}
 	}
 
 	claimsSerialized, err := json.Marshal(customClaims)
 	if err != nil {
-		return "", fmt.Errorf("(Issuer.Issue) serialize claims: %w", err)
+		return "", fmt.Errorf("(Producer.Issue) serialize claims: %w", err)
 	}
 
 	claimsEncoded := base64.RawURLEncoding.EncodeToString(claimsSerialized)
 
 	headerSerialized, err := json.Marshal(header)
 	if err != nil {
-		return "", fmt.Errorf("(Issuer.Issue) serialize header: %w", err)
+		return "", fmt.Errorf("(Producer.Issue) serialize header: %w", err)
 	}
 
 	headerEncoded := base64.RawURLEncoding.EncodeToString(headerSerialized)
@@ -70,7 +70,7 @@ func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader 
 	for _, operation := range producer.config.Plugins {
 		token, err = operation.Transform(ctx, header, token)
 		if err != nil {
-			return "", fmt.Errorf("(Issuer.Issue) operation: %w", err)
+			return "", fmt.Errorf("(Producer.Issue) operation: %w", err)
 		}
 	}
 

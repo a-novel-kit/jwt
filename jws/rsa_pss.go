@@ -145,10 +145,10 @@ func (verifier *RSAPSSVerifier) Transform(_ context.Context, header *jwa.JWH, ra
 	})
 	if err != nil {
 		if errors.Is(err, rsa.ErrVerification) {
-			return nil, errors.Join(fmt.Errorf("(RSAVerifier.Transform) %w", ErrInvalidSignature), err)
+			return nil, errors.Join(fmt.Errorf("(RSAPSSVerifier.Transform) %w", ErrInvalidSignature), err)
 		}
 
-		return nil, fmt.Errorf("(RSAVerifier.Transform) %w", err)
+		return nil, fmt.Errorf("(RSAPSSVerifier.Transform) %w", err)
 	}
 
 	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
