@@ -262,13 +262,13 @@ func TestHMACSourcedVerifier(t *testing.T) {
 				newSecretKey, err := jwk.GenerateHMAC(testCase.keyPreset)
 				require.NoError(t, err)
 
-				source = testutils.NewStaticKeysSource(
+				secondSource := testutils.NewStaticKeysSource(
 					t,
 					append([]*jwk.Key[[]byte]{newSecretKey}, secretKeys...),
 				)
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedHMACVerifier(source, testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewSourcedHMACVerifier(secondSource, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
@@ -284,10 +284,10 @@ func TestHMACSourcedVerifier(t *testing.T) {
 				newSecretKey, err := jwk.GenerateHMAC(testCase.keyPreset)
 				require.NoError(t, err)
 
-				source = testutils.NewStaticKeysSource(t, []*jwk.Key[[]byte]{newSecretKey})
+				missingSource := testutils.NewStaticKeysSource(t, []*jwk.Key[[]byte]{newSecretKey})
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedHMACVerifier(source, testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewSourcedHMACVerifier(missingSource, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
