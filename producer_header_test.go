@@ -35,7 +35,7 @@ func TestNewBasicHeaderProducer(t *testing.T) {
 				TargetConfig: jwt.TargetConfig{
 					Issuer:   "issuer",
 					Subject:  "subject",
-					Audience: "audience",
+					Audience: jwa.Audience{"audience"},
 				},
 			},
 			expect: `{"alg":"none","typ":"JOSE","cty":"JWT","iss":"issuer","sub":"subject","aud":"audience"}`,

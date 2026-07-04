@@ -86,8 +86,8 @@ type JWHCommon struct {
 	Iss string `json:"iss,omitempty"`
 	// Sub mirrors the payload's subject claim.
 	Sub string `json:"sub,omitempty"`
-	// Aud mirrors the payload's audience claim.
-	Aud string `json:"aud,omitempty"`
+	// Aud mirrors the payload's audience claim. It is a string or an array of strings.
+	Aud Audience `json:"aud,omitempty"`
 }
 
 // JWHEmbeddedKey carries the header parameters that reference or embed the key

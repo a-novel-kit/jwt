@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwp"
 )
 
@@ -47,7 +48,7 @@ func TestClaimsChecker(t *testing.T) {
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
 					jwp.NewClaimsCheckTarget(jwt.TargetConfig{
-						Audience: "audience",
+						Audience: jwa.Audience{"audience"},
 						Issuer:   "issuer",
 						Subject:  "subject",
 					}),
@@ -76,7 +77,7 @@ func TestClaimsChecker(t *testing.T) {
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
 					jwp.NewClaimsCheckTarget(jwt.TargetConfig{
-						Audience: "audience",
+						Audience: jwa.Audience{"audience"},
 						Issuer:   "issuer",
 						Subject:  "subject",
 					}),
@@ -101,7 +102,7 @@ func TestClaimsChecker(t *testing.T) {
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
 					jwp.NewClaimsCheckTarget(jwt.TargetConfig{
-						Audience: "audience",
+						Audience: jwa.Audience{"audience"},
 						Issuer:   "issuer",
 						Subject:  "subject",
 					}),
@@ -126,7 +127,7 @@ func TestClaimsChecker(t *testing.T) {
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
 					jwp.NewClaimsCheckTarget(jwt.TargetConfig{
-						Audience: "audience",
+						Audience: jwa.Audience{"audience"},
 						Issuer:   "issuer",
 						Subject:  "subject",
 					}),
@@ -345,4 +346,21 @@ func TestClaimsCheckerNilDeserializer(t *testing.T) {
 
 	require.NoError(t, checker.Unmarshal([]byte(`{"foo":"bar"}`), &dst))
 	require.Equal(t, map[string]any{"foo": "bar"}, dst)
+}
+
+func TestClaimsCheckTargetAudienceMembership(t *testing.T) {
+	t.Parallel()
+
+	// A token addressed to several audiences: a recipient passes iff it names one of them.
+	claims := &jwa.Claims{ClaimsCommon: jwa.ClaimsCommon{Aud: jwa.Audience{"svc-a", "svc-b"}}}
+
+	member := jwp.NewClaimsCheckTarget(jwt.TargetConfig{Audience: jwa.Audience{"svc-b"}})
+	require.NoError(t, member.CheckClaims(claims))
+
+	stranger := jwp.NewClaimsCheckTarget(jwt.TargetConfig{Audience: jwa.Audience{"svc-c"}})
+	require.Error(t, stranger.CheckClaims(claims))
+
+	// An empty target audience opts out of the check.
+	optOut := jwp.NewClaimsCheckTarget(jwt.TargetConfig{})
+	require.NoError(t, optOut.CheckClaims(claims))
 }

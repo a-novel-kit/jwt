@@ -42,9 +42,12 @@ func NewClaimsCheckTarget(target jwt.TargetConfig) *ClaimsCheckTarget {
 }
 
 func (claimsCheck *ClaimsCheckTarget) CheckClaims(claims *jwa.Claims) error {
-	if claimsCheck.target.Audience != claims.Aud {
+	// RFC 7519 §4.1.3: the recipient identifies with a value in the token's audience. The check
+	// passes when any configured audience appears in the token's aud; an empty target audience opts
+	// out of the check (matching go-jose / golang-jwt).
+	if len(claimsCheck.target.Audience) > 0 && !audienceContainsAny(claims.Aud, claimsCheck.target.Audience) {
 		return fmt.Errorf(
-			"invalid audience %s, expected %s",
+			"invalid audience %v, expected one of %v",
 			claims.Aud, claimsCheck.target.Audience,
 		)
 	}
@@ -64,6 +67,20 @@ func (claimsCheck *ClaimsCheckTarget) CheckClaims(claims *jwa.Claims) error {
 	}
 
 	return nil
+}
+
+// audienceContainsAny reports whether have and want share at least one value — the token names an
+// audience the recipient answers to.
+func audienceContainsAny(have, want jwa.Audience) bool {
+	for _, w := range want {
+		for _, h := range have {
+			if w == h {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // A ClaimsCheckTimestamp rejects a token that has expired or is not yet valid, comparing the "exp"

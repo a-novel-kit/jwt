@@ -16,8 +16,10 @@ import (
 type TargetConfig struct {
 	// Issuer that produced the token. A recipient should accept only tokens from producers it trusts.
 	Issuer string
-	// Audience the token is meant for. A recipient should reject tokens addressed elsewhere.
-	Audience string
+	// Audience the token is meant for (RFC 7519 §4.1.3). On a producer it sets the token's aud; in a
+	// recipient check it is the identities to match — the token must name at least one. Empty opts
+	// out of the audience check.
+	Audience jwa.Audience
 	// Subject the token describes. A recipient should reject tokens issued for a different subject.
 	Subject string
 }
