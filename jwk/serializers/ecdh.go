@@ -8,24 +8,17 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
-// ECDHPayload wraps a ECDH-ES key in a JWKCommon format.
+// An ECDHPayload wraps an ECDH-ES key in a JWKCommon format.
 type ECDHPayload struct {
-	// Crv (curve) parameter.
-	//
-	// Since the proposal of adding 448 curve variants to the standard library was declined due to complexity and
-	// low benefits, it is currently not supported by this library. Thus, using a curve value other than "X25519"
-	// will throw an error.
+	// Crv is the JWK curve identifier. Only "X25519" is supported: the standard library does not implement the
+	// X448 variant, so any other value makes DecodeECDH return an error. Plug in your own decoder if you need X448.
 	//
 	// https://github.com/golang/go/issues/29390
-	//
-	// You may still use your own decoded that supports x448.
 	Crv string `json:"crv"`
-	// X coordinate parameter.
+	// X is the base64url-encoded public key.
 	X string `json:"x"`
 
-	// PRIVATE KEY.
-
-	// D (ECC private key) parameter.
+	// D is the base64url-encoded private key, set only for private keys.
 	D string `json:"d,omitempty"`
 }
 

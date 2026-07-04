@@ -10,22 +10,27 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
+// ErrKeyNotFound is returned by [Source.Get] when no cached key matches the request.
 var ErrKeyNotFound = errors.New("key not found")
 
-// KeysFetcher is a function that fetches keys from a source. The keys MUST be sorted by priority, with top-most keys
-// being the most important.
+// KeysFetcher retrieves the raw JSON Web Keys backing a [Source]. Keys must be returned in
+// priority order, most important first, because [Source.Get] falls back to the first key when no
+// ID is requested.
 type KeysFetcher func(ctx context.Context) ([]*jwa.JWK, error)
 
-// KeyParser decodes keys from a source into a consumable format.
+// KeyParser decodes a raw JSON Web Key into a typed [Key].
 type KeyParser[K any] func(ctx context.Context, jwk *jwa.JWK) (*Key[K], error)
 
+// SourceConfig configures a [Source].
 type SourceConfig struct {
-	// How long keys are cached before being refreshed.
+	// CacheDuration is how long fetched keys are held before the next fetch.
 	CacheDuration time.Duration
-	// Method used to refresh keys.
+	// Fetch retrieves the current keys.
 	Fetch KeysFetcher
 }
 
+// A Source fetches, caches, and parses the keys used to sign or verify tokens. It refreshes lazily
+// once the cached set is older than CacheDuration, and is safe for concurrent use.
 type Source[K any] struct {
 	config SourceConfig
 	parser KeyParser[K]
@@ -66,7 +71,7 @@ func (source *Source[K]) refresh(ctx context.Context) error {
 	return nil
 }
 
-// List every key available.
+// List returns every cached key, refreshing the cache first when it has expired.
 func (source *Source[K]) List(ctx context.Context) ([]*Key[K], error) {
 	err := source.refresh(ctx)
 	if err != nil {
@@ -79,7 +84,8 @@ func (source *Source[K]) List(ctx context.Context) ([]*Key[K], error) {
 	return source.cached, nil
 }
 
-// Get a key using a specific ID. If the KID parameter is empty, the first key available will be returned.
+// Get returns the key with the given ID. An empty kid returns the first (highest-priority) key. It
+// returns ErrKeyNotFound when the source is empty or no key matches.
 func (source *Source[K]) Get(ctx context.Context, kid string) (*Key[K], error) {
 	list, err := source.List(ctx)
 	if err != nil {
@@ -103,6 +109,8 @@ func (source *Source[K]) Get(ctx context.Context, kid string) (*Key[K], error) {
 	return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
 }
 
+// NewGenericSource builds a [Source] from a config and a parser. The algorithm-specific
+// constructors, such as [NewRSAPublicSource], wrap this with a preset-bound parser.
 func NewGenericSource[K any](config SourceConfig, parser KeyParser[K]) *Source[K] {
 	return &Source[K]{
 		config:     config,

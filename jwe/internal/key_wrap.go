@@ -7,12 +7,13 @@ import (
 	"errors"
 )
 
-// Shamelessly stolen
+// Adapted from go-jose:
 // https://github.com/go-jose/go-jose/blob/fdc2ceb0bbe2a29c582edfe07ea914c8dacd7e1b/cipher/key_wrap.go
 
 var defaultIV = []byte{0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6}
 
-// KeyWrap implements NIST key wrapping; it wraps a content encryption key (cek) with the given block cipher.
+// KeyWrap wraps the content encryption key cek under block using the AES Key Wrap algorithm
+// (RFC 3394). The cek length must be a multiple of 8 bytes.
 func KeyWrap(block cipher.Block, cek []byte) ([]byte, error) {
 	if len(cek)%8 != 0 {
 		return nil, errors.New("key wrap input must be 8 byte blocks")
@@ -55,7 +56,8 @@ func KeyWrap(block cipher.Block, cek []byte) ([]byte, error) {
 	return out, nil
 }
 
-// KeyUnwrap implements NIST key unwrapping; it unwraps a content encryption key (cek) with the given block cipher.
+// KeyUnwrap reverses KeyWrap, recovering the content encryption key from ciphertext under block. It
+// fails when the integrity check value does not match, which signals a wrong key or corrupted input.
 func KeyUnwrap(block cipher.Block, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext)%8 != 0 {
 		return nil, errors.New("key wrap input must be 8 byte blocks")

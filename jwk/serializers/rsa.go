@@ -7,132 +7,66 @@ import (
 	"math/big"
 )
 
+// An RSAOtherPrime describes a third or later prime factor of an RSA private key built from more than two primes,
+// together with the CRT values derived from it. Values are Base64urlUInt-encoded.
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.7
 type RSAOtherPrime struct {
-	// R prime factor.
-	//
-	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.7.1
-	//
-	// The "r" (prime factor) parameter within an "oth" array member
-	// represents the value of a subsequent prime factor. It is represented
-	// as a Base64urlUInt-encoded value.
+	// R is the prime factor.
 	R string `json:"r"`
-	// D factor CRT exponent.
-	//
-	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.7.2
-	//
-	// The "d" (factor CRT exponent) parameter within an "oth" array member
-	// represents the CRT exponent of the corresponding prime factor. It is
-	// represented as a Base64urlUInt-encoded value.
+	// D is the factor's CRT exponent.
 	D string `json:"d"`
-	// T factor CRT coefficient.
-	//
-	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.7.3
-	//
-	// The "t" (factor CRT coefficient) parameter within an "oth" array
-	// member represents the CRT coefficient of the corresponding prime
-	// factor. It is represented as a Base64urlUInt-encoded value.
+	// T is the factor's CRT coefficient.
 	T string `json:"t"`
 }
 
-// RSAPayload wraps a RSA key in a JWKCommon format.
+// An RSAPayload wraps an RSA key in a JWKCommon format. Every numeric field is Base64urlUInt-encoded, following
+// RFC 7518 §6.3.
 type RSAPayload struct {
-	// N modulus of the key.
+	// N is the key modulus.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.1.1
-	//
-	// The "n" (modulus) parameter contains the modulus value for the RSA
-	// public key. It is represented as a Base64urlUInt-encoded value.
-	//
-	// Note that implementers have found that some cryptographic libraries
-	// prefix an extra zero-valued octet to the modulus representations they
-	// return, for instance, returning 257 octets for a 2048-bit key, rather
-	// than 256. Implementations using such libraries will need to take
-	// care to omit the extra octet from the base64url-encoded
-	// representation.
 	N string `json:"n"`
-	// E exponent of the key.
+	// E is the public exponent. For example, 65537 encodes as "AQAB".
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.1.2
-	//
-	// The "e" (exponent) parameter contains the exponent value for the RSA
-	// public key. It is represented as a Base64urlUInt-encoded value.
-	//
-	// For instance, when representing the value 65537, the octet sequence
-	// to be base64url-encoded MUST consist of the three octets [1, 0, 1];
-	// the resulting representation for this value is "AQAB".
 	E string `json:"e"`
 
-	// PRIVATE KEY.
-
-	// D private exponent of the key.
+	// D is the private exponent, set only for private keys.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.1
-	//
-	// The "d" (private exponent) parameter contains the private exponent
-	// value for the RSA private key. It is represented as a Base64urlUInt-
-	// encoded value.
 	D string `json:"d,omitempty"`
 
-	// P first prime factor of the key.
+	// P is the first prime factor.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.2
-	//
-	// The "p" (first prime factor) parameter contains the first prime
-	// factor. It is represented as a Base64urlUInt-encoded value.
 	P string `json:"p,omitempty"`
-	// Q second prime factor of the key.
+	// Q is the second prime factor.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.3
-	//
-	// The "q" (second prime factor) parameter contains the second prime
-	// factor. It is represented as a Base64urlUInt-encoded value.
 	Q string `json:"q,omitempty"`
 
-	// DP first factor CRT exponent.
+	// DP is the first factor CRT exponent.
 	//
-	//https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.4
-	//
-	// The "dp" (first factor CRT exponent) parameter contains the Chinese
-	// Remainder Theorem (CRT) exponent of the first factor. It is
-	// represented as a Base64urlUInt-encoded value.
+	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.4
 	DP string `json:"dp,omitempty"`
-	// DQ second factor CRT exponent.
+	// DQ is the second factor CRT exponent.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.5
-	//
-	// The "dq" (second factor CRT exponent) parameter contains the CRT
-	// exponent of the second factor. It is represented as a Base64urlUInt-
-	// encoded value.
 	DQ string `json:"dq,omitempty"`
-	// QI first CRT coefficient.
+	// QI is the first CRT coefficient.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.6
-	//
-	// The "qi" (first CRT coefficient) parameter contains the CRT
-	// coefficient of the second factor. It is represented as a
-	// Base64urlUInt-encoded value.
 	QI string `json:"qi,omitempty"`
 
-	// Oth other primes info.
+	// Oth carries the remaining prime factors when the key was built from more than two primes; it is omitted for
+	// the usual two-prime key.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.7
-	//
-	// The "oth" (other primes info) parameter contains an array of
-	// information about any third and subsequent primes, should they exist.
-	// When only two primes have been used (the normal case), this parameter
-	// MUST be omitted. When three or more primes have been used, the
-	// number of array elements MUST be the number of primes used minus two.
-	// For more information on this case, see the description of the
-	// OtherPrimeInfo parameters in Appendix A.1.2 of RFC 3447 [RFC3447],
-	// upon which the following parameters are modeled. If the consumer of
-	// a JWKCommon does not support private keys with more than two primes and it
-	// encounters a private key that includes the "oth" parameter, then it
-	// MUST NOT use the key. Each array element MUST be an object with the
-	// following members.
 	Oth []RSAOtherPrime `json:"oth,omitempty"`
 }
 
-// DecodeRSA takes the representation of a RSAPayload and computes the key it contains.
+// DecodeRSA reconstructs the RSA key carried by an RSAPayload, returning the private key when the payload holds one.
 func DecodeRSA(src *RSAPayload) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 	n, err := base64.RawURLEncoding.DecodeString(src.N)
 	if err != nil {
@@ -240,7 +174,7 @@ func DecodeRSA(src *RSAPayload) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 	return key, keyPub, nil
 }
 
-// EncodeRSA takes a key and create a RSAPayload representation of it.
+// EncodeRSA builds the RSAPayload representation of an RSA public or private key.
 func EncodeRSA[Key *rsa.PublicKey | *rsa.PrivateKey](key Key) *RSAPayload {
 	payload := new(RSAPayload)
 

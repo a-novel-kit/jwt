@@ -67,9 +67,6 @@ pnpm lint
 a-novel test --type=go -y
 ```
 
-Run `pnpm generate:go` only when a generated Go input changes. Keep generated artifacts in the same commit as the
-source change that required them.
-
 ## Questions?
 
 Open an issue in this repository when the question is specific to `jwt`. Use the platform onboarding guide for general

@@ -13,31 +13,40 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
+// AESGCMPreset holds the parameters of one AES-GCM variant: the enc identifier and
+// the key length. Use one of the package presets rather than assembling this by hand.
 type AESGCMPreset struct {
 	Enc    jwa.Enc
 	KeyLen int
 }
 
 var (
+	// A128GCM is AES-128-GCM.
 	A128GCM = AESGCMPreset{
 		Enc:    jwa.A128GCM,
 		KeyLen: 16,
 	}
+	// A192GCM is AES-192-GCM.
 	A192GCM = AESGCMPreset{
 		Enc:    jwa.A192GCM,
 		KeyLen: 24,
 	}
+	// A256GCM is AES-256-GCM.
 	A256GCM = AESGCMPreset{
 		Enc:    jwa.A256GCM,
 		KeyLen: 32,
 	}
 )
 
+// AESGCMEncryptionConfig configures NewAESGCMEncryption. CEKManager supplies the
+// content encryption key; AdditionalData, when set, is authenticated but not encrypted.
 type AESGCMEncryptionConfig struct {
 	CEKManager     CEKManager
 	AdditionalData []byte
 }
 
+// AESGCMEncryption is a jwt.ProducerPlugin that encrypts a token payload with
+// AES-GCM. Create it with NewAESGCMEncryption.
 type AESGCMEncryption struct {
 	cekManager     CEKManager
 	additionalData []byte
@@ -46,12 +55,8 @@ type AESGCMEncryption struct {
 	keyLength int
 }
 
-// NewAESGCMEncryption creates a new jwt.ProducerPlugin for an encrypted token using AES-GCM.
-//
-// Use any of the AESGCMPreset constants to set the algorithm and hash function.
-//   - A128GCM: AES-128-GCM
-//   - A192GCM: AES-192-GCM
-//   - A256GCM: AES-256-GCM
+// NewAESGCMEncryption creates a jwt.ProducerPlugin that encrypts a token payload
+// with AES-GCM. Pass one of the package's AESGCMPreset values to select the key size.
 func NewAESGCMEncryption(config *AESGCMEncryptionConfig, presets AESGCMPreset) *AESGCMEncryption {
 	return &AESGCMEncryption{
 		cekManager:     config.CEKManager,
@@ -73,7 +78,7 @@ func (enc *AESGCMEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 		return nil, fmt.Errorf("(AESGCMEncryption.Header) set key derivation header: %w", err)
 	}
 
-	// If the CEK CEKManager specifies an explicit enc compatibility, it must be respected.
+	// A CEKManager may pin the token to a specific enc; honor that pin rather than override it.
 	if header.Enc != "" && header.Enc != enc.enc {
 		return nil, fmt.Errorf(
 			"(AESGCMEncryption.Header) %w: cek manager is incompatible with the current encryption algorithm: "+
@@ -108,7 +113,7 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return "", fmt.Errorf("(AESGCMEncryption.Transform) encrypt key: %w", err)
 	}
 
-	// The IV used is a 128-bit value generated randomly or pseudorandomly for use in the cipher.
+	// A fresh random 96-bit nonce, the length NewGCM expects by default.
 	iv := make([]byte, 12)
 
 	_, err = rand.Read(iv)
@@ -126,8 +131,9 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return "", fmt.Errorf("(AESGCMEncryption.Transform) create gcm: %w", err)
 	}
 
+	// Seal appends the authentication tag to the ciphertext; JWE carries them in
+	// separate fields, so split off the trailing Overhead() bytes.
 	ciphertextAndTag := aesgcm.Seal(nil, iv, plainText, enc.additionalData)
-	// Separate the actual cipherText from the authentication tag.
 	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
 	cipherText := ciphertextAndTag[:cipherLen]
 	tag := ciphertextAndTag[cipherLen:]
@@ -161,11 +167,15 @@ func (enc *AESGCMEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byt
 	return secret, nil
 }
 
+// AESGCMDecryptionConfig configures NewAESGCMDecryption. CEKDecoder recovers the
+// content encryption key; AdditionalData must equal the value used at encryption.
 type AESGCMDecryptionConfig struct {
 	CEKDecoder     CEKDecoder
 	AdditionalData []byte
 }
 
+// AESGCMDecryption is a jwt.RecipientPlugin that decrypts a token encrypted with
+// AES-GCM. Create it with NewAESGCMDecryption.
 type AESGCMDecryption struct {
 	cekDecoder     CEKDecoder
 	additionalData []byte
@@ -174,12 +184,9 @@ type AESGCMDecryption struct {
 	keyLength int
 }
 
-// NewAESGCMDecryption creates a new jwt.RecipientPlugin for an encrypted token using AES-GCM.
-//
-// Use any of the AESGCMPreset constants to set the algorithm and hash function.
-//   - A128GCM: AES-128-GCM
-//   - A192GCM: AES-192-GCM
-//   - A256GCM: AES-256-GCM
+// NewAESGCMDecryption creates a jwt.RecipientPlugin that decrypts a token encrypted
+// with AES-GCM. Pass one of the package's AESGCMPreset values to select the key size;
+// it must match the one used at encryption.
 func NewAESGCMDecryption(config *AESGCMDecryptionConfig, presets AESGCMPreset) *AESGCMDecryption {
 	return &AESGCMDecryption{
 		cekDecoder:     config.CEKDecoder,

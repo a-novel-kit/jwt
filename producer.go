@@ -7,20 +7,27 @@ import (
 	"fmt"
 )
 
+// ProducerConfig configures a Producer: the base header shared by every token and the ordered
+// plugins that sign, encrypt, or otherwise transform each one.
 type ProducerConfig struct {
 	Header HeaderProducerConfig
 
-	// Sorted list of operations to perform on the token.
+	// Plugins run in order. Each describes its operation in the header, then transforms the
+	// serialized token to match.
 	Plugins []ProducerPlugin
-	// StaticPlugins to apply to the token. Those are executed BEFORE the regular operations.
+	// StaticPlugins run before Plugins and only amend the header. They produce intermediate
+	// header values, such as a derived key, that a transforming plugin later consumes.
 	StaticPlugins []ProducerStaticPlugin
 }
 
+// A Producer issues signed or encrypted JWTs from a fixed configuration. Create one with
+// NewProducer and reuse it across tokens.
 type Producer struct {
 	config ProducerConfig
 	header *HeaderProducer
 }
 
+// NewProducer returns a Producer for the given configuration.
 func NewProducer(config ProducerConfig) *Producer {
 	return &Producer{
 		config: config,
@@ -28,13 +35,15 @@ func NewProducer(config ProducerConfig) *Producer {
 	}
 }
 
+// Issue builds a token from customClaims and customHeader, then runs the configured plugins to
+// produce the final serialized JWT.
 func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader any) (string, error) {
 	header, err := producer.header.New(customHeader)
 	if err != nil {
 		return "", fmt.Errorf("(Issuer.Issue) issue header: %w", err)
 	}
 
-	// Transform static operations first.
+	// Static plugins amend the header before the transforming plugins see it.
 	for _, operation := range producer.config.StaticPlugins {
 		header, err = operation.Header(ctx, header)
 		if err != nil {
@@ -42,7 +51,7 @@ func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader 
 		}
 	}
 
-	// Each operation describes itself in the header.
+	// Each plugin records its algorithm and parameters in the header.
 	for _, operation := range producer.config.Plugins {
 		header, err = operation.Header(ctx, header)
 		if err != nil {
@@ -66,7 +75,7 @@ func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader 
 
 	token := headerEncoded + "." + claimsEncoded
 
-	// Transform transformations to the token.
+	// With the header settled and serialized, each plugin applies its transformation to the token.
 	for _, operation := range producer.config.Plugins {
 		token, err = operation.Transform(ctx, header, token)
 		if err != nil {

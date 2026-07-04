@@ -13,10 +13,9 @@ import (
 	"github.com/a-novel-kit/jwt/jwk/serializers"
 )
 
-// GenerateED25519 generates a new ED25519 key pair.
+// GenerateED25519 generates a new Ed25519 key pair.
 //
-// You can either retrieve the secret key directly (using res.Key()), or marshal the result into a JSON Web Key,
-// using json.Marshal.
+// Retrieve a raw key with res.Key(), or marshal either result into a JSON Web Key with json.Marshal.
 func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -67,11 +66,10 @@ func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error
 		nil
 }
 
-// ConsumeED25519 consumes a JSON Web Key and returns the secret key for ED25519 signature algorithms.
+// ConsumeED25519 parses a JSON Web Key into an Ed25519 signature key pair. When the key holds only
+// a public key, the returned private key is nil.
 //
-// If the JSON Web Key does not represent the ED25519 key, ErrJWKMismatch is returned.
-//
-// If the key represents a public key only, the private key will be nil.
+// It returns ErrJWKMismatch when the key does not represent an Ed25519 key.
 func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error) {
 	matchPrivate := source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
@@ -118,6 +116,8 @@ func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.Pub
 	return privateKey, publicKey, nil
 }
 
+// NewED25519PublicSource returns a key source that yields Ed25519 public keys and rejects any
+// source that exposes private key material.
 func NewED25519PublicSource(config SourceConfig) *Source[ed25519.PublicKey] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[ed25519.PublicKey], error) {
 		privateKey, publicKey, err := ConsumeED25519(jwk)
@@ -131,6 +131,7 @@ func NewED25519PublicSource(config SourceConfig) *Source[ed25519.PublicKey] {
 	return NewGenericSource[ed25519.PublicKey](config, parser)
 }
 
+// NewED25519PrivateSource returns a key source that yields Ed25519 private keys.
 func NewED25519PrivateSource(config SourceConfig) *Source[ed25519.PrivateKey] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[ed25519.PrivateKey], error) {
 		privateKey, _, err := ConsumeED25519(jwk)

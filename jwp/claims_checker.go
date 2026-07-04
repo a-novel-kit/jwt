@@ -10,20 +10,31 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
+// ErrInvalidClaims wraps every failure reported by a claims check, so callers can detect a rejected
+// token by identity while the wrapped error carries which check failed. Returned by
+// [ClaimsChecker.Unmarshal].
 var ErrInvalidClaims = errors.New("invalid claims")
 
+// A RawClaimsCheck validates a token's payload from its raw JSON bytes, before any decoding. Use it
+// for custom claims that are not part of the registered [jwa.Claims] set. CheckRaw returns an error
+// to reject the token.
 type RawClaimsCheck interface {
 	CheckRaw(raw []byte) error
 }
 
+// A ClaimsCheck validates the registered claims of a token after they are decoded. CheckClaims
+// returns an error to reject the token.
 type ClaimsCheck interface {
 	CheckClaims(claims *jwa.Claims) error
 }
 
+// A ClaimsCheckTarget rejects a token whose audience, issuer, or subject does not match the expected
+// target. It implements [ClaimsCheck].
 type ClaimsCheckTarget struct {
 	target jwt.TargetConfig
 }
 
+// NewClaimsCheckTarget returns a [ClaimsCheck] that accepts only tokens matching the given target.
 func NewClaimsCheckTarget(target jwt.TargetConfig) *ClaimsCheckTarget {
 	return &ClaimsCheckTarget{
 		target: target,
@@ -55,11 +66,16 @@ func (claimsCheck *ClaimsCheckTarget) CheckClaims(claims *jwa.Claims) error {
 	return nil
 }
 
+// A ClaimsCheckTimestamp rejects a token that has expired or is not yet valid, comparing the "exp"
+// and "nbf" claims against the current time. It implements [ClaimsCheck].
 type ClaimsCheckTimestamp struct {
 	leeway     time.Duration
 	requireExp bool
 }
 
+// NewClaimsCheckTimestamp returns a [ClaimsCheck] that validates the token's time bounds. The leeway
+// widens the accepted window on both ends to absorb clock skew. When requireExp is true, a token
+// without an "exp" claim is rejected.
 func NewClaimsCheckTimestamp(leeway time.Duration, requireExp bool) *ClaimsCheckTimestamp {
 	return &ClaimsCheckTimestamp{
 		leeway:     leeway,
@@ -90,11 +106,16 @@ func (claimsCheck *ClaimsCheckTimestamp) CheckClaims(claims *jwa.Claims) error {
 	return nil
 }
 
+// A RawClaimsChecker adapts an arbitrary callback into a [RawClaimsCheck], passing a caller-supplied
+// config of type T alongside the raw payload on every check. Use it to validate custom claims
+// without declaring a dedicated type.
 type RawClaimsChecker[T any] struct {
 	config   T
 	callback func(raw []byte, config T) error
 }
 
+// NewRawClaimsChecker returns a [RawClaimsCheck] that runs the callback against each token's raw
+// payload, threading config through to it.
 func NewRawClaimsChecker[T any](config T, callback func(raw []byte, config T) error) *RawClaimsChecker[T] {
 	return &RawClaimsChecker[T]{
 		config:   config,
@@ -106,25 +127,35 @@ func (claimsCheck *RawClaimsChecker[T]) CheckRaw(raw []byte) error {
 	return claimsCheck.callback(raw, claimsCheck.config)
 }
 
+// A ClaimsCheckerConfig lists the validations a [ClaimsChecker] runs before it decodes a token's
+// payload.
 type ClaimsCheckerConfig struct {
-	Checks    []ClaimsCheck
+	// Checks run against the decoded registered claims.
+	Checks []ClaimsCheck
+	// ChecksRaw run against the raw payload bytes, for claims outside the registered set.
 	ChecksRaw []RawClaimsCheck
 
-	// Set a custom deserializer to decode the token's payload. Uses json.Unmarshal by default.
+	// Deserializer decodes the validated payload into the destination. Defaults to json.Unmarshal.
 	Deserializer func(raw []byte, dst any) error
 }
 
+// A ClaimsChecker is a payload deserializer that validates a token's claims before decoding it. It
+// plugs into the recipient as the claims unmarshaler, rejecting the token with [ErrInvalidClaims]
+// when any configured check fails.
 type ClaimsChecker struct {
 	config ClaimsCheckerConfig
 }
 
-// NewClaimsChecker is a custom claims unmarshaler, that performs extra checks on the claims.
+// NewClaimsChecker returns a [ClaimsChecker] that runs the configured checks on each token before
+// decoding its payload.
 func NewClaimsChecker(config *ClaimsCheckerConfig) *ClaimsChecker {
 	return &ClaimsChecker{
 		config: *config,
 	}
 }
 
+// Unmarshal runs every configured check against the token's claims, then decodes the payload into
+// dst. It returns [ErrInvalidClaims] as soon as a check rejects the token, leaving dst untouched.
 func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 	var token *jwa.Claims
 

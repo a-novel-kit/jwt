@@ -9,27 +9,21 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
-// EDPayload wraps a EDDSA key in a JWKCommon format.
+// An EDPayload wraps an EdDSA key in a JWKCommon format.
 type EDPayload struct {
-	// Crv (curve) parameter.
-	//
-	// Since the proposal of adding 448 curve variants to the standard library was declined due to complexity and
-	// low benefits, it is currently not supported by this library. Thus, using a curve value other than "Ed25519"
-	// will throw an error.
+	// Crv is the JWK curve identifier. Only "Ed25519" is supported: the standard library does not implement the
+	// Ed448 variant, so any other value makes DecodeED return an error. Plug in your own decoder if you need Ed448.
 	//
 	// https://github.com/golang/go/issues/29390
-	//
-	// You may still use your own decoded that supports x448.
 	Crv string `json:"crv"`
-	// X coordinate parameter.
+	// X is the base64url-encoded public key.
 	X string `json:"x"`
 
-	// PRIVATE KEY.
-
-	// D (ECC private key) parameter.
+	// D is the base64url-encoded private key, set only for private keys.
 	D string `json:"d,omitempty"`
 }
 
+// ErrInvalidEDKey is returned when a decoded EdDSA key does not have the size Ed25519 requires.
 var ErrInvalidEDKey = errors.New("invalid EdDSA key")
 
 // DecodeED decodes the EdDSA key from a JWKCommon format.

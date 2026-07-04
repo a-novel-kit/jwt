@@ -1,3 +1,5 @@
+// Package testutils provides helpers for exercising the jwt packages in tests,
+// standing in for the live key infrastructure a real deployment would rely on.
 package testutils
 
 import (
@@ -9,6 +11,9 @@ import (
 	"github.com/a-novel-kit/jwt/jwk"
 )
 
+// NewStaticKeysSource returns a [jwk.Source] backed by a fixed, in-memory set of keys, so a test can
+// serve known keys without a live JWKS endpoint. Keys are served in the order given, and a lookup
+// matches on KID.
 func NewStaticKeysSource[T any](t *testing.T, keys []*jwk.Key[T]) *jwk.Source[T] {
 	t.Helper()
 

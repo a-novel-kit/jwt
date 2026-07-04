@@ -16,6 +16,9 @@ import (
 	"github.com/a-novel-kit/jwt/jwe/internal"
 )
 
+// AESCBCPreset holds the parameters of one AES_CBC_HMAC_SHA2 variant: the enc
+// identifier, the HMAC hash, and the key and tag lengths. Use one of the package
+// presets rather than assembling this by hand.
 type AESCBCPreset struct {
 	Enc       jwa.Enc
 	Hash      crypto.Hash
@@ -26,6 +29,7 @@ type AESCBCPreset struct {
 }
 
 var (
+	// A128CBCHS256 is AES-128-CBC with HMAC-SHA-256.
 	A128CBCHS256 = AESCBCPreset{
 		Enc:       jwa.A128CBC,
 		Hash:      crypto.SHA256,
@@ -34,6 +38,7 @@ var (
 		MACKeyLen: 16,
 		TagLength: 16,
 	}
+	// A192CBCHS384 is AES-192-CBC with HMAC-SHA-384.
 	A192CBCHS384 = AESCBCPreset{
 		Enc:       jwa.A192CBC,
 		Hash:      crypto.SHA384,
@@ -42,6 +47,7 @@ var (
 		MACKeyLen: 24,
 		TagLength: 24,
 	}
+	// A256CBCHS512 is AES-256-CBC with HMAC-SHA-512.
 	A256CBCHS512 = AESCBCPreset{
 		Enc:       jwa.A256CBC,
 		Hash:      crypto.SHA512,
@@ -52,11 +58,15 @@ var (
 	}
 )
 
+// AESCBCEncryptionConfig configures NewAESCBCEncryption. CEKManager supplies the
+// content encryption key; AdditionalData, when set, is authenticated but not encrypted.
 type AESCBCEncryptionConfig struct {
 	CEKManager     CEKManager
 	AdditionalData []byte
 }
 
+// AESCBCEncryption is a jwt.ProducerPlugin that encrypts a token payload with
+// AES_CBC_HMAC_SHA2. Create it with NewAESCBCEncryption.
 type AESCBCEncryption struct {
 	cekManager     CEKManager
 	additionalData []byte
@@ -68,12 +78,9 @@ type AESCBCEncryption struct {
 	tagLength    int
 }
 
-// NewAESCBCEncryption creates a new jwt.ProducerPlugin for an encrypted token using AES_CBC_HMAC_SHA2.
-//
-// Use any of the AESCBCPreset constants to set the algorithm and hash function.
-//   - A128CBCHS256: AES-128-CBC with HMAC-SHA-256
-//   - A192CBCHS384: AES-192-CBC with HMAC-SHA-384
-//   - A256CBCHS512: AES-256-CBC with HMAC-SHA-512
+// NewAESCBCEncryption creates a jwt.ProducerPlugin that encrypts a token payload
+// with AES_CBC_HMAC_SHA2. Pass one of the package's AESCBCPreset values to select
+// the variant.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
 func NewAESCBCEncryption(config *AESCBCEncryptionConfig, presets AESCBCPreset) *AESCBCEncryption {
@@ -100,7 +107,7 @@ func (enc *AESCBCEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 		return nil, fmt.Errorf("(AESCBCEncryption.Header) set key derivation header: %w", err)
 	}
 
-	// If the CEK CEKManager specifies an explicit enc compatibility, it must be respected.
+	// A CEKManager may pin the token to a specific enc; honor that pin rather than override it.
 	if header.Enc != "" && header.Enc != enc.enc {
 		return nil, fmt.Errorf(
 			"(AESCBCEncryption.Header) %w: cek manager is incompatible with the current encryption algorithm: "+
@@ -135,7 +142,7 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return "", fmt.Errorf("(AESCBCEncryption.Transform) encrypt key: %w", err)
 	}
 
-	// The IV used is a 128-bit value generated randomly or pseudorandomly for use in the cipher.
+	// A fresh random 128-bit IV, unique per encryption.
 	iv := make([]byte, 16)
 
 	_, err = rand.Read(iv)
@@ -143,53 +150,29 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return "", fmt.Errorf("(AESCBCEncryption.Transform) generate IV: %w", err)
 	}
 
-	// The secondary keys MAC_KEY and ENC_KEY are generated from the
-	// input key K as follows. Each of these two keys is an octet
-	// string.
-	//
-	// - MAC_KEY consists of the initial MAC_KEY_LEN octets of K, in order.
-	// - ENC_KEY consists of the final ENC_KEY_LEN octets of K, in order.
-	//
-	// The number of octets in the input key K MUST be the sum of
-	// MAC_KEY_LEN and ENC_KEY_LEN. The values of these parameters are
-	// specified by the Authenticated Encryption algorithms in Sections
-	// 5.2.3 through 5.2.5. Note that the MAC key comes before the
-	// encryption key in the input key K; this is in the opposite order
-	// of the algorithm names in the identifier "AES_CBC_HMAC_SHA2".
+	// K splits into two subkeys: MAC_KEY is its leading octets, ENC_KEY its trailing
+	// octets. The MAC key comes first, the reverse of the order the name suggests in
+	// "AES_CBC_HMAC_SHA2".
 	encKey := secret[enc.keyLength:]
 	macKey := secret[:enc.macKeyLength]
 
-	// The plaintext is CBC encrypted using PKCS #7 padding using
-	// ENC_KEY as the key and the IV.
-	block, err := aes.NewCipher(encKey) // New cipher with ENC_KEY
+	block, err := aes.NewCipher(encKey)
 	if err != nil {
 		return "", fmt.Errorf("(AESCBCEncryption.Transform) new cipher: %w", err)
 	}
 
 	blockMode := cipher.NewCBCEncrypter(block, iv)
-	// Pad the incoming data so it fits the block size.
 	origData := internal.PKCS7Padding(plainText, block.BlockSize())
-	// CipherText will hold the results of the encryption.
 	cipherText := make([]byte, len(origData))
 	blockMode.CryptBlocks(cipherText, origData)
 
-	// The octet string AL is equal to the number of bits in the
-	// Additional Authenticated Data A expressed as a 64-bit unsigned
-	// big-endian integer.
+	// AL is the additional-data length in bits as a big-endian uint64. It is the last
+	// input to the tag, so the recipient can bind the length it authenticated.
 	al := make([]byte, 8)
 	binary.BigEndian.PutUint64(al, uint64(len(enc.additionalData)*8))
 
-	// A message Authentication Tag T is computed by applying HMAC
-	// [RFC2104] to the following data, in order:
-	//
-	// - the Additional Authenticated Data A,
-	// - the Initialization Vector IV,
-	// - the ciphertext E computed in the previous step, and
-	// - the octet string AL defined above.
-	//
-	// The string MAC_KEY is used as the MAC key. We denote the output
-	// of the MAC computed in this step as M. The first T_LEN octets of
-	// M are used as T.
+	// The tag is HMAC over the additional data, IV, ciphertext, and AL in that order,
+	// truncated to tagLength octets. The order is fixed by the spec.
 	authenticationTag := hmac.New(enc.hash.New, macKey)
 	authenticationTag.Write(enc.additionalData)
 	authenticationTag.Write(iv)
@@ -226,11 +209,15 @@ func (enc *AESCBCEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byt
 	return secret, nil
 }
 
+// AESCBCDecryptionConfig configures NewAESCBCDecryption. CEKDecoder recovers the
+// content encryption key; AdditionalData must equal the value used at encryption.
 type AESCBCDecryptionConfig struct {
 	CEKDecoder     CEKDecoder
 	AdditionalData []byte
 }
 
+// AESCBCDecryption is a jwt.RecipientPlugin that decrypts a token encrypted with
+// AES_CBC_HMAC_SHA2. Create it with NewAESCBCDecryption.
 type AESCBCDecryption struct {
 	cekDecoder     CEKDecoder
 	additionalData []byte
@@ -242,12 +229,9 @@ type AESCBCDecryption struct {
 	tagLength    int
 }
 
-// NewAESCBCDecryption creates a new jwt.RecipientPlugin for a decrypted token using AES_CBC_HMAC_SHA2.
-//
-// Use any of the AESCBCPreset constants to set the algorithm and hash function.
-//   - A128CBCHS256: AES-128-CBC with HMAC-SHA-256
-//   - A192CBCHS384: AES-192-CBC with HMAC-SHA-384
-//   - A256CBCHS512: AES-256-CBC with HMAC-SHA-512
+// NewAESCBCDecryption creates a jwt.RecipientPlugin that decrypts a token encrypted
+// with AES_CBC_HMAC_SHA2. Pass one of the package's AESCBCPreset values to select the
+// variant; it must match the one used at encryption.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
 func NewAESCBCDecryption(config *AESCBCDecryptionConfig, presets AESCBCPreset) *AESCBCDecryption {
@@ -311,33 +295,15 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	// The secondary keys MAC_KEY and ENC_KEY are generated from the
-	// input key K as follows. Each of these two keys is an octet
-	// string.
-	//
-	// - MAC_KEY consists of the initial MAC_KEY_LEN octets of K, in order.
-	// - ENC_KEY consists of the final ENC_KEY_LEN octets of K, in order.
-	//
-	// The number of octets in the input key K MUST be the sum of
-	// MAC_KEY_LEN and ENC_KEY_LEN. The values of these parameters are
-	// specified by the Authenticated Encryption algorithms in Sections
-	// 5.2.3 through 5.2.5. Note that the MAC key comes before the
-	// encryption key in the input key K; this is in the opposite order
-	// of the algorithm names in the identifier "AES_CBC_HMAC_SHA2".
+	// K splits into two subkeys: MAC_KEY is its leading octets, ENC_KEY its trailing
+	// octets. The MAC key comes first, the reverse of the order the name suggests in
+	// "AES_CBC_HMAC_SHA2".
 	encKey := cek[dec.keyLength:]
 	macKey := cek[:dec.macKeyLength]
 
-	// The integrity and authenticity of A and E are checked by
-	// computing an HMAC with the inputs as in Step 5 of
-	// Section 5.2.2.1.
-	// The value T, from the previous step, is
-	// compared to the first MAC_KEY length bits of the HMAC output.  If
-	// those values are identical, then A and E are considered valid,
-	// and processing is continued.  Otherwise, all of the data used in
-	// the MAC validation are discarded, and the authenticated
-	// decryption operation returns an indication that it failed, and
-	// the operation halts.  (But see Section 11.5 of [JWE] for security
-	// considerations on thwarting timing attacks.)
+	// Recompute the tag over the same inputs as encryption and reject the token unless
+	// it matches, before touching the ciphertext. hmac.Equal compares in constant time
+	// to avoid leaking the tag through timing.
 	al := make([]byte, 8)
 	binary.BigEndian.PutUint64(al, uint64(len(dec.additionalData)*8))
 
@@ -352,9 +318,6 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: auth tag check failed", ErrInvalidSecret)
 	}
 
-	// The value E is decrypted and the PKCS #7 padding is checked and
-	// removed. The value IV is used as the Initialization Vector. The
-	// value ENC_KEY is used as the decryption key.
 	block, err := aes.NewCipher(encKey)
 	if err != nil {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) new cipher: %w", err)

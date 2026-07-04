@@ -8,25 +8,31 @@ import (
 	"github.com/a-novel-kit/jwt/jwk"
 )
 
+// An EmbedKeyConfig configures how an [EmbedKey] advertises the signing key in a token's header: by
+// identifier, by URL, or by embedding the key itself.
 type EmbedKeyConfig[K any] struct {
-	// Source to get the key from. Optional, overrides Key if set.
+	// Key source resolved at signing time. When set, it supersedes Key.
 	Source *jwk.Source[K]
-	// JSON Web Key to embed. This is optional, and is overridden by Source if set.
+	// JSON Web Key to embed directly. Ignored when Source is set.
 	Key *jwa.JWK
-	// ID of the key. If a Source is set, it will be used to retrieve the specific key.
-	// If not provided, this parameter is automatically set using Key or Source, if present.
+	// Identifier of the key. With a Source set, it selects which key to fetch. Left empty, it is
+	// filled from the resolved key.
 	KID string
-	// URL to retrieve the key from. Optional.
+	// JWK Set URL recorded in the header's "jku" field, telling recipients where to fetch the key.
 	URL string
-	// Embed the key. By default, only the KID is provided to save space. If this parameter is used, and a key is
-	// provided, it will be fully embedded in the header.
+	// Embed writes the full key into the header. When false, only the identifier is written, to
+	// keep the token small.
 	Embed bool
 }
 
+// An EmbedKey records the signing key in a token's header so recipients can locate it, as a
+// [jwt.ProducerStaticPlugin]. Build one with [NewEmbedKey].
 type EmbedKey[K any] struct {
 	config EmbedKeyConfig[K]
 }
 
+// Header writes the key's identifier, URL, and — when configured — the key itself into the token
+// header.
 func (plugin *EmbedKey[K]) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	key := plugin.config.Key
 	kid := plugin.config.KID
@@ -54,7 +60,8 @@ func (plugin *EmbedKey[K]) Header(ctx context.Context, header *jwa.JWH) (*jwa.JW
 	return header, nil
 }
 
-// NewEmbedKey is a plugin that embeds a key in the header of a token. You can use this as a jwt.ProducerStaticPlugin.
+// NewEmbedKey returns an [EmbedKey] that advertises the signing key in the token header. Use it as a
+// [jwt.ProducerStaticPlugin].
 func NewEmbedKey[K any](config EmbedKeyConfig[K]) *EmbedKey[K] {
 	return &EmbedKey[K]{config: config}
 }

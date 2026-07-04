@@ -13,6 +13,8 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
+// RSAOAEPKeyEncPreset pairs a JWA algorithm identifier with the hash used by
+// RSAES-OAEP. Use one of the predefined presets rather than building one by hand.
 type RSAOAEPKeyEncPreset struct {
 	Alg  jwa.Alg
 	Hash hash.Hash
@@ -30,11 +32,15 @@ var (
 	}
 )
 
+// RSAOAEPKeyEncManagerConfig holds the content encryption key to protect and the
+// recipient RSA public key that encrypts it.
 type RSAOAEPKeyEncManagerConfig struct {
 	CEK    []byte
 	EncKey *rsa.PublicKey
 }
 
+// RSAOAEPKeyEncManager implements jwe.CEKManager, encrypting the content encryption
+// key to the recipient with RSAES-OAEP. See RFC 7518 section 4.3.
 type RSAOAEPKeyEncManager struct {
 	cek    []byte
 	encKey *rsa.PublicKey
@@ -43,11 +49,9 @@ type RSAOAEPKeyEncManager struct {
 	hash hash.Hash
 }
 
-// NewRSAOAEPKeyEncManager creates a new jwe.CEKManager for a key encrypted using RSAES-OAEP.
-//
-// Use any of the RSAOAEPKeyEncPreset to set the algorithm and hash function.
-//   - RSAOAEP: RSAES-OAEP using SHA-1 and MGF1 with SHA-1.
-//   - RSAOAEP256: RSAES-OAEP using SHA-256 and MGF1 with SHA-256.
+// NewRSAOAEPKeyEncManager creates a jwe.CEKManager that encrypts the content
+// encryption key to the recipient with RSAES-OAEP. The preset selects the
+// algorithm and hash; use RSAOAEP256 (RSAOAEP is deprecated, see its note).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.3
 func NewRSAOAEPKeyEncManager(
@@ -87,10 +91,14 @@ func (manager *RSAOAEPKeyEncManager) EncryptCEK(_ context.Context, _ *jwa.JWH, c
 	return encoded, nil
 }
 
+// RSAOAEPKeyEncDecoderConfig holds the recipient RSA private key used to decrypt
+// the content encryption key.
 type RSAOAEPKeyEncDecoderConfig struct {
 	EncKey *rsa.PrivateKey
 }
 
+// RSAOAEPKeyEncDecoder implements jwe.CEKDecoder, decrypting a content encryption
+// key that was encrypted with RSAES-OAEP. See RFC 7518 section 4.3.
 type RSAOAEPKeyEncDecoder struct {
 	encKey *rsa.PrivateKey
 
@@ -98,11 +106,9 @@ type RSAOAEPKeyEncDecoder struct {
 	hash hash.Hash
 }
 
-// NewRSAOAEPKeyEncDecoder creates a new jwe.CEKDecoder for a key encrypted using RSAES-OAEP.
-//
-// Use any of the RSAOAEPKeyEncPreset to set the algorithm and hash function.
-//   - RSAOAEP: RSAES-OAEP using SHA-1 and MGF1 with SHA-1.
-//   - RSAOAEP256: RSAES-OAEP using SHA-256 and MGF1 with SHA-256.
+// NewRSAOAEPKeyEncDecoder creates a jwe.CEKDecoder that decrypts an RSAES-OAEP
+// encrypted content encryption key. The preset must match the one used to encrypt
+// the token; use RSAOAEP256 (RSAOAEP is deprecated, see its note).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.3
 func NewRSAOAEPKeyEncDecoder(

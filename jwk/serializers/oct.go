@@ -5,19 +5,15 @@ import (
 	"fmt"
 )
 
-// OctPayload wraps a symmetric key in a JWKCommon format.
+// An OctPayload wraps a symmetric key in a JWKCommon format.
 type OctPayload struct {
-	// K (CEK Value) Parameter.
+	// K is the base64url-encoded symmetric key value.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.4.1
-	//
-	// The "k" (key value) parameter contains the value of the symmetric (or
-	// other single-valued) key. It is represented as the base64url
-	// encoding of the octet sequence containing the key value.
 	K string `json:"k"`
 }
 
-// DecodeOct takes the representation of a OctPayload and computes the key it contains.
+// DecodeOct returns the raw key bytes carried by an OctPayload.
 func DecodeOct(src *OctPayload) ([]byte, error) {
 	key, err := base64.RawURLEncoding.DecodeString(src.K)
 	if err != nil {
@@ -27,7 +23,7 @@ func DecodeOct(src *OctPayload) ([]byte, error) {
 	return key, nil
 }
 
-// EncodeOct takes a key and create a OctPayload representation of it.
+// EncodeOct wraps a raw symmetric key as an OctPayload.
 func EncodeOct(key []byte) *OctPayload {
 	return &OctPayload{
 		K: base64.RawURLEncoding.EncodeToString(key),

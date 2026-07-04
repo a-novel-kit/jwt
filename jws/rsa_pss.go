@@ -14,26 +14,34 @@ import (
 	"github.com/a-novel-kit/jwt/jwk"
 )
 
+// An RSAPSSPreset bundles the hash and algorithm identifier for one RSASSA-PSS signing scheme.
+// RSASSA-PSS uses the same hash for the digest and for MGF1. Pass one of the exported presets to the
+// RSA-PSS constructors rather than assembling the fields by hand.
 type RSAPSSPreset struct {
 	Hash crypto.Hash
 	Alg  jwa.Alg
 }
 
 var (
+	// PS256 is RSASSA-PSS using SHA-256 and MGF1 with SHA-256.
 	PS256 = RSAPSSPreset{
 		Hash: crypto.SHA256,
 		Alg:  jwa.PS256,
 	}
+	// PS384 is RSASSA-PSS using SHA-384 and MGF1 with SHA-384.
 	PS384 = RSAPSSPreset{
 		Hash: crypto.SHA384,
 		Alg:  jwa.PS384,
 	}
+	// PS512 is RSASSA-PSS using SHA-512 and MGF1 with SHA-512.
 	PS512 = RSAPSSPreset{
 		Hash: crypto.SHA512,
 		Alg:  jwa.PS512,
 	}
 )
 
+// An RSAPSSSigner signs tokens with RSASSA-PSS as a [jwt.ProducerPlugin]. Build one with
+// [NewRSAPSSSigner].
 type RSAPSSSigner struct {
 	secretKey *rsa.PrivateKey
 
@@ -41,16 +49,10 @@ type RSAPSSSigner struct {
 	hash crypto.Hash
 }
 
-// NewRSAPSSSigner creates a new jwt.ProducerPlugin for a signed token using RSASSA-PSS.
+// NewRSAPSSSigner returns a [jwt.ProducerPlugin] that signs tokens with RSASSA-PSS, using the hash
+// carried by the preset (one of [PS256], [PS384], [PS512]). The key must be at least 2048 bits.
 //
-// A key of size 2048 bits or larger MUST be used with this algorithm.
-//
-// Use any of the RSAPSSPreset constants to configure the signing parameters.
-//   - PS256: RSASSA-PSS using SHA-384 and MGF1 with SHA-256
-//   - PS384: RSASSA-PSS using SHA-384 and MGF1 with SHA-384
-//   - PS512: RSASSA-PSS using SHA-512 and MGF1 with SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
+// See RFC 7518, section 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
 func NewRSAPSSSigner(secretKey *rsa.PrivateKey, preset RSAPSSPreset) *RSAPSSSigner {
 	return &RSAPSSSigner{
 		secretKey: secretKey,
@@ -92,6 +94,8 @@ func (signer *RSAPSSSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw st
 	}.String(), nil
 }
 
+// An RSAPSSVerifier verifies RSASSA-PSS-signed tokens as a [jwt.RecipientPlugin]. Build one with
+// [NewRSAPSSVerifier]. It returns [ErrInvalidSignature] when the signature does not match.
 type RSAPSSVerifier struct {
 	publicKey *rsa.PublicKey
 
@@ -99,16 +103,10 @@ type RSAPSSVerifier struct {
 	hash crypto.Hash
 }
 
-// NewRSAPSSVerifier creates a new jwt.RecipientPlugin for a signed token using RSASSA-PSS.
+// NewRSAPSSVerifier returns a [jwt.RecipientPlugin] that verifies RSASSA-PSS-signed tokens, using
+// the hash carried by the preset (one of [PS256], [PS384], [PS512]).
 //
-// A key of size 2048 bits or larger MUST be used with this algorithm.
-//
-// Use any of the RSAPSSPreset constants to configure the signing parameters.
-//   - PS256: RSASSA-PSS using SHA-384 and MGF1 with SHA-256
-//   - PS384: RSASSA-PSS using SHA-384 and MGF1 with SHA-384
-//   - PS512: RSASSA-PSS using SHA-512 and MGF1 with SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
+// See RFC 7518, section 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
 func NewRSAPSSVerifier(publicKey *rsa.PublicKey, preset RSAPSSPreset) *RSAPSSVerifier {
 	return &RSAPSSVerifier{
 		publicKey: publicKey,
@@ -159,21 +157,19 @@ func (verifier *RSAPSSVerifier) Transform(_ context.Context, header *jwa.JWH, ra
 	return decoded, nil
 }
 
+// A SourcedRSAPSSSigner signs like an [RSAPSSSigner] but resolves its key from a [jwk.Source] at
+// each call, so the plugin follows key rotation instead of pinning one key. Build one with
+// [NewSourcedRSAPSSSigner].
 type SourcedRSAPSSSigner struct {
 	source *jwk.Source[*rsa.PrivateKey]
 	preset RSAPSSPreset
 }
 
-// NewSourcedRSAPSSSigner creates a new jwt.ProducerPlugin for a signed token using RSASSA-PSS.
+// NewSourcedRSAPSSSigner returns a [jwt.ProducerPlugin] that signs tokens with RSASSA-PSS, drawing
+// the key from the source for the header's KID. The preset (one of [PS256], [PS384], [PS512])
+// selects the hash, and the key must be at least 2048 bits.
 //
-// A key of size 2048 bits or larger MUST be used with this algorithm.
-//
-// Use any of the RSAPSSPreset constants to configure the signing parameters.
-//   - PS256: RSASSA-PSS using SHA-384 and MGF1 with SHA-256
-//   - PS384: RSASSA-PSS using SHA-384 and MGF1 with SHA-384
-//   - PS512: RSASSA-PSS using SHA-512 and MGF1 with SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
+// See RFC 7518, section 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
 func NewSourcedRSAPSSSigner(source *jwk.Source[*rsa.PrivateKey], preset RSAPSSPreset) *SourcedRSAPSSSigner {
 	return &SourcedRSAPSSSigner{
 		source: source,
@@ -187,7 +183,7 @@ func (signer *SourcedRSAPSSSigner) Header(ctx context.Context, header *jwa.JWH) 
 		return nil, fmt.Errorf("(SourcedRSAPSSSigner.Header) %w", err)
 	}
 
-	// If the KID was not set, update it.
+	// Stamp the resolved key's ID into the header so recipients can select it for verification.
 	if header.KID == "" {
 		header.KID = key.KID
 	}
@@ -204,21 +200,18 @@ func (signer *SourcedRSAPSSSigner) Transform(ctx context.Context, header *jwa.JW
 	return NewRSAPSSSigner(key.Key(), signer.preset).Transform(ctx, header, rawToken)
 }
 
+// A SourcedRSAPSSVerifier verifies like an [RSAPSSVerifier] but resolves candidate keys from a
+// [jwk.Source] at each call. When the token names a KID it tries only that key; otherwise it tries
+// every key in the source. Build one with [NewSourcedRSAPSSVerifier].
 type SourcedRSAPSSVerifier struct {
 	source *jwk.Source[*rsa.PublicKey]
 	preset RSAPSSPreset
 }
 
-// NewSourcedRSAPSSVerifier creates a new jwt.RecipientPlugin for a signed token using RSASSA-PSS.
+// NewSourcedRSAPSSVerifier returns a [jwt.RecipientPlugin] that verifies RSASSA-PSS-signed tokens
+// against keys drawn from the source. The preset (one of [PS256], [PS384], [PS512]) selects the hash.
 //
-// A key of size 2048 bits or larger MUST be used with this algorithm.
-//
-// Use any of the RSAPSSPreset constants to configure the signing parameters.
-//   - PS256: RSASSA-PSS using SHA-384 and MGF1 with SHA-256
-//   - PS384: RSASSA-PSS using SHA-384 and MGF1 with SHA-384
-//   - PS512: RSASSA-PSS using SHA-512 and MGF1 with SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
+// See RFC 7518, section 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
 func NewSourcedRSAPSSVerifier(source *jwk.Source[*rsa.PublicKey], preset RSAPSSPreset) *SourcedRSAPSSVerifier {
 	return &SourcedRSAPSSVerifier{
 		source: source,
@@ -235,7 +228,7 @@ func (verifier *SourcedRSAPSSVerifier) Transform(
 	}
 
 	for _, key := range keys {
-		// If a KID is set, no need to try with every key.
+		// A token that names a KID can only match that key; skip the rest.
 		if header.KID != "" && key.KID != header.KID {
 			continue
 		}

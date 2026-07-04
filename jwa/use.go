@@ -1,6 +1,7 @@
 package jwa
 
-// Use is used to determine the purpose of a key in a JWA protocol.
+// Use is the "use" parameter of a JWK. It marks whether the key is intended for
+// signing or for encryption.
 type Use string
 
 func (u Use) String() string { return string(u) }

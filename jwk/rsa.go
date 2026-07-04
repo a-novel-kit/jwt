@@ -13,6 +13,9 @@ import (
 	"github.com/a-novel-kit/jwt/jwk/serializers"
 )
 
+// An RSAPreset describes how to generate or match an RSA JSON Web Key: the algorithm it is bound
+// to, whether the key is used for signatures or key management, the operations allowed on each
+// half of the pair, and the modulus size in bits.
 type RSAPreset struct {
 	Alg           jwa.Alg
 	Use           jwa.Use
@@ -71,7 +74,7 @@ var (
 		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
 		// to the next integer.
 		//
-		// ⌈4096/8⌉=512 bytes.
+		// ⌈2048/8⌉=256 bytes.
 		//
 		// https://crypto.stackexchange.com/a/95882
 		KeySize: 2048,
@@ -124,20 +127,10 @@ var (
 
 // GenerateRSA generates a new RSA public/private key pair.
 //
-// You can either retrieve the secret key directly (using res.Key()), or marshal the result into a JSON Web Key,
-// using json.Marshal.
+// Retrieve a raw key with res.Key(), or marshal either result into a JSON Web Key with json.Marshal.
 //
-// Available presets for signature algorithms are:
-//   - RS256
-//   - RS384
-//   - RS512
-//   - PS256
-//   - PS384
-//   - PS512
-//
-// Available presets for key management algorithms are:
-//   - RSAOAEP
-//   - RSAOAEP256
+// Pass one of the RSA presets: the signature presets, such as [RS256], or the key-management
+// presets, such as [RSAOAEP].
 func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey], error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, preset.KeySize)
 	if err != nil {
@@ -188,23 +181,11 @@ func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey],
 	return &Key[*rsa.PrivateKey]{privateJSONKey, privateKey}, &Key[*rsa.PublicKey]{publicJSONKey, publicKey}, nil
 }
 
-// ConsumeRSA consumes a JSON Web Key and returns the secret key for RSA signature and encryption algorithms.
+// ConsumeRSA parses a JSON Web Key into an RSA key pair for signature or key-management
+// algorithms. When the key holds only a public key, the returned private key is nil.
 //
-// If the JSON Web Key does not represent the RSA key described by the preset, ErrJWKMismatch is returned.
-//
-// If the key represents a public key only, the private key will be nil.
-//
-// Available presets for signature algorithms are:
-//   - RS256
-//   - RS384
-//   - RS512
-//   - PS256
-//   - PS384
-//   - PS512
-//
-// Available presets for key management algorithms are:
-//   - RSAOAEP
-//   - RSAOAEP256
+// It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
+// generate the key; see [GenerateRSA] for the available presets.
 func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey], error) {
 	matchPrivate := source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYRSA,
@@ -251,6 +232,8 @@ func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[
 	return privateKey, publicKey, nil
 }
 
+// NewRSAPublicSource returns a key source that yields RSA public keys and rejects any source that
+// exposes private key material.
 func NewRSAPublicSource(config SourceConfig, preset RSAPreset) *Source[*rsa.PublicKey] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*rsa.PublicKey], error) {
 		privateKey, publicKey, err := ConsumeRSA(jwk, preset)
@@ -264,6 +247,7 @@ func NewRSAPublicSource(config SourceConfig, preset RSAPreset) *Source[*rsa.Publ
 	return NewGenericSource[*rsa.PublicKey](config, parser)
 }
 
+// NewRSAPrivateSource returns a key source that yields RSA private keys.
 func NewRSAPrivateSource(config SourceConfig, preset RSAPreset) *Source[*rsa.PrivateKey] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*rsa.PrivateKey], error) {
 		privateKey, _, err := ConsumeRSA(jwk, preset)

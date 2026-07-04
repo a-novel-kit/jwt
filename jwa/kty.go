@@ -1,44 +1,24 @@
 package jwa
 
-// KTY is used to determine the type of key in a JWA protocol.
+// KTY is the "kty" (key type) parameter of a JWK. It names the cryptographic
+// algorithm family the key belongs to.
 type KTY string
 
 func (k KTY) String() string { return string(k) }
 
 const (
-	// KTYOct Parameters for Symmetric Keys.
-	//
+	// KTYOct is a symmetric key, held as a single octet sequence.
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.4
-	//
-	// When the JWKCommon "kty" member value is "oct" (octet sequence), the member
-	// "k" (see Section 6.4.1) is used to represent a symmetric key (or
-	// another key whose value is a single octet sequence). An "alg" member
-	// SHOULD also be present to identify the algorithm intended to be used
-	// with the key, unless the application uses another means or convention
-	// to determine the algorithm used.
 	KTYOct KTY = "oct"
-	// KTYRSA Parameters for RSA Public Keys.
-	//
+	// KTYRSA is an RSA key.
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3
-	//
-	// JWKs can represent RSA [RFC3447] keys. In this case, the "kty"
-	// member value is "RSA". The semantics of the parameters defined below
-	// are the same as those defined in Sections 3.1 and 3.2 of RFC 3447.
 	KTYRSA KTY = "RSA"
-	// KTYEC Parameters for Elliptic Curve Public Keys.
-	//
+	// KTYEC is an elliptic curve key.
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.2
-	//
-	// JWKs can represent Elliptic Curve [DSS] keys. In this case, the
-	// "kty" member value is "EC".
 	KTYEC KTY = "EC"
 
-	// KTYOKP Parameters for Octet Key Pair.
-	//
+	// KTYOKP is an Octet Key Pair, used by algorithms that key on octet strings
+	// such as Ed25519 and X25519.
 	// https://datatracker.ietf.org/doc/html/rfc8037#section-2
-	//
-	// A new key type (kty) value "OKP" (Octet Key Pair) is defined for
-	// public key algorithms that use octet strings as private and public
-	// keys.
 	KTYOKP KTY = "OKP"
 )
