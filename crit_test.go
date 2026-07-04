@@ -115,7 +115,7 @@ func TestRecipientMalformedHeader(t *testing.T) {
 		token := base64.RawURLEncoding.EncodeToString([]byte("null")) + "." + payload
 
 		var claims map[string]any
-		require.Error(t, recipient.Consume(t.Context(), token, &claims))
+		require.ErrorIs(t, recipient.Consume(t.Context(), token, &claims), jwt.ErrUnsupportedTokenFormat)
 	})
 
 	t.Run("EmptyCrit", func(t *testing.T) {
