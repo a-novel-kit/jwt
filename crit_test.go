@@ -1,6 +1,7 @@
 package jwt_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"testing"
 
@@ -28,9 +29,10 @@ func TestCheckCritUnderstood(t *testing.T) {
 			understood: []string{"foo"},
 		},
 		{
-			name: "EmptyCritPasses",
-			data: json.RawMessage(`{}`),
-			crit: nil,
+			name:      "EmptyCritRejected",
+			data:      json.RawMessage(`{}`),
+			crit:      []string{},
+			expectErr: jwt.ErrUnsupportedCritHeader,
 		},
 		{
 			name:       "NotUnderstood",
@@ -97,5 +99,32 @@ func TestRecipientCrit(t *testing.T) {
 
 		var claims map[string]any
 		require.NoError(t, recipient.Consume(t.Context(), token, &claims))
+	})
+}
+
+func TestRecipientMalformedHeader(t *testing.T) {
+	t.Parallel()
+
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"x"}`))
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{})
+
+	t.Run("NullHeader", func(t *testing.T) {
+		t.Parallel()
+
+		// A header of JSON null unmarshals to a nil pointer; Consume must reject it, not panic.
+		token := base64.RawURLEncoding.EncodeToString([]byte("null")) + "." + payload
+
+		var claims map[string]any
+		require.Error(t, recipient.Consume(t.Context(), token, &claims))
+	})
+
+	t.Run("EmptyCrit", func(t *testing.T) {
+		t.Parallel()
+
+		// A present-but-empty crit list is invalid per RFC 7515 §4.1.11.
+		token := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none","crit":[]}`)) + "." + payload
+
+		var claims map[string]any
+		require.ErrorIs(t, recipient.Consume(t.Context(), token, &claims), jwt.ErrUnsupportedCritHeader)
 	})
 }

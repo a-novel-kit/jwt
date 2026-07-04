@@ -60,10 +60,13 @@ func CheckCrit(data json.RawMessage, crit []string) error {
 // invalid unless every listed critical extension is understood by the recipient AND present in the
 // header. understood is the set of extension names the recipient is configured to process; any crit
 // entry outside it — or one naming a registered JOSE parameter — is rejected. data is the decoded
-// header (the same JSON object CheckCrit inspects for presence).
+// header (the same JSON object CheckCrit inspects for presence). A present but empty crit list is
+// itself invalid, so callers pass crit only when the member is present.
 func CheckCritUnderstood(data json.RawMessage, crit, understood []string) error {
+	// A present "crit" list must not be empty (RFC 7515 §4.1.11); the caller invokes this only when
+	// the member is present, so an empty slice here is the forbidden "crit":[] case.
 	if len(crit) == 0 {
-		return nil
+		return fmt.Errorf("%w: crit list must not be empty", ErrUnsupportedCritHeader)
 	}
 
 	understoodSet := make(map[string]struct{}, len(understood))
