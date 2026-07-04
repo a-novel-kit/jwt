@@ -182,7 +182,9 @@ func TestRecipientConcurrentConsume(t *testing.T) {
 			defer wg.Done()
 
 			dst := map[string]any{}
-			if err := recipient.Consume(t.Context(), token, &dst); err != nil {
+
+			err := recipient.Consume(t.Context(), token, &dst)
+			if err != nil {
 				t.Errorf("concurrent consume: %v", err)
 			}
 		}()
