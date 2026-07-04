@@ -46,7 +46,7 @@ type Source[K any] struct {
 
 	cached      []*Key[K]
 	lastCached  time.Time
-	lastAttempt time.Time
+	lastFailure time.Time
 	lastErr     error
 
 	mu *sync.RWMutex
@@ -81,15 +81,16 @@ func (source *Source[K]) refresh(ctx context.Context) error {
 		retry = DefaultRetryInterval
 	}
 
-	if source.lastErr != nil && time.Since(source.lastAttempt) < retry {
+	// Measure the backoff from when a failure is observed, not when the attempt starts: a Fetch that
+	// itself takes longer than retry would otherwise let the next caller re-fetch immediately.
+	if source.lastErr != nil && time.Since(source.lastFailure) < retry {
 		return source.lastErr
 	}
-
-	source.lastAttempt = time.Now()
 
 	keys, err := source.config.Fetch(ctx)
 	if err != nil {
 		source.lastErr = fmt.Errorf("(Source.refresh) fetch keys: %w", err)
+		source.lastFailure = time.Now()
 
 		return source.lastErr
 	}
@@ -100,6 +101,7 @@ func (source *Source[K]) refresh(ctx context.Context) error {
 		parsed, parseErr := source.parser(ctx, key)
 		if parseErr != nil {
 			source.lastErr = fmt.Errorf("(Source.refresh) parse key: %w", parseErr)
+			source.lastFailure = time.Now()
 
 			return source.lastErr
 		}
