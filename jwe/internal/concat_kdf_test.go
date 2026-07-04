@@ -35,3 +35,14 @@ func TestVectorConcatKDF(t *testing.T) {
 	out := internal.ConcatKDF(crypto.SHA256, z, 16, algID, ptyUInfo, ptyVInfo, supPubInfo, supPrivInfo)
 	require.Equal(t, expected, out)
 }
+
+func TestConcatKDFMultiBlock(t *testing.T) {
+	t.Parallel()
+
+	// Deriving more than one hash block must advance the round counter, so consecutive blocks
+	// differ. With a fixed counter they would be identical — the bug this guards against, which
+	// would collapse the MAC and ENC key halves of an AES-CBC-HMAC key into the same value.
+	out := internal.ConcatKDF(crypto.SHA256, []byte("shared-secret"), 64, nil, nil, nil, nil, nil)
+	require.Len(t, out, 64)
+	require.NotEqual(t, out[:32], out[32:])
+}
