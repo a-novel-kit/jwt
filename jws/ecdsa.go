@@ -7,7 +7,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -251,26 +250,7 @@ func NewSourcedECDSAVerifier(source *jwk.Source[*ecdsa.PublicKey], preset ECDSAP
 }
 
 func (verifier *SourcedECDSAVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	keys, err := verifier.source.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("(SourcedECDSAVerifier.Transform) %w", err)
-	}
-
-	for _, key := range keys {
-		// A token that names a KID can only match that key; skip the rest.
-		if header.KID != "" && key.KID != header.KID {
-			continue
-		}
-
-		token, err := NewECDSAVerifier(key.Key(), verifier.preset).Transform(ctx, header, rawToken)
-		if err == nil {
-			return token, nil
-		}
-
-		if !errors.Is(err, ErrInvalidSignature) {
-			return nil, fmt.Errorf("(SourcedECDSAVerifier.Transform) %w", err)
-		}
-	}
-
-	return nil, fmt.Errorf("(SourcedECDSAVerifier.Transform) %w", ErrInvalidSignature)
+	return verifyFromSource(ctx, verifier.source, header, rawToken, func(key *ecdsa.PublicKey) jwt.RecipientPlugin {
+		return NewECDSAVerifier(key, verifier.preset)
+	})
 }

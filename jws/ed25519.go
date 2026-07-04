@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
-	"errors"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt"
@@ -159,26 +158,7 @@ func NewSourcedED25519Verifier(source *jwk.Source[ed25519.PublicKey]) *SourcedED
 func (verifier *SourcedED25519Verifier) Transform(
 	ctx context.Context, header *jwa.JWH, rawToken string,
 ) ([]byte, error) {
-	keys, err := verifier.source.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("(SourcedED25519Verifier.Transform) %w", err)
-	}
-
-	for _, key := range keys {
-		// A token that names a KID can only match that key; skip the rest.
-		if header.KID != "" && key.KID != header.KID {
-			continue
-		}
-
-		token, err := NewED25519Verifier(key.Key()).Transform(ctx, header, rawToken)
-		if err == nil {
-			return token, nil
-		}
-
-		if !errors.Is(err, ErrInvalidSignature) {
-			return nil, fmt.Errorf("(SourcedED25519Verifier.Transform) %w", err)
-		}
-	}
-
-	return nil, fmt.Errorf("(SourcedED25519Verifier.Transform) %w", ErrInvalidSignature)
+	return verifyFromSource(ctx, verifier.source, header, rawToken, func(key ed25519.PublicKey) jwt.RecipientPlugin {
+		return NewED25519Verifier(key)
+	})
 }
