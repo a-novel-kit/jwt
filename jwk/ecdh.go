@@ -13,10 +13,9 @@ import (
 	"github.com/a-novel-kit/jwt/jwk/serializers"
 )
 
-// GenerateECDH generates a new ECDH key pair.
+// GenerateECDH generates a new ECDH key pair on the X25519 curve.
 //
-// You can either retrieve the secret key directly (using res.Key()), or marshal the result into a JSON Web Key,
-// using json.Marshal.
+// Retrieve a raw key with res.Key(), or marshal either result into a JSON Web Key with json.Marshal.
 func GenerateECDH() (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
 	privateKey, err := ecdh.X25519().GenerateKey(rand.Reader)
 	if err != nil {
@@ -74,11 +73,10 @@ func GenerateECDH() (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
 	return &Key[*ecdh.PrivateKey]{privateJSONKey, privateKey}, &Key[*ecdh.PublicKey]{publicJSONKey, publicKey}, nil
 }
 
-// ConsumeECDH consumes a JSON Web Key and returns the secret key for ECDH encryption algorithms.
+// ConsumeECDH parses a JSON Web Key into an ECDH key-agreement key pair. When the key holds only a
+// public key, the returned private key is nil.
 //
-// If the JSON Web Key does not represent the ECDH key, ErrJWKMismatch is returned.
-//
-// If the key represents a public key only, the private key will be nil.
+// It returns ErrJWKMismatch when the key does not represent an ECDH key.
 func ConsumeECDH(source *jwa.JWK) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
 	if !source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
@@ -117,6 +115,8 @@ func ConsumeECDH(source *jwa.JWK) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey]
 	return privateKey, publicKey, nil
 }
 
+// NewECDHPublicSource returns a key source that yields ECDH public keys and rejects any source
+// that exposes private key material.
 func NewECDHPublicSource(config SourceConfig) *Source[*ecdh.PublicKey] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdh.PublicKey], error) {
 		privateKey, publicKey, err := ConsumeECDH(jwk)
@@ -130,6 +130,7 @@ func NewECDHPublicSource(config SourceConfig) *Source[*ecdh.PublicKey] {
 	return NewGenericSource[*ecdh.PublicKey](config, parser)
 }
 
+// NewECDHPrivateSource returns a key source that yields ECDH private keys.
 func NewECDHPrivateSource(config SourceConfig) *Source[*ecdh.PrivateKey] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdh.PrivateKey], error) {
 		privateKey, _, err := ConsumeECDH(jwk)

@@ -15,11 +15,15 @@ import (
 	"github.com/a-novel-kit/jwt/jwk/serializers"
 )
 
+// ECDHKeyAgrKWPreset pairs a JWA algorithm identifier with the length of the
+// key-wrapping key derived from the shared secret. Use one of the predefined
+// presets rather than building one by hand.
 type ECDHKeyAgrKWPreset struct {
 	Alg    jwa.Alg
 	KeyLen int
 }
 
+// The ECDH-ES with AES Key Wrap presets, one per supported wrap-key length.
 var (
 	ECDHESA128KW = ECDHKeyAgrKWPreset{
 		Alg:    jwa.ECDHESA128KW,
@@ -35,6 +39,10 @@ var (
 	}
 )
 
+// ECDHKeyAgrKWManagerConfig holds the inputs for NewECDHKeyAgrKWManager.
+// ProducerKey and RecipientKey are the two halves of the Diffie-Hellman exchange,
+// CEK is the content encryption key to wrap, and ProducerInfo and RecipientInfo
+// are the optional agreement party details mixed into the key derivation.
 type ECDHKeyAgrKWManagerConfig struct {
 	ProducerKey  *ecdh.PrivateKey
 	RecipientKey *ecdh.PublicKey
@@ -45,6 +53,8 @@ type ECDHKeyAgrKWManagerConfig struct {
 	RecipientInfo string
 }
 
+// ECDHKeyAgrKWManager implements jwe.CEKManager: it derives a key-wrapping key with
+// ECDH-ES and then wraps the content encryption key with AES Key Wrap.
 type ECDHKeyAgrKWManager struct {
 	config ECDHKeyAgrKWManagerConfig
 
@@ -52,12 +62,12 @@ type ECDHKeyAgrKWManager struct {
 	keyLen int
 }
 
-// NewECDHKeyAgrKWManager creates a new jwe.CEKManager for a key derivation using ECDH and AES Key Wrap.
+// NewECDHKeyAgrKWManager creates a jwe.CEKManager that derives a key-wrapping key
+// with ECDH-ES (Concat KDF) and wraps the content encryption key with AES Key Wrap.
+// The preset selects the algorithm and wrap-key length; use one of the
+// ECDHKeyAgrKWPreset values (for example ECDHESA128KW).
 //
-// Use any of the ECDHKeyAgrKWPreset constants to set the algorithm and key length.
-//   - ECDHESA128KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-//   - ECDHESA192KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-//   - ECDHESA256KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
 func NewECDHKeyAgrKWManager(
 	config *ECDHKeyAgrKWManagerConfig, preset ECDHKeyAgrKWPreset,
 ) *ECDHKeyAgrKWManager {
@@ -73,8 +83,8 @@ func (manager *ECDHKeyAgrKWManager) SetHeader(_ context.Context, header *jwa.JWH
 		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
-	// Share the producer public key to the recipient. Each party requires the other one's public key in order to
-	// derive the shared secret.
+	// Publish the producer public key in the header: the recipient needs it to
+	// derive the same shared secret from its own private key.
 	publicKeyEncoded, err := serializers.EncodeECDH(manager.config.ProducerKey.PublicKey())
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.SetHeader) encode public key: %w", err)
@@ -123,10 +133,14 @@ func (manager *ECDHKeyAgrKWManager) EncryptCEK(_ context.Context, header *jwa.JW
 	return wrapped, nil
 }
 
+// ECDHKeyAgrKWDecoderConfig holds the recipient private key used to reconstruct the
+// shared secret from the producer public key carried in the token header.
 type ECDHKeyAgrKWDecoderConfig struct {
 	RecipientKey *ecdh.PrivateKey
 }
 
+// ECDHKeyAgrKWDecoder implements jwe.CEKDecoder: it re-derives the key-wrapping key
+// with ECDH-ES and unwraps the content encryption key with AES Key Wrap.
 type ECDHKeyAgrKWDecoder struct {
 	config ECDHKeyAgrKWDecoderConfig
 
@@ -134,12 +148,12 @@ type ECDHKeyAgrKWDecoder struct {
 	keyLen int
 }
 
-// NewECDHKeyAgrKWDecoder creates a new jwe.CEKDecoder factory for a key derivation using ECDH and AES Key Wrap.
+// NewECDHKeyAgrKWDecoder creates a jwe.CEKDecoder that re-derives the key-wrapping
+// key with ECDH-ES (Concat KDF) and unwraps the content encryption key with AES Key
+// Wrap. The preset must match the one used to encrypt the token; use one of the
+// ECDHKeyAgrKWPreset values (for example ECDHESA128KW).
 //
-// Use any of the ECDHKeyAgrKWPreset constants to set the algorithm and key length.
-//   - ECDHESA128KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-//   - ECDHESA192KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
-//   - ECDHESA256KW: ECDH-ES using Concat KDF and AES Key Wrap with AES-CBC-HMAC-SHA2
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
 func NewECDHKeyAgrKWDecoder(config *ECDHKeyAgrKWDecoderConfig, preset ECDHKeyAgrKWPreset) *ECDHKeyAgrKWDecoder {
 	return &ECDHKeyAgrKWDecoder{
 		config: *config,

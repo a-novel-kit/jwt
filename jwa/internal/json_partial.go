@@ -1,3 +1,6 @@
+// Package internal provides JSON helpers for payloads that combine a fixed set of
+// typed fields with arbitrary caller-defined ones, letting a JWT carry both
+// registered claims and custom extensions in a single object.
 package internal
 
 import (
@@ -5,6 +8,9 @@ import (
 	"fmt"
 )
 
+// MarshalPartial encodes common and custom into one JSON object, with custom's
+// members overriding any that collide with common. A nil or "null" custom yields
+// the encoding of common alone.
 func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 	if custom == nil || string(custom) == "null" {
 		return json.Marshal(common)
@@ -35,6 +41,9 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 	return mergedSerialized, nil
 }
 
+// UnmarshalPartial decodes the typed fields of src into a value of type T and
+// returns src unchanged alongside it, so the caller can later decode its own
+// custom fields from the same bytes.
 func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 	var common T
 

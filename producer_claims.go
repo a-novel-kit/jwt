@@ -11,13 +11,14 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
-// TargetConfig sets the target of a given set of claims. Target information prevents the token from being misused.
+// TargetConfig scopes a set of claims to an intended context. Recording where a token comes from
+// and who it is for lets a recipient reject one that was replayed against the wrong service.
 type TargetConfig struct {
-	// Issuer of the token. The receiving side MUST filter only tokens that come from trusted producers.
+	// Issuer that produced the token. A recipient should accept only tokens from producers it trusts.
 	Issuer string
-	// Audience of the token. The receiving side MUST filter only tokens that are intended for them.
+	// Audience the token is meant for. A recipient should reject tokens addressed elsewhere.
 	Audience string
-	// Subject of the token. The receiving side MUST filter only tokens that are intended for the given subject.
+	// Subject the token describes. A recipient should reject tokens issued for a different subject.
 	Subject string
 }
 

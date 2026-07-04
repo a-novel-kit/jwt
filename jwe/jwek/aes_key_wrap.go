@@ -10,11 +10,14 @@ import (
 	"github.com/a-novel-kit/jwt/jwe/internal"
 )
 
+// AESKWPreset pairs a JWA algorithm identifier with its wrap-key length. Use one
+// of the predefined presets rather than building one by hand.
 type AESKWPreset struct {
 	Alg    jwa.Alg
 	KeyLen int
 }
 
+// The AES key-wrap presets, one per supported wrap-key length.
 var (
 	A128KW = AESKWPreset{
 		Alg:    jwa.A128KW,
@@ -30,11 +33,15 @@ var (
 	}
 )
 
+// AESKWManagerConfig holds the inputs for NewAESKWManager: the content encryption
+// key to protect and the key that wraps it.
 type AESKWManagerConfig struct {
 	CEK     []byte
 	WrapKey []byte
 }
 
+// AESKWManager implements jwe.CEKManager, wrapping the content encryption key with
+// the AES Key Wrap algorithm. See RFC 7518 section 4.4.
 type AESKWManager struct {
 	cek     []byte
 	wrapKey []byte
@@ -43,12 +50,9 @@ type AESKWManager struct {
 	keyLen int
 }
 
-// NewAESKWManager creates a new jwe.CEKManager for a key derived using AES Key Wrap.
-//
-// Use any of the AESKWPreset constants to set the algorithm and key length.
-//   - A128KW: 16 bytes key length
-//   - A192KW: 24 bytes key length
-//   - A256KW: 32 bytes key length
+// NewAESKWManager creates a jwe.CEKManager that wraps the content encryption key
+// with AES Key Wrap. The preset selects the algorithm and wrap-key length; use one
+// of the AESKWPreset values (for example A128KW).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.4
 func NewAESKWManager(config *AESKWManagerConfig, preset AESKWPreset) *AESKWManager {
@@ -95,10 +99,14 @@ func (manager *AESKWManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byt
 	return wrapped, nil
 }
 
+// AESKWDecoderConfig holds the key-wrapping key used to unwrap a content
+// encryption key.
 type AESKWDecoderConfig struct {
 	WrapKey []byte
 }
 
+// AESKWDecoder implements jwe.CEKDecoder, unwrapping a content encryption key that
+// was wrapped with AES Key Wrap.
 type AESKWDecoder struct {
 	wrapKey []byte
 
@@ -106,12 +114,9 @@ type AESKWDecoder struct {
 	keyLen int
 }
 
-// NewAESKWDecoder creates a new jwe.CEKDecoder for a key derived using AES Key Wrap.
-//
-// Use any of the AESKWPreset constants to set the algorithm and key length.
-//   - A128KW: 16 bytes key length
-//   - A192KW: 24 bytes key length
-//   - A256KW: 32 bytes key length
+// NewAESKWDecoder creates a jwe.CEKDecoder that unwraps an AES Key Wrap wrapped
+// content encryption key. The preset must match the one used to wrap it; use one
+// of the AESKWPreset values (for example A128KW).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.4
 func NewAESKWDecoder(secret *AESKWDecoderConfig, preset AESKWPreset) *AESKWDecoder {

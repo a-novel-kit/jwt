@@ -12,6 +12,8 @@ import (
 	"github.com/a-novel-kit/jwt/jwk/serializers"
 )
 
+// An HMACPreset describes how to generate or match an HMAC JSON Web Key: the algorithm it is bound
+// to and its key size in bytes.
 type HMACPreset struct {
 	Alg     jwa.Alg
 	KeySize int
@@ -40,13 +42,9 @@ var (
 
 // GenerateHMAC generates a new secret key for HMAC signature algorithms.
 //
-// You can either retrieve the secret key directly (using res.Key()), or marshal the result into a JSON Web Key,
-// using json.Marshal.
+// Retrieve the raw key with res.Key(), or marshal the result into a JSON Web Key with json.Marshal.
 //
-// Available presets are:
-//   - HS256
-//   - HS384
-//   - HS512
+// Pass one of the HMAC presets, such as [HS256].
 func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {
 	key, err := generators.NewOct(preset.KeySize)
 	if err != nil {
@@ -76,14 +74,10 @@ func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {
 	return &Key[[]byte]{jsonKey, key}, nil
 }
 
-// ConsumeHMAC consumes a JSON Web Key and returns the secret key for HMAC signature algorithms.
+// ConsumeHMAC parses a JSON Web Key into the secret key for an HMAC algorithm.
 //
-// If the JSON Web Key does not represent the HMAC key described by the preset, ErrJWKMismatch is returned.
-//
-// Available presets are:
-//   - HS256
-//   - HS384
-//   - HS512
+// It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
+// generate the key; see [GenerateHMAC] for the available presets.
 func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
 	if !source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOct,
@@ -109,6 +103,7 @@ func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
 	return NewKey[[]byte](source, decoded), nil
 }
 
+// NewHMACSource returns a key source that parses the HMAC keys matching preset.
 func NewHMACSource(config SourceConfig, preset HMACPreset) *Source[[]byte] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[[]byte], error) {
 		return ConsumeHMAC(jwk, preset)

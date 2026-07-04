@@ -10,18 +10,23 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
+// RecipientConfig configures a Recipient: the ordered plugins that verify or decrypt a token and
+// an optional deserializer for its claims.
 type RecipientConfig struct {
-	// Sorted list of operations to perform on the token.
+	// Plugins run in order until one recognizes the token.
 	Plugins []RecipientPlugin
 
-	// Set a custom deserializer to decode the token's payload. Uses json.Unmarshal by default.
+	// Deserializer decodes the raw claims payload into the destination. Defaults to json.Unmarshal.
 	Deserializer func(raw []byte, dst any) error
 }
 
+// A Recipient verifies and decodes JWTs against a fixed set of plugins.
 type Recipient struct {
 	config RecipientConfig
 }
 
+// NewRecipient returns a Recipient for the given configuration. With no plugins, it falls back to
+// consuming unsecured ("none") tokens.
 func NewRecipient(config RecipientConfig) *Recipient {
 	if config.Plugins == nil {
 		config.Plugins = []RecipientPlugin{NewDefaultRecipientPlugin()}
@@ -32,6 +37,8 @@ func NewRecipient(config RecipientConfig) *Recipient {
 	}
 }
 
+// Consume validates rawToken and decodes its claims into dst. It tries each plugin in order, uses
+// the first that recognizes the token, and fails if none do.
 func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst any) error {
 	rawHeader, err := DecodeToken(rawToken, &HeaderDecoder{})
 	if err != nil {
@@ -61,6 +68,8 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		recipient.config.Deserializer = json.Unmarshal
 	}
 
+	// A plugin that does not match the token yields ErrMismatchRecipientPlugin; fall through to the
+	// next one. Any other error is fatal.
 	for _, plugin := range recipient.config.Plugins {
 		rawClaims, err := plugin.Transform(ctx, header, rawToken)
 		if err != nil {

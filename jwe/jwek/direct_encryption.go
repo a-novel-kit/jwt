@@ -8,11 +8,15 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
+// DirectKeyManager implements jwe.CEKManager for direct encryption: the content
+// encryption key is a shared secret used as-is, so nothing is wrapped into the
+// token. See RFC 7518 section 4.5.
 type DirectKeyManager struct {
 	cek []byte
 }
 
-// NewDirectKeyManager creates a new instance of DirectKeyManager.
+// NewDirectKeyManager creates a jwe.CEKManager that uses the given content
+// encryption key directly, without wrapping it into the token.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.5
 func NewDirectKeyManager(cek []byte) *DirectKeyManager {
@@ -39,15 +43,20 @@ func (manager *DirectKeyManager) EncryptCEK(_ context.Context, _ []byte) ([]byte
 	return nil, nil
 }
 
+// DirectKeyDecoderConfig holds the shared content encryption key used to decrypt
+// the token.
 type DirectKeyDecoderConfig struct {
 	CEK []byte
 }
 
+// DirectKeyDecoder implements jwe.CEKDecoder for direct encryption, returning the
+// shared content encryption key it was configured with.
 type DirectKeyDecoder struct {
 	cek []byte
 }
 
-// NewDirectKeyDecoder creates a new instance of DirectKeyDecoder.
+// NewDirectKeyDecoder creates a jwe.CEKDecoder that decrypts tokens with the given
+// shared content encryption key.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.5
 func NewDirectKeyDecoder(config *DirectKeyDecoderConfig) *DirectKeyDecoder {

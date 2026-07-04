@@ -1,10 +1,16 @@
+// Package internal holds the low-level cryptographic primitives that the JWE key-management
+// algorithms compose: key derivation, key wrapping, and padding. They live here so several
+// algorithm implementations can share one vetted implementation of each primitive instead of
+// duplicating it.
 package internal
 
 import (
 	"crypto"
 )
 
-// ConcatKDF implementation, as defined in Section 5.8.1 of [NIST.800-56A].
+// ConcatKDF derives keyDataLen bytes of key material from the shared secret z, following the
+// single-step Concatenation KDF defined in NIST SP 800-56A. The remaining arguments are hashed
+// alongside z on every iteration as the KDF's OtherInfo.
 func ConcatKDF(
 	hash crypto.Hash, z []byte, keyDataLen int, algID, pUInfo, pVInfo, supPubInfo, supPrivInfo []byte,
 ) []byte {

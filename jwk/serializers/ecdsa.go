@@ -9,74 +9,33 @@ import (
 	"math/big"
 )
 
-// ECPayload wraps a ECDSA key in a JWKCommon format.
+// An ECPayload wraps an ECDSA key in a JWKCommon format.
 type ECPayload struct {
-	// Crv (curve) parameter.
+	// Crv is the case-sensitive JWK name of the elliptic curve the key belongs to. DecodeEC accepts the curves
+	// listed in its switch; any other value returns ErrUnsupportedCurve.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.2.1.1
-	//
-	// The "crv" (curve) parameter identifies the cryptographic curve used
-	// with the key. Curve values from [DSS] used by this specification
-	// are:
-	//
-	// o "P-256"
-	// o "P-384"
-	// o "P-521"
-	//
-	// These values are registered in the IANA "JSON Web CEK Elliptic Curve"
-	// registry defined in Section 7.6. Additional "crv" values can be
-	// registered by other specifications. Specifications registering
-	// additional curves must define what parameters are used to represent
-	// keys for the curves registered. The "crv" value is a case-sensitive
-	// string.
-	//
-	// SEC1 [SEC1] point compression is not supported for any of these three
-	// curves.
 	Crv string `json:"crv"`
-	// X coordinate parameter.
+	// X is the base64url-encoded x coordinate of the curve point.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.2.1.2
-	//
-	// The "x" (x coordinate) parameter contains the x coordinate for the
-	// Elliptic Curve point. It is represented as the base64url encoding of
-	// the octet string representation of the coordinate, as defined in
-	// Section 2.3.5 of SEC1 [SEC1]. The length of this octet string MUST
-	// be the full size of a coordinate for the curve specified in the "crv"
-	// parameter. For example, if the value of "crv" is "P-521", the octet
-	// string must be 66 octets long.
 	X string `json:"x"`
-	// Y coordinate parameter.
+	// Y is the base64url-encoded y coordinate of the curve point.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.2.1.3
-	//
-	// The "y" (y coordinate) parameter contains the y coordinate for the
-	// Elliptic Curve point. It is represented as the base64url encoding of
-	// the octet string representation of the coordinate, as defined in
-	// Section 2.3.5 of SEC1 [SEC1]. The length of this octet string MUST
-	// be the full size of a coordinate for the curve specified in the "crv"
-	// parameter. For example, if the value of "crv" is "P-521", the octet
-	// string must be 66 octets long.
 	Y string `json:"y"`
 
-	// PRIVATE KEY.
-
-	// D (ECC private key) parameter.
+	// D is the base64url-encoded private key value, set only for private keys.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.2.2.1
-	//
-	// The "d" (ECC private key) parameter contains the Elliptic Curve
-	// private key value. It is represented as the base64url encoding of
-	// the octet string representation of the private key value, as defined
-	// in Section 2.3.7 of SEC1 [SEC1]. The length of this octet string
-	// MUST be ceiling(log-base-2(n)/8) octets (where n is the order of the
-	// curve).
 	D string `json:"d,omitempty"`
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Imported from go internal package.
+// Reimplemented from crypto/ecdsa internals, which the standard library does not export.
 
-// pointFromAffine is used to convert the PublicKey to a nistec SetBytes input.
+// pointFromAffine encodes affine coordinates into the uncompressed point bytes
+// that ecdsa.ParseUncompressedPublicKey expects.
 func pointFromAffine(curve elliptic.Curve, x, y *big.Int) ([]byte, error) {
 	bitSize := curve.Params().BitSize
 	// Reject values that would not get correctly encoded.
@@ -97,7 +56,7 @@ func pointFromAffine(curve elliptic.Curve, x, y *big.Int) ([]byte, error) {
 	return buf, nil
 }
 
-// pointToAffine is used to convert a nistec Bytes encoding to a PublicKey.
+// pointToAffine splits uncompressed point bytes back into their affine x and y coordinates.
 //
 //nolint:nonamedreturns
 func pointToAffine(curve elliptic.Curve, p []byte) (x, y *big.Int, err error) {
@@ -131,7 +90,7 @@ func parsePublicKeyParams(key *ecdsa.PublicKey) (*big.Int, *big.Int, elliptic.Cu
 	return x, y, crv, nil
 }
 
-// DecodeEC takes the representation of a ECPayload and computes the key it contains.
+// DecodeEC reconstructs the ECDSA key carried by an ECPayload, returning the private key when the payload holds one.
 func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	var curve elliptic.Curve
 
@@ -183,7 +142,7 @@ func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	return keyPriv, keyPub, nil
 }
 
-// EncodeEC takes a key and create a ECPayload representation of it.
+// EncodeEC builds the ECPayload representation of an ECDSA public or private key.
 func EncodeEC[Key *ecdsa.PublicKey | *ecdsa.PrivateKey](key Key) (*ECPayload, error) {
 	payload := new(ECPayload)
 

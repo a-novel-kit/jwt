@@ -14,12 +14,17 @@ import (
 	"github.com/a-novel-kit/jwt/jwk/serializers"
 )
 
+// ECDHKeyAgrPreset binds a content-encryption algorithm to its derived-key length
+// for ECDH-ES key agreement. Each preset targets one specific encryption and is
+// not interchangeable. Use one of the predefined presets rather than building one
+// by hand.
 type ECDHKeyAgrPreset struct {
 	Enc    jwa.Enc
 	Alg    jwa.Alg
 	KeyLen int
 }
 
+// The ECDH-ES presets, one per supported content-encryption algorithm.
 var (
 	ECDHESA128CBC = ECDHKeyAgrPreset{
 		Enc:    jwa.A128CBC,
@@ -48,6 +53,10 @@ var (
 	}
 )
 
+// ECDHKeyAgrManagerConfig holds the inputs for NewECDHKeyAgrManager. ProducerKey
+// and RecipientKey are the two halves of the Diffie-Hellman exchange; ProducerInfo
+// and RecipientInfo are the optional agreement party details mixed into the key
+// derivation.
 type ECDHKeyAgrManagerConfig struct {
 	ProducerKey  *ecdh.PrivateKey
 	RecipientKey *ecdh.PublicKey
@@ -56,6 +65,9 @@ type ECDHKeyAgrManagerConfig struct {
 	RecipientInfo string
 }
 
+// ECDHKeyAgrManager implements jwe.CEKManager for ECDH-ES key agreement: it derives
+// the content encryption key from a shared secret instead of wrapping one into the
+// token. See RFC 7518 section 4.6.
 type ECDHKeyAgrManager struct {
 	config ECDHKeyAgrManagerConfig
 
@@ -63,23 +75,14 @@ type ECDHKeyAgrManager struct {
 	keyLen int
 }
 
-// NewECDHKeyAgrManager creates a new jwe.CEKManager factory for a key derivation using ECDH.
+// NewECDHKeyAgrManager creates a jwe.CEKManager that derives the content
+// encryption key with ECDH-ES using the Concat KDF. The preset selects the
+// content-encryption algorithm and derived-key length; use one of the
+// ECDHKeyAgrPreset values (for example ECDHESA128CBC).
 //
-// Use any of the ECDHKeyAgrPreset constants to set the algorithm and key length.
-//   - ECDHESA128CBC: ECDH-ES using Concat KDF and CEK length of 128 bits
-//   - ECDHESA192CBC: ECDH-ES using Concat KDF and CEK length of 192 bits
-//   - ECDHESA256CBC: ECDH-ES using Concat KDF and CEK length of 256 bits
-//   - ECDHESA128GCM: ECDH-ES using Concat KDF and CEK length of 128 bits
-//   - ECDHESA192GCM: ECDH-ES using Concat KDF and CEK length of 192 bits
-//   - ECDHESA256GCM: ECDH-ES using Concat KDF and CEK length of 256 bits
-//
-// This manager is NOT encryption agnostic.
-//   - ECDHESA128CBC requires jwe.A128CBCHS256 encryption
-//   - ECDHESA192CBC requires jwe.A192CBCHS384 encryption
-//   - ECDHESA256CBC requires jwe.A256CBCHS512 encryption
-//   - ECDHESA128GCM requires jwe.A128GCM encryption
-//   - ECDHESA192GCM requires jwe.A192GCM encryption
-//   - ECDHESA256GCM requires jwe.A256GCM encryption
+// The preset is bound to a specific jwe encryption and is not interchangeable:
+// pick the encryption whose name matches the preset (for example ECDHESA128CBC
+// pairs with jwe.A128CBCHS256).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
 func NewECDHKeyAgrManager(config *ECDHKeyAgrManagerConfig, preset ECDHKeyAgrPreset) *ECDHKeyAgrManager {
@@ -95,8 +98,8 @@ func (manager *ECDHKeyAgrManager) SetHeader(_ context.Context, header *jwa.JWH) 
 		return nil, fmt.Errorf("(ECDHKeyAgrManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
-	// Share the producer public key to the recipient. Each party requires the other one's public key in order to
-	// derive the shared secret.
+	// Publish the producer public key in the header: the recipient needs it to
+	// derive the same shared secret from its own private key.
 	publicKeyEncoded, err := serializers.EncodeECDH(manager.config.ProducerKey.PublicKey())
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrManager.SetHeader) encode public key: %w", err)
@@ -136,10 +139,14 @@ func (manager *ECDHKeyAgrManager) EncryptCEK(_ context.Context, _ *jwa.JWH, _ []
 	return nil, nil
 }
 
+// ECDHKeyAgrDecoderConfig holds the recipient private key used to reconstruct the
+// shared secret from the producer public key carried in the token header.
 type ECDHKeyAgrDecoderConfig struct {
 	RecipientKey *ecdh.PrivateKey
 }
 
+// ECDHKeyAgrDecoder implements jwe.CEKDecoder for ECDH-ES key agreement, deriving
+// the content encryption key from the shared secret. See RFC 7518 section 4.6.
 type ECDHKeyAgrDecoder struct {
 	config ECDHKeyAgrDecoderConfig
 
@@ -147,23 +154,14 @@ type ECDHKeyAgrDecoder struct {
 	keyLen int
 }
 
-// NewECDHKeyAgrDecoder creates a new jwe.CEKDecoder factory for a key derivation using ECDH.
+// NewECDHKeyAgrDecoder creates a jwe.CEKDecoder that derives the content
+// encryption key with ECDH-ES using the Concat KDF. The preset must match the one
+// used to encrypt the token; use one of the ECDHKeyAgrPreset values (for example
+// ECDHESA128CBC).
 //
-// Use any of the ECDHKeyAgrPreset constants to set the algorithm and key length.
-//   - ECDHESA128CBC: ECDH-ES using Concat KDF and CEK length of 128 bits
-//   - ECDHESA192CBC: ECDH-ES using Concat KDF and CEK length of 192 bits
-//   - ECDHESA256CBC: ECDH-ES using Concat KDF and CEK length of 256 bits
-//   - ECDHESA128GCM: ECDH-ES using Concat KDF and CEK length of 128 bits
-//   - ECDHESA192GCM: ECDH-ES using Concat KDF and CEK length of 192 bits
-//   - ECDHESA256GCM: ECDH-ES using Concat KDF and CEK length of 256 bits
-//
-// This manager is NOT encryption agnostic.
-//   - ECDHESA128CBC requires jwe.A128CBCHS256 encryption
-//   - ECDHESA192CBC requires jwe.A192CBCHS384 encryption
-//   - ECDHESA256CBC requires jwe.A256CBCHS512 encryption
-//   - ECDHESA128GCM requires jwe.A128GCM encryption
-//   - ECDHESA192GCM requires jwe.A192GCM encryption
-//   - ECDHESA256GCM requires jwe.A256GCM encryption
+// The preset is bound to a specific jwe encryption and is not interchangeable:
+// pick the encryption whose name matches the preset (for example ECDHESA128CBC
+// pairs with jwe.A128CBCHS256).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
 func NewECDHKeyAgrDecoder(config *ECDHKeyAgrDecoderConfig, preset ECDHKeyAgrPreset) *ECDHKeyAgrDecoder {

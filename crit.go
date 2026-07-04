@@ -6,8 +6,14 @@ import (
 	"fmt"
 )
 
+// ErrMissingCritHeader is returned when the "crit" list names a header parameter that is absent
+// from the header being checked.
 var ErrMissingCritHeader = errors.New("missing crit header value")
 
+// CheckCrit verifies that every parameter named in crit is present in data, the JSON object of
+// extra header parameters. The JOSE "crit" list marks parameters a recipient is required to
+// understand, so a listed name with no matching value makes the token invalid. An empty crit list
+// passes unconditionally.
 func CheckCrit(data json.RawMessage, crit []string) error {
 	if len(crit) == 0 {
 		return nil

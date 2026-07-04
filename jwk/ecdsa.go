@@ -14,11 +14,14 @@ import (
 	"github.com/a-novel-kit/jwt/jwk/serializers"
 )
 
+// An ECDSAPreset describes how to generate or match an ECDSA JSON Web Key: the algorithm it is
+// bound to and the elliptic curve its keys live on.
 type ECDSAPreset struct {
 	Alg   jwa.Alg
 	Curve elliptic.Curve
 }
 
+// Signature algorithms.
 var (
 	ES256 = ECDSAPreset{
 		Alg:   jwa.ES256,
@@ -36,13 +39,9 @@ var (
 
 // GenerateECDSA generates a new ECDSA key pair.
 //
-// You can either retrieve the secret key directly (using res.Key()), or marshal the result into a JSON Web Key,
-// using json.Marshal.
+// Retrieve a raw key with res.Key(), or marshal either result into a JSON Web Key with json.Marshal.
 //
-// Available presets are:
-//   - ES256
-//   - ES384
-//   - ES512
+// Pass one of the ECDSA presets, such as [ES256].
 func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.PublicKey], error) {
 	privateKey, err := ecdsa.GenerateKey(preset.Curve, rand.Reader)
 	if err != nil {
@@ -100,16 +99,11 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 	return &Key[*ecdsa.PrivateKey]{privateJSONKey, privateKey}, &Key[*ecdsa.PublicKey]{publicJSONKey, publicKey}, nil
 }
 
-// ConsumeECDSA consumes a JSON Web Key and returns the secret key for ECDSA encryption algorithms.
+// ConsumeECDSA parses a JSON Web Key into an ECDSA signature key pair. When the key holds only a
+// public key, the returned private key is nil.
 //
-// If the JSON Web Key does not represent the ECDSA key described by the preset, ErrJWKMismatch is returned.
-//
-// If the key represents a public key only, the private key will be nil.
-//
-// Available presets are:
-//   - ES256
-//   - ES384
-//   - ES512
+// It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
+// generate the key; see [GenerateECDSA] for the available presets.
 func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.PublicKey], error) {
 	matchPrivate := source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYEC,
@@ -156,6 +150,8 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 	return privateKey, publicKey, nil
 }
 
+// NewECDSAPublicSource returns a key source that yields ECDSA public keys and rejects any source
+// that exposes private key material.
 func NewECDSAPublicSource(config SourceConfig, preset ECDSAPreset) *Source[*ecdsa.PublicKey] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdsa.PublicKey], error) {
 		privateKey, publicKey, err := ConsumeECDSA(jwk, preset)
@@ -169,6 +165,7 @@ func NewECDSAPublicSource(config SourceConfig, preset ECDSAPreset) *Source[*ecds
 	return NewGenericSource[*ecdsa.PublicKey](config, parser)
 }
 
+// NewECDSAPrivateSource returns a key source that yields ECDSA private keys.
 func NewECDSAPrivateSource(config SourceConfig, preset ECDSAPreset) *Source[*ecdsa.PrivateKey] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdsa.PrivateKey], error) {
 		privateKey, _, err := ConsumeECDSA(jwk, preset)

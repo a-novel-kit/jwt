@@ -12,6 +12,8 @@ import (
 	"github.com/a-novel-kit/jwt/jwk/serializers"
 )
 
+// An AESPreset describes how to generate or match an AES JSON Web Key: the algorithm it is bound
+// to, the key operations it permits, and its key size in bytes.
 type AESPreset struct {
 	Alg     jwa.Alg
 	KeyOps  jwa.KeyOps
@@ -126,24 +128,10 @@ var (
 
 // GenerateAES generates a new secret key for AES encryption algorithms.
 //
-// You can either retrieve the secret key directly (using res.Key()), or marshal the result into a JSON Web Key,
-// using json.Marshal.
+// Retrieve the raw key with res.Key(), or marshal the result into a JSON Web Key with json.Marshal.
 //
-// Available presets for CEK keys are:
-//   - A128CBC
-//   - A192CBC
-//   - A256CBC
-//   - A128GCM
-//   - A192GCM
-//   - A256GCM
-//
-// Available presets for KEK keys are:
-//   - A128KW
-//   - A192KW
-//   - A256KW
-//   - A128GCMKW
-//   - A192GCMKW
-//   - A256GCMKW
+// Pass one of the package's AES presets: the content-encryption presets, such as [A128GCM],
+// produce a CEK, and the key-wrapping presets, such as [A128KW], produce a KEK.
 func GenerateAES(preset AESPreset) (*Key[[]byte], error) {
 	key, err := generators.NewOct(preset.KeySize)
 	if err != nil {
@@ -173,25 +161,10 @@ func GenerateAES(preset AESPreset) (*Key[[]byte], error) {
 	return &Key[[]byte]{jsonKey, key}, nil
 }
 
-// ConsumeAES consumes a JSON Web Key and returns the secret key for AES encryption algorithms.
+// ConsumeAES parses a JSON Web Key into the secret key for an AES algorithm.
 //
-// If the JSON Web Key does not represent the AES key described by the preset, ErrJWKMismatch is returned.
-//
-// Available presets for CEK keys are:
-//   - A128CBC
-//   - A192CBC
-//   - A256CBC
-//   - A128GCM
-//   - A192GCM
-//   - A256GCM
-//
-// Available presets for KEK keys are:
-//   - A128KW
-//   - A192KW
-//   - A256KW
-//   - A128GCMKW
-//   - A192GCMKW
-//   - A256GCMKW
+// It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
+// generate the key; see [GenerateAES] for the available presets.
 func ConsumeAES(source *jwa.JWK, preset AESPreset) (*Key[[]byte], error) {
 	if !source.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOct,
@@ -217,6 +190,7 @@ func ConsumeAES(source *jwa.JWK, preset AESPreset) (*Key[[]byte], error) {
 	return NewKey[[]byte](source, decoded), nil
 }
 
+// NewAESSource returns a key source that parses the AES keys matching preset.
 func NewAESSource(config SourceConfig, preset AESPreset) *Source[[]byte] {
 	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[[]byte], error) {
 		return ConsumeAES(jwk, preset)

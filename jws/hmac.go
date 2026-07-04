@@ -13,26 +13,33 @@ import (
 	"github.com/a-novel-kit/jwt/jwk"
 )
 
+// An HMACPreset bundles the hash and algorithm identifier for one HMAC signing scheme. Pass one of
+// the exported presets to the HMAC constructors rather than assembling the fields by hand.
 type HMACPreset struct {
 	Hash crypto.Hash
 	Alg  jwa.Alg
 }
 
 var (
+	// HS256 is HMAC using SHA-256.
 	HS256 = HMACPreset{
 		Hash: crypto.SHA256,
 		Alg:  jwa.HS256,
 	}
+	// HS384 is HMAC using SHA-384.
 	HS384 = HMACPreset{
 		Hash: crypto.SHA384,
 		Alg:  jwa.HS384,
 	}
+	// HS512 is HMAC using SHA-512.
 	HS512 = HMACPreset{
 		Hash: crypto.SHA512,
 		Alg:  jwa.HS512,
 	}
 )
 
+// An HMACSigner signs tokens with HMAC-SHA-2 as a [jwt.ProducerPlugin]. The same secret is used to
+// sign and to verify, so keep it private to the trusted parties. Build one with [NewHMACSigner].
 type HMACSigner struct {
 	secretKey []byte
 
@@ -40,14 +47,10 @@ type HMACSigner struct {
 	hash crypto.Hash
 }
 
-// NewHMACSigner creates a new jwt.ProducerPlugin for a signed token using HMAC with SHA-2.
+// NewHMACSigner returns a [jwt.ProducerPlugin] that signs tokens with HMAC, using the hash carried
+// by the preset (one of [HS256], [HS384], [HS512]).
 //
-// Use any of the HMACPreset constants to configure the signing parameters.
-//   - HS256: HMAC using SHA-256
-//   - HS384: HMAC using SHA-384
-//   - HS512: HMAC using SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
+// See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
 func NewHMACSigner(secretKey []byte, preset HMACPreset) *HMACSigner {
 	return &HMACSigner{
 		secretKey: secretKey,
@@ -84,6 +87,8 @@ func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw stri
 	}.String(), nil
 }
 
+// An HMACVerifier verifies HMAC-signed tokens as a [jwt.RecipientPlugin]. Build one with
+// [NewHMACVerifier]. It returns [ErrInvalidSignature] when the signature does not match.
 type HMACVerifier struct {
 	secretKey []byte
 
@@ -91,14 +96,11 @@ type HMACVerifier struct {
 	hash crypto.Hash
 }
 
-// NewHMACVerifier creates a new jwt.RecipientPlugin for a signed token using HMAC with SHA-2.
+// NewHMACVerifier returns a [jwt.RecipientPlugin] that verifies HMAC-signed tokens, using the hash
+// carried by the preset (one of [HS256], [HS384], [HS512]). The secret must match the one used to
+// sign.
 //
-// Use any of the HMACPreset constants to configure the signing parameters.
-//   - HS256: HMAC using SHA-256
-//   - HS384: HMAC using SHA-384
-//   - HS512: HMAC using SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
+// See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
 func NewHMACVerifier(secretKey []byte, preset HMACPreset) *HMACVerifier {
 	return &HMACVerifier{
 		secretKey: secretKey,
@@ -142,19 +144,19 @@ func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawT
 	return decoded, nil
 }
 
+// A SourceHMACSigner signs like an [HMACSigner] but resolves its secret from a [jwk.Source] at each
+// call, so the plugin follows key rotation instead of pinning one secret. Build one with
+// [NewSourcedHMACSigner].
 type SourceHMACSigner struct {
 	source *jwk.Source[[]byte]
 	preset HMACPreset
 }
 
-// NewSourcedHMACSigner creates a new jwt.ProducerPlugin for a signed token using HMAC with SHA-2.
+// NewSourcedHMACSigner returns a [jwt.ProducerPlugin] that signs tokens with HMAC, drawing the
+// secret from the source for the header's KID. The preset (one of [HS256], [HS384], [HS512])
+// selects the hash.
 //
-// Use any of the HMACPreset constants to configure the signing parameters.
-//   - HS256: HMAC using SHA-256
-//   - HS384: HMAC using SHA-384
-//   - HS512: HMAC using SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
+// See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
 func NewSourcedHMACSigner(source *jwk.Source[[]byte], preset HMACPreset) *SourceHMACSigner {
 	return &SourceHMACSigner{
 		source: source,
@@ -168,7 +170,7 @@ func (signer *SourceHMACSigner) Header(ctx context.Context, header *jwa.JWH) (*j
 		return nil, fmt.Errorf("(SourceHMACSigner.Header) %w", err)
 	}
 
-	// If the KID was not set, update it.
+	// Stamp the resolved key's ID into the header so recipients can select it for verification.
 	if header.KID == "" {
 		header.KID = key.KID
 	}
@@ -185,19 +187,18 @@ func (signer *SourceHMACSigner) Transform(ctx context.Context, header *jwa.JWH, 
 	return NewHMACSigner(key.Key(), signer.preset).Transform(ctx, header, rawToken)
 }
 
+// A SourceHMACVerifier verifies like an [HMACVerifier] but resolves candidate secrets from a
+// [jwk.Source] at each call. When the token names a KID it tries only that secret; otherwise it
+// tries every secret in the source. Build one with [NewSourcedHMACVerifier].
 type SourceHMACVerifier struct {
 	source *jwk.Source[[]byte]
 	preset HMACPreset
 }
 
-// NewSourcedHMACVerifier creates a new jwt.RecipientPlugin for a signed token using HMAC with SHA-2.
+// NewSourcedHMACVerifier returns a [jwt.RecipientPlugin] that verifies HMAC-signed tokens against
+// secrets drawn from the source. The preset (one of [HS256], [HS384], [HS512]) selects the hash.
 //
-// Use any of the HMACPreset constants to configure the signing parameters.
-//   - HS256: HMAC using SHA-256
-//   - HS384: HMAC using SHA-384
-//   - HS512: HMAC using SHA-512
-//
-// https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
+// See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
 func NewSourcedHMACVerifier(source *jwk.Source[[]byte], preset HMACPreset) *SourceHMACVerifier {
 	return &SourceHMACVerifier{
 		source: source,
@@ -212,7 +213,7 @@ func (verifier *SourceHMACVerifier) Transform(ctx context.Context, header *jwa.J
 	}
 
 	for _, key := range keys {
-		// If a KID is set, no need to try with every key.
+		// A token that names a KID can only match that secret; skip the rest.
 		if header.KID != "" && key.KID != header.KID {
 			continue
 		}
