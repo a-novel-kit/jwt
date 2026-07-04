@@ -132,7 +132,7 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 
 	// Seal appends the authentication tag to the ciphertext; JWE carries them in
 	// separate fields, so split off the trailing Overhead() bytes.
-	ciphertextAndTag := aesgcm.Seal(nil, iv, plainText, enc.additionalData)
+	ciphertextAndTag := aesgcm.Seal(nil, iv, plainText, aad(token.Header, enc.additionalData))
 	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
 	cipherText := ciphertextAndTag[:cipherLen]
 	tag := ciphertextAndTag[cipherLen:]
@@ -270,7 +270,7 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	plainText, err := aesgcm.Open(nil, iv, append(cipherText, tag...), dec.additionalData)
+	plainText, err := aesgcm.Open(nil, iv, append(cipherText, tag...), aad(token.Header, dec.additionalData))
 	if err != nil {
 		// An authenticated-decryption failure is the GCM analogue of a bad HMAC tag; surface the
 		// same sentinel the CBC path uses so callers can treat auth failures uniformly.

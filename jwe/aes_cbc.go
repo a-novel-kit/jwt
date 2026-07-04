@@ -166,15 +166,17 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	cipherText := make([]byte, len(origData))
 	blockMode.CryptBlocks(cipherText, origData)
 
-	// AL is the additional-data length in bits as a big-endian uint64. It is the last
-	// input to the tag, so the recipient can bind the length it authenticated.
-	al := make([]byte, 8)
-	binary.BigEndian.PutUint64(al, uint64(len(enc.additionalData)*8))
+	// AAD binds the encoded protected header (RFC 7516 §5.1) plus any application data. AL is its
+	// length in bits as a big-endian uint64, the last input to the tag.
+	aadBytes := aad(token.Header, enc.additionalData)
 
-	// The tag is HMAC over the additional data, IV, ciphertext, and AL in that order,
-	// truncated to tagLength octets. The order is fixed by the spec.
+	al := make([]byte, 8)
+	binary.BigEndian.PutUint64(al, uint64(len(aadBytes)*8))
+
+	// The tag is HMAC over AAD, IV, ciphertext, and AL in that order, truncated to tagLength
+	// octets. The order is fixed by the spec.
 	authenticationTag := hmac.New(enc.hash.New, macKey)
-	authenticationTag.Write(enc.additionalData)
+	authenticationTag.Write(aadBytes)
 	authenticationTag.Write(iv)
 	authenticationTag.Write(cipherText)
 	authenticationTag.Write(al)
@@ -301,14 +303,16 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	encKey := cek[dec.keyLength:]
 	macKey := cek[:dec.macKeyLength]
 
-	// Recompute the tag over the same inputs as encryption and reject the token unless
-	// it matches, before touching the ciphertext. hmac.Equal compares in constant time
-	// to avoid leaking the tag through timing.
+	// Recompute the tag over the same inputs as encryption — including the encoded protected header
+	// as AAD — and reject the token unless it matches, before touching the ciphertext. hmac.Equal
+	// compares in constant time to avoid leaking the tag through timing.
+	aadBytes := aad(token.Header, dec.additionalData)
+
 	al := make([]byte, 8)
-	binary.BigEndian.PutUint64(al, uint64(len(dec.additionalData)*8))
+	binary.BigEndian.PutUint64(al, uint64(len(aadBytes)*8))
 
 	mac := hmac.New(dec.hash.New, macKey)
-	mac.Write(dec.additionalData)
+	mac.Write(aadBytes)
 	mac.Write(iv)
 	mac.Write(cipherText)
 	mac.Write(al)
