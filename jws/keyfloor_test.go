@@ -141,6 +141,13 @@ func TestRSANilKey(t *testing.T) {
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 
+	t.Run("PS256SignerTransform", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := jws.NewRSAPSSSigner(nil, jws.PS256).Transform(t.Context(), &jwa.JWH{}, "a.b")
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
 	t.Run("PS256VerifierNilModulus", func(t *testing.T) {
 		t.Parallel()
 
