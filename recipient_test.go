@@ -192,3 +192,29 @@ func TestRecipientConcurrentConsume(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestRecipientDecodeUnverified(t *testing.T) {
+	t.Parallel()
+
+	// A signed token whose signature would never verify — DecodeUnverified reads its claims anyway.
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256"}`))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"alice","jti":"abc"}`))
+	token := header + "." + payload + ".not-a-real-signature"
+
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{})
+
+	var claims map[string]any
+
+	require.NoError(t, recipient.DecodeUnverified(token, &claims))
+	require.Equal(t, map[string]any{"sub": "alice", "jti": "abc"}, claims)
+}
+
+func TestRecipientDecodeUnverifiedTooLarge(t *testing.T) {
+	t.Parallel()
+
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{MaxTokenBytes: 8})
+
+	var claims map[string]any
+
+	require.ErrorIs(t, recipient.DecodeUnverified("aaaa.bbbb.cccc", &claims), jwt.ErrTokenTooLarge)
+}
