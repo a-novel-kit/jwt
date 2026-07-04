@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 func TestNewBasicClaims(t *testing.T) {
@@ -54,7 +55,7 @@ func TestNewBasicClaims(t *testing.T) {
 			TargetConfig: jwt.TargetConfig{
 				Issuer:   "issuer",
 				Subject:  "subject",
-				Audience: "audience",
+				Audience: jwa.Audience{"audience"},
 			},
 		})
 		require.NoError(t, err)
@@ -65,7 +66,7 @@ func TestNewBasicClaims(t *testing.T) {
 
 		require.Equal(t, "issuer", claims.Iss)
 		require.Equal(t, "subject", claims.Sub)
-		require.Equal(t, "audience", claims.Aud)
+		require.Equal(t, jwa.Audience{"audience"}, claims.Aud)
 
 		require.Empty(t, claims.Exp)
 	})

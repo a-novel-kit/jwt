@@ -20,9 +20,10 @@ type ClaimsCommon struct {
 	// https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.2
 	Sub string `json:"sub,omitempty"`
 	// Aud identifies the recipients the token is intended for. A recipient that
-	// does not find itself in the audience rejects the token.
+	// does not find itself in the audience rejects the token. It is a string or
+	// an array of strings.
 	// https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.3
-	Aud string `json:"aud,omitempty"`
+	Aud Audience `json:"aud,omitempty"`
 
 	// Exp is the time on or after which the token must not be accepted, as a
 	// Unix timestamp in seconds.
