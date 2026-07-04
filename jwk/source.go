@@ -65,6 +65,44 @@ func NewSource(config SourceConfig) *Source {
 	}
 }
 
+// List returns every cached key, refreshing the cache first when it has expired.
+func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
+	err := source.refresh(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("(Source.List) refresh keys: %w", err)
+	}
+
+	source.mu.RLock()
+	defer source.mu.RUnlock()
+
+	return source.cached, nil
+}
+
+// Get returns the key with the given ID. An empty kid returns the first (highest-priority) key. It
+// returns ErrKeyNotFound when the source is empty or no key matches.
+func (source *Source) Get(ctx context.Context, kid string) (*jwa.JWK, error) {
+	list, err := source.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("(Source.Get) list keys: %w", err)
+	}
+
+	if len(list) == 0 {
+		return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
+	}
+
+	if kid == "" {
+		return list[0], nil
+	}
+
+	for _, key := range list {
+		if key.KID == kid {
+			return key, nil
+		}
+	}
+
+	return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
+}
+
 // fresh reports whether the cache is populated and still within CacheDuration, under a read lock so
 // concurrent readers of a warm cache never serialize behind the write lock.
 func (source *Source) fresh() bool {
@@ -119,42 +157,4 @@ func (source *Source) refresh(ctx context.Context) error {
 	source.lastErr = nil
 
 	return nil
-}
-
-// List returns every cached key, refreshing the cache first when it has expired.
-func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
-	err := source.refresh(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("(Source.List) refresh keys: %w", err)
-	}
-
-	source.mu.RLock()
-	defer source.mu.RUnlock()
-
-	return source.cached, nil
-}
-
-// Get returns the key with the given ID. An empty kid returns the first (highest-priority) key. It
-// returns ErrKeyNotFound when the source is empty or no key matches.
-func (source *Source) Get(ctx context.Context, kid string) (*jwa.JWK, error) {
-	list, err := source.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("(Source.Get) list keys: %w", err)
-	}
-
-	if len(list) == 0 {
-		return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
-	}
-
-	if kid == "" {
-		return list[0], nil
-	}
-
-	for _, key := range list {
-		if key.KID == kid {
-			return key, nil
-		}
-	}
-
-	return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
 }

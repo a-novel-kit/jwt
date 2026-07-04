@@ -31,6 +31,12 @@ type EmbedKey struct {
 	config EmbedKeyConfig
 }
 
+// NewEmbedKey returns an [EmbedKey] that advertises the signing key in the token header. Use it as a
+// [jwt.ProducerStaticPlugin].
+func NewEmbedKey(config EmbedKeyConfig) *EmbedKey {
+	return &EmbedKey{config: config}
+}
+
 // Header writes the key's identifier, URL, and — when configured — the key itself into the token
 // header.
 func (plugin *EmbedKey) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
@@ -58,10 +64,4 @@ func (plugin *EmbedKey) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, 
 	}
 
 	return header, nil
-}
-
-// NewEmbedKey returns an [EmbedKey] that advertises the signing key in the token header. Use it as a
-// [jwt.ProducerStaticPlugin].
-func NewEmbedKey(config EmbedKeyConfig) *EmbedKey {
-	return &EmbedKey{config: config}
 }
