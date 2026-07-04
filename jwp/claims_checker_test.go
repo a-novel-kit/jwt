@@ -334,3 +334,15 @@ func TestClaimsCheckerCustomDeserializer(t *testing.T) {
 	require.True(t, called, "configured Deserializer should be used")
 	require.Equal(t, map[string]any{"foo": "bar"}, dst)
 }
+
+func TestClaimsCheckerNilDeserializer(t *testing.T) {
+	t.Parallel()
+
+	// A checker with no configured Deserializer must fall back to json.Unmarshal, not panic.
+	checker := jwp.NewClaimsChecker(&jwp.ClaimsCheckerConfig{})
+
+	var dst map[string]any
+
+	require.NoError(t, checker.Unmarshal([]byte(`{"foo":"bar"}`), &dst))
+	require.Equal(t, map[string]any{"foo": "bar"}, dst)
+}
