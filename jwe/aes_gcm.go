@@ -6,7 +6,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt"
@@ -255,8 +254,12 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) create gcm: %w", err)
 	}
 
-	if len(cipherText)+len(tag) < aesgcm.NonceSize() {
-		return nil, errors.New("(AESGCMDecryption.Transform) ciphertext too short")
+	// The IV is attacker-supplied; gcm.Open panics on a wrong-length nonce, so validate it first.
+	if len(iv) != aesgcm.NonceSize() {
+		return nil, fmt.Errorf(
+			"(AESGCMDecryption.Transform) %w: iv length %d, expected %d",
+			ErrInvalidToken, len(iv), aesgcm.NonceSize(),
+		)
 	}
 
 	plainText, err := aesgcm.Open(nil, iv, append(cipherText, tag...), dec.additionalData)
