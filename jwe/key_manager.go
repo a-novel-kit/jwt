@@ -3,7 +3,7 @@ package jwe
 import (
 	"context"
 
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // CEKManager supplies the content encryption key (CEK) to an encryption plugin and

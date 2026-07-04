@@ -10,9 +10,9 @@ import (
 
 	"golang.org/x/crypto/pbkdf2"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwe/internal"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
 // PBES2KeyEncKWPreset pairs a JWA algorithm identifier with the hash and key size

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt/jwe/internal"
+	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
 // https://datatracker.ietf.org/doc/html/rfc7518#appendix-C

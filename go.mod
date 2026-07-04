@@ -1,4 +1,4 @@
-module github.com/a-novel-kit/jwt
+module github.com/a-novel-kit/jwt/v2
 
 go 1.26.4
 

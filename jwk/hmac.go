@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwk/generators"
-	"github.com/a-novel-kit/jwt/jwk/serializers"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwk/generators"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 // An HMACPreset describes how to generate or match an HMAC JSON Web Key: the algorithm it is bound

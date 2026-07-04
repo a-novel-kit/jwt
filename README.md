@@ -18,7 +18,7 @@ A modular JWT, JWS, JWE, and JWK library for Go.
 
 ## What this is
 
-`github.com/a-novel-kit/jwt` provides composable building blocks for JSON Web Tokens in Go. The root package produces
+`github.com/a-novel-kit/jwt/v2` provides composable building blocks for JSON Web Tokens in Go. The root package produces
 and consumes token payloads; plugins add signing, verification, encryption, decryption, key headers, and claims
 validation.
 
@@ -33,7 +33,7 @@ responsibility.
 ## Installation
 
 ```bash
-go get github.com/a-novel-kit/jwt
+go get github.com/a-novel-kit/jwt/v2
 ```
 
 The root `jwt.Producer` and `jwt.Recipient` types handle the token lifecycle. With no plugins, they produce and consume

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // DirectKeyManager implements jwe.CEKManager for direct encryption: the content

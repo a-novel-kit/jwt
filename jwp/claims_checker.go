@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // ErrInvalidClaims wraps every failure reported by a claims check, so callers can detect a rejected

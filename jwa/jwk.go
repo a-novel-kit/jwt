@@ -5,7 +5,7 @@ import (
 
 	"github.com/samber/lo"
 
-	"github.com/a-novel-kit/jwt/jwa/internal"
+	"github.com/a-novel-kit/jwt/v2/jwa/internal"
 )
 
 // JWKCommon holds the parameters common to every JSON Web Key, independent of

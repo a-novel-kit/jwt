@@ -10,9 +10,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwk"
-	"github.com/a-novel-kit/jwt/jwk/serializers"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwk"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 func mustED25519(t *testing.T) (*jwk.Key[ed25519.PrivateKey], *jwk.Key[ed25519.PublicKey]) {

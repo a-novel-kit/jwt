@@ -5,9 +5,9 @@ import (
 	"crypto/aes"
 	"fmt"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwe/internal"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
 // AESKWPreset pairs a JWA algorithm identifier with its wrap-key length. Use one

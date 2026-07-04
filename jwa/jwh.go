@@ -3,7 +3,7 @@ package jwa
 import (
 	"encoding/json"
 
-	"github.com/a-novel-kit/jwt/jwa/internal"
+	"github.com/a-novel-kit/jwt/v2/jwa/internal"
 )
 
 // Typ is the "typ" (type) header parameter. It declares the media type of the

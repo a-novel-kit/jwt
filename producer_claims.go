@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // TargetConfig scopes a set of claims to an intended context. Recording where a token comes from

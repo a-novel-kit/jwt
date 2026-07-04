@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // DefaultMaxTokenBytes bounds the size of an untrusted token Consume will parse when the

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // An EDPayload wraps an EdDSA key in a JWKCommon format.

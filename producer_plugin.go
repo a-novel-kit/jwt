@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 var (

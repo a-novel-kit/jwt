@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // AESGCMKWPreset pairs a JWA algorithm identifier with its wrap-key length. Use

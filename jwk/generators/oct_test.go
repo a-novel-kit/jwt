@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt/jwk/generators"
+	"github.com/a-novel-kit/jwt/v2/jwk/generators"
 )
 
 func TestNewOct(t *testing.T) {

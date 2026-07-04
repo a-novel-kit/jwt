@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"hash"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // RSAOAEPKeyEncPreset pairs a JWA algorithm identifier with the hash used by

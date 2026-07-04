@@ -3,7 +3,7 @@ package jwa
 import (
 	"encoding/json"
 
-	"github.com/a-novel-kit/jwt/jwa/internal"
+	"github.com/a-novel-kit/jwt/v2/jwa/internal"
 )
 
 // ClaimsCommon holds the registered claims of a JWT, the standard fields every

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // ErrMismatchRecipientPlugin is returned by a plugin that does not recognize a token, signaling

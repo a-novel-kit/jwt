@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwk"
-	"github.com/a-novel-kit/jwt/jws"
-	"github.com/a-novel-kit/jwt/testutils"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwk"
+	"github.com/a-novel-kit/jwt/v2/jws"
+	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
 func TestED25519(t *testing.T) {

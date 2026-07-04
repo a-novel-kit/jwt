@@ -10,9 +10,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwk"
-	"github.com/a-novel-kit/jwt/jwk/serializers"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwk"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 func mustECDSA(t *testing.T, preset jwk.ECDSAPreset) (*jwk.Key[*ecdsa.PrivateKey], *jwk.Key[*ecdsa.PublicKey]) {

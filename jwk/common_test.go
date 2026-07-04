@@ -3,8 +3,8 @@ package jwk_test
 import (
 	"testing"
 
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwk"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
 func newBullshitKey[K any](t *testing.T, kid string) *jwk.Key[K] {

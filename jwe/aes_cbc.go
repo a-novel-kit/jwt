@@ -11,9 +11,9 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwe/internal"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
 // AESCBCPreset holds the parameters of one AES_CBC_HMAC_SHA2 variant: the enc

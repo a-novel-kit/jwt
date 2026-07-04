@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwk"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
 // An EmbedKeyConfig configures how an [EmbedKey] advertises the signing key in a token's header: by
