@@ -77,3 +77,37 @@ func TestSourcedMixedRotation(t *testing.T) {
 
 	require.ErrorIs(t, recipient.Consume(t.Context(), hmacToken, &got), jwt.ErrMismatchRecipientPlugin)
 }
+
+// TestSourcedVerifierSurfacesMalformedKey checks that a key of the verifier's own family that fails
+// to decode surfaces as an error, rather than being skipped and masked as an invalid signature.
+func TestSourcedVerifierSurfacesMalformedKey(t *testing.T) {
+	t.Parallel()
+
+	rsaPriv, rsaPub, err := jwk.GenerateRSA(jwk.RS256)
+	require.NoError(t, err)
+
+	// Keep the metadata (so it still matches the RSA family filter) but corrupt the key material.
+	malformed := *rsaPub.JWK
+	malformed.Payload = []byte(`{"n":"!!!not-base64","e":"AQAB"}`)
+
+	source := jwk.NewSource(jwk.SourceConfig{
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			return []*jwa.JWK{&malformed}, nil
+		},
+	})
+
+	token, err := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{jws.NewRSASigner(rsaPriv.Key(), jws.RS256)},
+	}).Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.NoError(t, err)
+
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, jws.RS256)},
+	})
+
+	var got map[string]any
+
+	err = recipient.Consume(t.Context(), token, &got)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, jws.ErrInvalidSignature)
+}

@@ -40,8 +40,14 @@ func verifyFromSource[K any](
 
 		key, decodeErr := decode(candidate)
 		if decodeErr != nil {
-			// The key is for another algorithm family; not this verifier's to use.
-			continue
+			// A key of another algorithm family is not this verifier's to use — skip it. But a key of
+			// the right family that fails to decode (malformed material) is a real error to surface,
+			// not one to mask as an invalid signature.
+			if errors.Is(decodeErr, jwk.ErrJWKMismatch) {
+				continue
+			}
+
+			return nil, fmt.Errorf("(verifyFromSource) decode key: %w", decodeErr)
 		}
 
 		payload, verifyErr := newVerifier(key).Transform(ctx, header, rawToken)
@@ -92,7 +98,13 @@ func signFromSource[K any](
 	for _, candidate := range keys {
 		key, decodeErr := decode(candidate)
 		if decodeErr != nil {
-			continue
+			// Skip keys of another family, but surface a malformed key of this family rather than
+			// silently falling back to a lower-priority one — keys are listed in priority order.
+			if errors.Is(decodeErr, jwk.ErrJWKMismatch) {
+				continue
+			}
+
+			return zero, "", fmt.Errorf("(signFromSource) decode key: %w", decodeErr)
 		}
 
 		return key, candidate.KID, nil
