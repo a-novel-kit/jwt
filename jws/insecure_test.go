@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt"
+	"github.com/a-novel-kit/jwt/jwa"
 	"github.com/a-novel-kit/jwt/jwk"
 	"github.com/a-novel-kit/jwt/jws"
 )
@@ -73,5 +74,19 @@ func TestInsecure(t *testing.T) {
 
 		require.NoError(t, recipient.Consume(t.Context(), otherToken, &recipientClaims))
 		require.Equal(t, producerClaims, recipientClaims)
+	})
+
+	t.Run("MalformedToken", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := verifier.Transform(t.Context(), &jwa.JWH{}, "not-a-token")
+		require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+	})
+
+	t.Run("InvalidPayloadEncoding", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := verifier.Transform(t.Context(), &jwa.JWH{}, "header.@@@.signature")
+		require.Error(t, err)
 	})
 }
