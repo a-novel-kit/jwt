@@ -48,6 +48,12 @@ func NewRecipient(config RecipientConfig) *Recipient {
 		config.MaxTokenBytes = DefaultMaxTokenBytes
 	}
 
+	// Resolve the default here rather than lazily in Consume: a Recipient is built once and shared
+	// across goroutines, so writing config on first use would be a data race.
+	if config.Deserializer == nil {
+		config.Deserializer = json.Unmarshal
+	}
+
 	return &Recipient{
 		config: config,
 	}
@@ -82,10 +88,6 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		if err != nil {
 			return fmt.Errorf("(Recipient.Consume) check crit: %w", err)
 		}
-	}
-
-	if recipient.config.Deserializer == nil {
-		recipient.config.Deserializer = json.Unmarshal
 	}
 
 	// A plugin that does not match the token yields ErrMismatchRecipientPlugin; fall through to the
