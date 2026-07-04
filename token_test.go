@@ -27,6 +27,12 @@ func TestRawToken(t *testing.T) {
 			name:  "Reject",
 			value: "header.payload.signature",
 		},
+		{
+			// Guards the SplitN limit: extra segments beyond the cap must still be rejected, not
+			// swallowed into the last field.
+			name:  "RejectExtraSegments",
+			value: "a.b.c.d.e.f",
+		},
 	}
 
 	for _, testCase := range testCases {

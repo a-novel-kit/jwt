@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -136,6 +137,17 @@ func TestRecipient(t *testing.T) {
 			expectErr: jwt.ErrMismatchRecipientPlugin,
 			expect:    map[string]any{},
 		},
+		{
+			name: "TokenTooLarge",
+
+			config: jwt.RecipientConfig{MaxTokenBytes: 8},
+
+			token: token,
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrTokenTooLarge,
+			expect:    map[string]any{},
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -148,4 +160,35 @@ func TestRecipient(t *testing.T) {
 			require.Equal(t, testCase.expect, testCase.dst)
 		})
 	}
+}
+
+func TestRecipientConcurrentConsume(t *testing.T) {
+	t.Parallel()
+
+	producer := jwt.NewProducer(jwt.ProducerConfig{})
+	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.NoError(t, err)
+
+	// A Recipient with a defaulted deserializer is shared across goroutines. The default must be
+	// resolved at construction, not written on first Consume — the latter races under -race.
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{})
+
+	var wg sync.WaitGroup
+
+	for range 16 {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			dst := map[string]any{}
+
+			err := recipient.Consume(t.Context(), token, &dst)
+			if err != nil {
+				t.Errorf("concurrent consume: %v", err)
+			}
+		}()
+	}
+
+	wg.Wait()
 }

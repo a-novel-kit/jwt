@@ -10,6 +10,15 @@ import (
 	"github.com/a-novel-kit/jwt/jwa"
 )
 
+// DefaultMaxTokenBytes bounds the size of an untrusted token Consume will parse when the
+// RecipientConfig does not set a limit. It is deliberately generous — even a JWE carrying an
+// embedded certificate chain stays well under it — while capping the work an attacker can force
+// with an oversized input.
+const DefaultMaxTokenBytes = 1 << 18 // 256 KiB.
+
+// ErrTokenTooLarge is returned by Consume when a token exceeds the configured size limit.
+var ErrTokenTooLarge = errors.New("token exceeds maximum size")
+
 // RecipientConfig configures a Recipient: the ordered plugins that verify or decrypt a token and
 // an optional deserializer for its claims.
 type RecipientConfig struct {
@@ -18,6 +27,9 @@ type RecipientConfig struct {
 
 	// Deserializer decodes the raw claims payload into the destination. Defaults to json.Unmarshal.
 	Deserializer func(raw []byte, dst any) error
+
+	// MaxTokenBytes rejects tokens larger than this before parsing. Non-positive selects DefaultMaxTokenBytes.
+	MaxTokenBytes int
 }
 
 // A Recipient verifies and decodes JWTs against a fixed set of plugins.
@@ -32,6 +44,16 @@ func NewRecipient(config RecipientConfig) *Recipient {
 		config.Plugins = []RecipientPlugin{NewDefaultRecipientPlugin()}
 	}
 
+	if config.MaxTokenBytes <= 0 {
+		config.MaxTokenBytes = DefaultMaxTokenBytes
+	}
+
+	// Resolve the default here rather than lazily in Consume: a Recipient is built once and shared
+	// across goroutines, so writing config on first use would be a data race.
+	if config.Deserializer == nil {
+		config.Deserializer = json.Unmarshal
+	}
+
 	return &Recipient{
 		config: config,
 	}
@@ -40,6 +62,14 @@ func NewRecipient(config RecipientConfig) *Recipient {
 // Consume validates rawToken and decodes its claims into dst. It tries each plugin in order, uses
 // the first that recognizes the token, and fails if none do.
 func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst any) error {
+	if len(rawToken) > recipient.config.MaxTokenBytes {
+		// Only lengths in the message — never the token itself (a bearer credential).
+		return fmt.Errorf(
+			"(Recipient.Consume) %w: %d bytes exceeds limit %d",
+			ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes,
+		)
+	}
+
 	rawHeader, err := DecodeToken(rawToken, &HeaderDecoder{})
 	if err != nil {
 		return fmt.Errorf("(Recipient.Consume) decode token: %w", err)
@@ -62,10 +92,6 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		if err != nil {
 			return fmt.Errorf("(Recipient.Consume) check crit: %w", err)
 		}
-	}
-
-	if recipient.config.Deserializer == nil {
-		recipient.config.Deserializer = json.Unmarshal
 	}
 
 	// A plugin that does not match the token yields ErrMismatchRecipientPlugin; fall through to the
