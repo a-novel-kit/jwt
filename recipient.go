@@ -30,6 +30,10 @@ type RecipientConfig struct {
 
 	// MaxTokenBytes rejects tokens larger than this before parsing. Non-positive selects DefaultMaxTokenBytes.
 	MaxTokenBytes int
+
+	// CriticalHeaders names the "crit" extensions this recipient understands and will process. A
+	// token whose crit list names anything outside this set is rejected (RFC 7515 §4.1.11).
+	CriticalHeaders []string
 }
 
 // A Recipient verifies and decodes JWTs against a fixed set of plugins.
@@ -88,7 +92,7 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 	}
 
 	if len(header.Crit) > 0 {
-		err = CheckCrit(decodedHeader, header.Crit)
+		err = CheckCritUnderstood(decodedHeader, header.Crit, recipient.config.CriticalHeaders)
 		if err != nil {
 			return fmt.Errorf("(Recipient.Consume) check crit: %w", err)
 		}
