@@ -22,7 +22,9 @@ type HeaderDecoder struct{}
 
 // Decode implements [TokenDecoder].
 func (decoder *HeaderDecoder) Decode(source string) (string, error) {
-	parts := strings.Split(source, ".")
+	// SplitN caps the slice regardless of how many separators the input carries, so a token made of
+	// many dots cannot force an unbounded allocation. We only need the first segment, so two suffices.
+	parts := strings.SplitN(source, ".", 2)
 	if len(parts) < 2 {
 		return "", fmt.Errorf("(HeaderDecoder.Decode) %w (%s)", ErrUnsupportedTokenFormat, source)
 	}
@@ -51,7 +53,9 @@ type RawTokenDecoder struct{}
 
 // Decode implements [TokenDecoder].
 func (decoder *RawTokenDecoder) Decode(source string) (*RawToken, error) {
-	parts := strings.Split(source, ".")
+	// Limit is segments+1: an over-segmented token still trips the length check below, while the cap
+	// stops a malicious dot-heavy input from allocating an unbounded slice.
+	parts := strings.SplitN(source, ".", 3)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("(RawTokenDecoder.Decode) %w (%s)", ErrUnsupportedTokenFormat, source)
 	}
@@ -84,7 +88,7 @@ type SignedTokenDecoder struct{}
 
 // Decode implements [TokenDecoder].
 func (decoder *SignedTokenDecoder) Decode(source string) (*SignedToken, error) {
-	parts := strings.Split(source, ".")
+	parts := strings.SplitN(source, ".", 4)
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("(SignedTokenDecoder.Decode) %w (%s)", ErrUnsupportedTokenFormat, source)
 	}
@@ -121,7 +125,7 @@ type EncryptedTokenDecoder struct{}
 
 // Decode implements [TokenDecoder].
 func (decoder *EncryptedTokenDecoder) Decode(source string) (*EncryptedToken, error) {
-	parts := strings.Split(source, ".")
+	parts := strings.SplitN(source, ".", 6)
 	if len(parts) != 5 {
 		return nil, fmt.Errorf("(EncryptedTokenDecoder.Decode) %w (%s)", ErrUnsupportedTokenFormat, source)
 	}

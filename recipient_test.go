@@ -136,6 +136,17 @@ func TestRecipient(t *testing.T) {
 			expectErr: jwt.ErrMismatchRecipientPlugin,
 			expect:    map[string]any{},
 		},
+		{
+			name: "TokenTooLarge",
+
+			config: jwt.RecipientConfig{MaxTokenBytes: 8},
+
+			token: token,
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrTokenTooLarge,
+			expect:    map[string]any{},
+		},
 	}
 
 	for _, testCase := range testCases {
