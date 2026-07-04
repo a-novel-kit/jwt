@@ -64,12 +64,28 @@ func (signer *HMACSigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, 
 		return nil, fmt.Errorf("(HMACSigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
+	if len(signer.secretKey) < signer.hash.Size() {
+		return nil, fmt.Errorf(
+			"(HMACSigner.Header) %w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
+			jwt.ErrInvalidSecretKey, len(signer.secretKey), signer.hash.Size(),
+		)
+	}
+
 	header.Alg = signer.alg
 
 	return header, nil
 }
 
 func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw string) (string, error) {
+	// Re-check on the signing path too: a sourced signer re-resolves its key here without going
+	// back through Header, so this is the only guard that actually gates every signature.
+	if len(signer.secretKey) < signer.hash.Size() {
+		return "", fmt.Errorf(
+			"(HMACSigner.Transform) %w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
+			jwt.ErrInvalidSecretKey, len(signer.secretKey), signer.hash.Size(),
+		)
+	}
+
 	token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
 	if err != nil {
 		return "", fmt.Errorf("(HMACSigner.Transform) split token: %w", err)
@@ -114,6 +130,13 @@ func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawT
 		return nil, fmt.Errorf(
 			"(HMACVerifier.Transform) %w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, verifier.alg,
+		)
+	}
+
+	if len(verifier.secretKey) < verifier.hash.Size() {
+		return nil, fmt.Errorf(
+			"(HMACVerifier.Transform) %w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
+			jwt.ErrInvalidSecretKey, len(verifier.secretKey), verifier.hash.Size(),
 		)
 	}
 
