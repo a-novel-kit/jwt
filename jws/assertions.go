@@ -27,5 +27,4 @@ var (
 	_ jwt.RecipientPlugin = (*SourcedED25519Verifier)(nil)
 	_ jwt.RecipientPlugin = (*RSAPSSVerifier)(nil)
 	_ jwt.RecipientPlugin = (*SourcedRSAPSSVerifier)(nil)
-	_ jwt.RecipientPlugin = (*InsecureVerifier)(nil)
 )
