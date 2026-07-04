@@ -6,6 +6,7 @@ package internal
 
 import (
 	"crypto"
+	"encoding/binary"
 )
 
 // ConcatKDF derives keyDataLen bytes of key material from the shared secret z, following the
@@ -29,7 +30,11 @@ func ConcatKDF(
 	h := hash.New()
 	output := make([]byte, 0, keyDataLen)
 
-	for len(output) < keyDataLen {
+	// The 32-bit block counter (the buffer's first four bytes) MUST increment each round. Left
+	// fixed, every hash block would be identical and any key longer than one hash output would
+	// repeat — for AES-CBC-HMAC that collapses the MAC and ENC key halves into the same value.
+	for round := uint32(1); len(output) < keyDataLen; round++ {
+		binary.BigEndian.PutUint32(buffer[:4], round)
 		h.Write(buffer)
 		output = h.Sum(output)
 		h.Reset()

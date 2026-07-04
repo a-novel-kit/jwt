@@ -6,7 +6,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt"
@@ -255,13 +254,27 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) create gcm: %w", err)
 	}
 
-	if len(cipherText)+len(tag) < aesgcm.NonceSize() {
-		return nil, errors.New("(AESGCMDecryption.Transform) ciphertext too short")
+	// The IV is attacker-supplied; gcm.Open panics on a wrong-length nonce, so validate it first.
+	if len(iv) != aesgcm.NonceSize() {
+		return nil, fmt.Errorf(
+			"(AESGCMDecryption.Transform) %w: iv length %d, expected %d",
+			ErrInvalidToken, len(iv), aesgcm.NonceSize(),
+		)
+	}
+
+	// A wrong-length tag is a malformed token, not an authentication failure; reject it distinctly.
+	if len(tag) != aesgcm.Overhead() {
+		return nil, fmt.Errorf(
+			"(AESGCMDecryption.Transform) %w: tag length %d, expected %d",
+			ErrInvalidToken, len(tag), aesgcm.Overhead(),
+		)
 	}
 
 	plainText, err := aesgcm.Open(nil, iv, append(cipherText, tag...), dec.additionalData)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) decrypt: %w", err)
+		// An authenticated-decryption failure is the GCM analogue of a bad HMAC tag; surface the
+		// same sentinel the CBC path uses so callers can treat auth failures uniformly.
+		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: %w", ErrInvalidSecret, err)
 	}
 
 	return plainText, nil

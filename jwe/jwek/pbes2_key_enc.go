@@ -135,12 +135,20 @@ func (manager *PBES2KeyEncKWConfig) EncryptCEK(_ context.Context, header *jwa.JW
 	return wrapped, nil
 }
 
+// DefaultMaxPBES2Iterations caps the PBKDF2 iteration count (p2c) a decoder will run when the
+// config leaves MaxIterations unset. p2c is attacker-controlled in the token header, so an
+// unbounded value is a CPU-exhaustion DoS; this matches the 1,000,000 ceiling go-jose uses.
+const DefaultMaxPBES2Iterations = 1_000_000
+
 // PBES2KeyEncKWDecoderConfig holds the password used to re-derive the wrap key and
 // decrypt the content encryption key.
 type PBES2KeyEncKWDecoderConfig struct {
 	// Secret is the password the wrap key is derived from; it must match the one
 	// used to encrypt the token.
 	Secret string
+
+	// MaxIterations caps the token's p2c iteration count. Non-positive selects DefaultMaxPBES2Iterations.
+	MaxIterations int
 }
 
 // PBES2KeyEncKWDecoder implements jwe.CEKDecoder: it re-derives the wrap key from
@@ -148,9 +156,10 @@ type PBES2KeyEncKWDecoderConfig struct {
 type PBES2KeyEncKWDecoder struct {
 	config PBES2KeyEncKWDecoderConfig
 
-	alg     jwa.Alg
-	hash    crypto.Hash
-	keySize int
+	alg           jwa.Alg
+	hash          crypto.Hash
+	keySize       int
+	maxIterations int
 }
 
 // NewPBES2KeyEncKWDecoder creates a jwe.CEKDecoder that re-derives the wrap key
@@ -160,11 +169,17 @@ type PBES2KeyEncKWDecoder struct {
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.8
 func NewPBES2KeyEncKWDecoder(config *PBES2KeyEncKWDecoderConfig, preset PBES2KeyEncKWPreset) *PBES2KeyEncKWDecoder {
+	maxIterations := config.MaxIterations
+	if maxIterations <= 0 {
+		maxIterations = DefaultMaxPBES2Iterations
+	}
+
 	return &PBES2KeyEncKWDecoder{
-		config:  *config,
-		alg:     preset.Alg,
-		hash:    preset.Hash,
-		keySize: preset.KeySize,
+		config:        *config,
+		alg:           preset.Alg,
+		hash:          preset.Hash,
+		keySize:       preset.KeySize,
+		maxIterations: maxIterations,
 	}
 }
 
@@ -180,6 +195,15 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 		return nil, fmt.Errorf(
 			"(PBES2KeyEncKWDecoder.ComputeCEK) %w: missing enc key",
 			jwt.ErrUnsupportedTokenFormat,
+		)
+	}
+
+	// p2c is attacker-controlled; run PBKDF2 only within a sane bound, or a single small token can
+	// pin a core for billions of iterations.
+	if header.P2C <= 0 || header.P2C > decoder.maxIterations {
+		return nil, fmt.Errorf(
+			"(PBES2KeyEncKWDecoder.ComputeCEK) %w: p2c %d out of range (1..%d)",
+			jwt.ErrUnsupportedTokenFormat, header.P2C, decoder.maxIterations,
 		)
 	}
 

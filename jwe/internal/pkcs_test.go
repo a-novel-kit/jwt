@@ -56,7 +56,8 @@ func TestPKCS7UnPadding(t *testing.T) {
 
 		plaintText []byte
 
-		expected []byte
+		expected  []byte
+		expectErr bool
 	}{
 		{
 			name: "padding",
@@ -65,14 +66,41 @@ func TestPKCS7UnPadding(t *testing.T) {
 
 			expected: []byte("test"),
 		},
+		{
+			name: "empty",
+
+			plaintText: []byte{},
+
+			expectErr: true,
+		},
+		{
+			name: "padding too large",
+
+			plaintText: []byte("test\xff"),
+
+			expectErr: true,
+		},
+		{
+			name: "inconsistent padding",
+
+			plaintText: []byte("test\x02\x04"),
+
+			expectErr: true,
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := internal.PKCS7UnPadding(testCase.plaintText)
-			require.Equal(t, testCase.expected, result)
+			result, err := internal.PKCS7UnPadding(testCase.plaintText)
+
+			if testCase.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, testCase.expected, result)
+			}
 		})
 	}
 }
