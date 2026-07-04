@@ -28,7 +28,7 @@ type RecipientConfig struct {
 	// Deserializer decodes the raw claims payload into the destination. Defaults to json.Unmarshal.
 	Deserializer func(raw []byte, dst any) error
 
-	// MaxTokenBytes rejects a token larger than this before any parsing. Zero selects DefaultMaxTokenBytes.
+	// MaxTokenBytes rejects tokens larger than this before parsing. Non-positive selects DefaultMaxTokenBytes.
 	MaxTokenBytes int
 }
 
@@ -63,7 +63,11 @@ func NewRecipient(config RecipientConfig) *Recipient {
 // the first that recognizes the token, and fails if none do.
 func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst any) error {
 	if len(rawToken) > recipient.config.MaxTokenBytes {
-		return fmt.Errorf("(Recipient.Consume) %w", ErrTokenTooLarge)
+		// Only lengths in the message — never the token itself (a bearer credential).
+		return fmt.Errorf(
+			"(Recipient.Consume) %w: %d bytes exceeds limit %d",
+			ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes,
+		)
 	}
 
 	rawHeader, err := DecodeToken(rawToken, &HeaderDecoder{})
