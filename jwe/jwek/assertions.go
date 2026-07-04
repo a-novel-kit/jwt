@@ -1,6 +1,6 @@
 package jwek
 
-import "github.com/a-novel-kit/jwt/jwe"
+import "github.com/a-novel-kit/jwt/v2/jwe"
 
 // Compile-time checks that every key manager and decoder satisfies the jwe.CEKManager /
 // jwe.CEKDecoder contract. This is exactly the guard that would have caught DirectKeyManager's

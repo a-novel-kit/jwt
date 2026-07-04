@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwk/generators"
-	"github.com/a-novel-kit/jwt/jwk/serializers"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwk/generators"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 // An AESPreset describes how to generate or match an AES JSON Web Key: the algorithm it is bound

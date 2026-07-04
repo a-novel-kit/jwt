@@ -1,6 +1,6 @@
 package jwp
 
-import "github.com/a-novel-kit/jwt"
+import "github.com/a-novel-kit/jwt/v2"
 
 // Compile-time checks for the higher-level helpers: the key embedder is a static producer plugin,
 // and the claim checks satisfy the checker interfaces.

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // ErrKeyNotFound is returned by [Source.Get] when no cached key matches the request.

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt/jwa/internal"
+	"github.com/a-novel-kit/jwt/v2/jwa/internal"
 )
 
 func TestMarshalPartial(t *testing.T) {

@@ -9,7 +9,7 @@ package jwk
 import (
 	"errors"
 
-	"github.com/a-novel-kit/jwt/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // ErrJWKMismatch is returned when a JSON Web Key does not match the preset it is parsed against —

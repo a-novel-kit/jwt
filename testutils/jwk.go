@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwk"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
 // NewStaticKeysSource returns a [jwk.Source] backed by a fixed, in-memory set of keys, so a test can

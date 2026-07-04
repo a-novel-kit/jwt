@@ -9,10 +9,10 @@ import (
 
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwe/internal"
-	"github.com/a-novel-kit/jwt/jwk/serializers"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwe/internal"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 // ECDHKeyAgrKWPreset pairs a JWA algorithm identifier with the length of the

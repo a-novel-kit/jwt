@@ -8,10 +8,10 @@ import (
 
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/a-novel-kit/jwt"
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwe/internal"
-	"github.com/a-novel-kit/jwt/jwk/serializers"
+	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwe/internal"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 // ECDHKeyAgrPreset binds a content-encryption algorithm to its derived-key length

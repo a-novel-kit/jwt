@@ -1,6 +1,6 @@
 package jwe
 
-import "github.com/a-novel-kit/jwt"
+import "github.com/a-novel-kit/jwt/v2"
 
 // Compile-time checks that the content-encryption plugins satisfy the producer/recipient contracts.
 var (

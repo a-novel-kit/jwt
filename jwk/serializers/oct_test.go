@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt/jwk/generators"
-	"github.com/a-novel-kit/jwt/jwk/serializers"
+	"github.com/a-novel-kit/jwt/v2/jwk/generators"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 func TestOct(t *testing.T) {

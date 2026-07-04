@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt/jwe/internal"
+	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
 func TestAesKeyWrap(t *testing.T) {

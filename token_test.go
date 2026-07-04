@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt"
+	"github.com/a-novel-kit/jwt/v2"
 )
 
 func TestRawToken(t *testing.T) {

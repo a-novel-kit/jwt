@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/a-novel-kit/jwt"
+	"github.com/a-novel-kit/jwt/v2"
 )
 
 // ErrInvalidSignature is returned by a verifier when a token's signature does not match its header

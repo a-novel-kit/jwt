@@ -5,10 +5,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/a-novel-kit/jwt/jwa"
-	"github.com/a-novel-kit/jwt/jwk"
-	"github.com/a-novel-kit/jwt/jwp"
-	"github.com/a-novel-kit/jwt/testutils"
+	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwk"
+	"github.com/a-novel-kit/jwt/v2/jwp"
+	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
 func TestKeyEmbedder(t *testing.T) {
