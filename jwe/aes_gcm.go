@@ -262,9 +262,19 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
+	// A wrong-length tag is a malformed token, not an authentication failure; reject it distinctly.
+	if len(tag) != aesgcm.Overhead() {
+		return nil, fmt.Errorf(
+			"(AESGCMDecryption.Transform) %w: tag length %d, expected %d",
+			ErrInvalidToken, len(tag), aesgcm.Overhead(),
+		)
+	}
+
 	plainText, err := aesgcm.Open(nil, iv, append(cipherText, tag...), dec.additionalData)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) decrypt: %w", err)
+		// An authenticated-decryption failure is the GCM analogue of a bad HMAC tag; surface the
+		// same sentinel the CBC path uses so callers can treat auth failures uniformly.
+		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: %w", ErrInvalidSecret, err)
 	}
 
 	return plainText, nil

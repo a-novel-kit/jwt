@@ -295,3 +295,32 @@ func TestAESGCMBadIV(t *testing.T) {
 	var claims map[string]any
 	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidToken)
 }
+
+func TestAESGCMBadTag(t *testing.T) {
+	t.Parallel()
+
+	key, err := jwk.GenerateAES(jwk.A256GCM)
+	require.NoError(t, err)
+
+	encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
+		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
+	}, jwe.A256GCM)
+	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
+
+	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.NoError(t, err)
+
+	// A wrong-length tag is a malformed token, distinct from an authentication failure.
+	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+	require.NoError(t, err)
+
+	parts.Tag = base64.RawURLEncoding.EncodeToString([]byte("shorttag"))
+
+	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
+		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},
+	}, jwe.A256GCM)
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
+
+	var claims map[string]any
+	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidToken)
+}
