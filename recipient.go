@@ -151,6 +151,25 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 		return fmt.Errorf("(Recipient.DecodeUnverified) decode token: %w", err)
 	}
 
+	// Confirm the input is a structurally valid JWS: the header must be base64url-encoded JSON, not
+	// null or garbage. Signature and crit are deliberately not checked — that is what "unverified"
+	// means — but a non-JWT input should not silently yield claims.
+	decodedHeader, err := base64.RawURLEncoding.DecodeString(token.Header)
+	if err != nil {
+		return fmt.Errorf("(Recipient.DecodeUnverified) decode header: %w", err)
+	}
+
+	var header *jwa.JWH
+
+	err = json.Unmarshal(decodedHeader, &header)
+	if err != nil {
+		return fmt.Errorf("(Recipient.DecodeUnverified) unmarshal header: %w", err)
+	}
+
+	if header == nil {
+		return fmt.Errorf("(Recipient.DecodeUnverified) %w: null header", ErrUnsupportedTokenFormat)
+	}
+
 	rawClaims, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
 		return fmt.Errorf("(Recipient.DecodeUnverified) decode payload: %w", err)

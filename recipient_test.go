@@ -218,3 +218,35 @@ func TestRecipientDecodeUnverifiedTooLarge(t *testing.T) {
 
 	require.ErrorIs(t, recipient.DecodeUnverified("aaaa.bbbb.cccc", &claims), jwt.ErrTokenTooLarge)
 }
+
+func TestRecipientDecodeUnverifiedRejects(t *testing.T) {
+	t.Parallel()
+
+	b64 := func(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
+	goodHeader := b64(`{"alg":"HS256"}`)
+	goodPayload := b64(`{"sub":"alice"}`)
+
+	testCases := []struct {
+		name  string
+		token string
+	}{
+		{"NotThreeSegments", goodHeader + "." + goodPayload},
+		{"HeaderNotBase64", "!!!." + goodPayload + ".sig"},
+		{"HeaderNotJSON", b64("not json") + "." + goodPayload + ".sig"},
+		{"NullHeader", b64("null") + "." + goodPayload + ".sig"},
+		{"PayloadNotBase64", goodHeader + ".!!!.sig"},
+		{"PayloadNotJSON", goodHeader + "." + b64("not json") + ".sig"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			recipient := jwt.NewRecipient(jwt.RecipientConfig{})
+
+			var claims map[string]any
+
+			require.Error(t, recipient.DecodeUnverified(testCase.token, &claims))
+		})
+	}
+}
