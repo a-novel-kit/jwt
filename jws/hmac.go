@@ -5,7 +5,6 @@ import (
 	"crypto"
 	"crypto/hmac"
 	"encoding/base64"
-	"errors"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt"
@@ -230,26 +229,7 @@ func NewSourcedHMACVerifier(source *jwk.Source[[]byte], preset HMACPreset) *Sour
 }
 
 func (verifier *SourceHMACVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	keys, err := verifier.source.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("(SourceHMACVerifier.Transform) %w", err)
-	}
-
-	for _, key := range keys {
-		// A token that names a KID can only match that secret; skip the rest.
-		if header.KID != "" && key.KID != header.KID {
-			continue
-		}
-
-		token, err := NewHMACVerifier(key.Key(), verifier.preset).Transform(ctx, header, rawToken)
-		if err == nil {
-			return token, nil
-		}
-
-		if !errors.Is(err, ErrInvalidSignature) {
-			return nil, fmt.Errorf("(SourceHMACVerifier.Transform) %w", err)
-		}
-	}
-
-	return nil, fmt.Errorf("(SourceHMACVerifier.Transform) %w", ErrInvalidSignature)
+	return verifyFromSource(ctx, verifier.source, header, rawToken, func(key []byte) jwt.RecipientPlugin {
+		return NewHMACVerifier(key, verifier.preset)
+	})
 }
