@@ -34,7 +34,8 @@ type ECPayload struct {
 // ---------------------------------------------------------------------------------------------------------------------
 // Reimplemented from crypto/ecdsa internals, which the standard library does not export.
 
-// pointFromAffine encodes affine coordinates into the uncompressed point bytes ecdsa.ParseUncompressedPublicKey expects.
+// pointFromAffine encodes affine coordinates into the uncompressed point bytes
+// that ecdsa.ParseUncompressedPublicKey expects.
 func pointFromAffine(curve elliptic.Curve, x, y *big.Int) ([]byte, error) {
 	bitSize := curve.Params().BitSize
 	// Reject values that would not get correctly encoded.
