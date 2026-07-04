@@ -65,11 +65,9 @@ func (signer *RSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, e
 		return nil, fmt.Errorf("(RSASigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
-	if signer.secretKey == nil || signer.secretKey.N == nil || signer.secretKey.N.BitLen() < minRSAKeyBits {
-		return nil, fmt.Errorf(
-			"(RSASigner.Header) %w: RSA key must be a valid modulus of at least %d bits (RFC 7518 §3.3)",
-			jwt.ErrInvalidSecretKey, minRSAKeyBits,
-		)
+	err := checkRSAPrivateKey(signer.secretKey)
+	if err != nil {
+		return nil, fmt.Errorf("(RSASigner.Header) %w", err)
 	}
 
 	header.Alg = signer.alg
@@ -80,11 +78,9 @@ func (signer *RSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, e
 func (signer *RSASigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw string) (string, error) {
 	// Re-check on the signing path too: a sourced signer re-resolves its key here without going
 	// back through Header, so this is the only guard that actually gates every signature.
-	if signer.secretKey == nil || signer.secretKey.N == nil || signer.secretKey.N.BitLen() < minRSAKeyBits {
-		return "", fmt.Errorf(
-			"(RSASigner.Transform) %w: RSA key must be a valid modulus of at least %d bits (RFC 7518 §3.3)",
-			jwt.ErrInvalidSecretKey, minRSAKeyBits,
-		)
+	err := checkRSAPrivateKey(signer.secretKey)
+	if err != nil {
+		return "", fmt.Errorf("(RSASigner.Transform) %w", err)
 	}
 
 	token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
@@ -136,11 +132,9 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 		)
 	}
 
-	if verifier.publicKey == nil || verifier.publicKey.N == nil || verifier.publicKey.N.BitLen() < minRSAKeyBits {
-		return nil, fmt.Errorf(
-			"(RSAVerifier.Transform) %w: RSA key must be a valid modulus of at least %d bits (RFC 7518 §3.3)",
-			jwt.ErrInvalidSecretKey, minRSAKeyBits,
-		)
+	err := checkRSAPublicKey(verifier.publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("(RSAVerifier.Transform) %w", err)
 	}
 
 	token, err := jwt.DecodeToken(rawToken, &jwt.SignedTokenDecoder{})

@@ -149,4 +149,16 @@ func TestRSANilKey(t *testing.T) {
 		_, err := jws.NewRSAPSSVerifier(&rsa.PublicKey{}, jws.PS256).Transform(t.Context(), header, "a.b.c")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
+
+	t.Run("NegativeModulus", func(t *testing.T) {
+		t.Parallel()
+
+		// |N| clears the bit-length floor, but N is negative; BitLen reads the absolute value, so
+		// only the sign check rejects it.
+		negN := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 2048))
+		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}}
+
+		_, err := jws.NewRSAVerifier(&rsa.PublicKey{N: negN, E: 65537}, jws.RS256).Transform(t.Context(), header, "a.b.c")
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
 }
