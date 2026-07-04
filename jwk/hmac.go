@@ -1,7 +1,6 @@
 package jwk
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -101,13 +100,4 @@ func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
 	}
 
 	return NewKey[[]byte](source, decoded), nil
-}
-
-// NewHMACSource returns a key source that parses the HMAC keys matching preset.
-func NewHMACSource(config SourceConfig, preset HMACPreset) *Source[[]byte] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[[]byte], error) {
-		return ConsumeHMAC(jwk, preset)
-	}
-
-	return NewGenericSource[[]byte](config, parser)
 }

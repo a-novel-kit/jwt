@@ -178,7 +178,7 @@ func (verifier *RSAPSSVerifier) Transform(_ context.Context, header *jwa.JWH, ra
 // each call, so the plugin follows key rotation instead of pinning one key. Build one with
 // [NewSourcedRSAPSSSigner].
 type SourcedRSAPSSSigner struct {
-	source *jwk.Source[*rsa.PrivateKey]
+	source *jwk.Source
 	preset RSAPSSPreset
 }
 
@@ -187,7 +187,7 @@ type SourcedRSAPSSSigner struct {
 // selects the hash, and the key must be at least 2048 bits.
 //
 // See RFC 7518, section 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
-func NewSourcedRSAPSSSigner(source *jwk.Source[*rsa.PrivateKey], preset RSAPSSPreset) *SourcedRSAPSSSigner {
+func NewSourcedRSAPSSSigner(source *jwk.Source, preset RSAPSSPreset) *SourcedRSAPSSSigner {
 	return &SourcedRSAPSSSigner{
 		source: source,
 		preset: preset,
@@ -195,33 +195,33 @@ func NewSourcedRSAPSSSigner(source *jwk.Source[*rsa.PrivateKey], preset RSAPSSPr
 }
 
 func (signer *SourcedRSAPSSSigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, err := signer.source.Get(ctx, header.KID)
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedRSAPrivate(signer.preset.Alg))
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedRSAPSSSigner.Header) %w", err)
 	}
 
 	// Stamp the resolved key's ID into the header so recipients can select it for verification.
 	if header.KID == "" {
-		header.KID = key.KID
+		header.KID = kid
 	}
 
-	return NewRSAPSSSigner(key.Key(), signer.preset).Header(ctx, header)
+	return NewRSAPSSSigner(key, signer.preset).Header(ctx, header)
 }
 
 func (signer *SourcedRSAPSSSigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, err := signer.source.Get(ctx, header.KID)
+	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedRSAPrivate(signer.preset.Alg))
 	if err != nil {
 		return "", fmt.Errorf("(SourcedRSAPSSSigner.Transform) %w", err)
 	}
 
-	return NewRSAPSSSigner(key.Key(), signer.preset).Transform(ctx, header, rawToken)
+	return NewRSAPSSSigner(key, signer.preset).Transform(ctx, header, rawToken)
 }
 
 // A SourcedRSAPSSVerifier verifies like an [RSAPSSVerifier] but resolves candidate keys from a
 // [jwk.Source] at each call. When the token names a KID it tries only that key; otherwise it tries
 // every key in the source. Build one with [NewSourcedRSAPSSVerifier].
 type SourcedRSAPSSVerifier struct {
-	source *jwk.Source[*rsa.PublicKey]
+	source *jwk.Source
 	preset RSAPSSPreset
 }
 
@@ -229,7 +229,7 @@ type SourcedRSAPSSVerifier struct {
 // against keys drawn from the source. The preset (one of [PS256], [PS384], [PS512]) selects the hash.
 //
 // See RFC 7518, section 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.5
-func NewSourcedRSAPSSVerifier(source *jwk.Source[*rsa.PublicKey], preset RSAPSSPreset) *SourcedRSAPSSVerifier {
+func NewSourcedRSAPSSVerifier(source *jwk.Source, preset RSAPSSPreset) *SourcedRSAPSSVerifier {
 	return &SourcedRSAPSSVerifier{
 		source: source,
 		preset: preset,
@@ -239,7 +239,8 @@ func NewSourcedRSAPSSVerifier(source *jwk.Source[*rsa.PublicKey], preset RSAPSSP
 func (verifier *SourcedRSAPSSVerifier) Transform(
 	ctx context.Context, header *jwa.JWH, rawToken string,
 ) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, func(key *rsa.PublicKey) jwt.RecipientPlugin {
-		return NewRSAPSSVerifier(key, verifier.preset)
-	})
+	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedRSAPublic(verifier.preset.Alg),
+		func(key *rsa.PublicKey) jwt.RecipientPlugin {
+			return NewRSAPSSVerifier(key, verifier.preset)
+		})
 }

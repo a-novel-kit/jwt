@@ -1,7 +1,6 @@
 package jwk
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -148,33 +147,4 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 	}
 
 	return privateKey, publicKey, nil
-}
-
-// NewECDSAPublicSource returns a key source that yields ECDSA public keys and rejects any source
-// that exposes private key material.
-func NewECDSAPublicSource(config SourceConfig, preset ECDSAPreset) *Source[*ecdsa.PublicKey] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdsa.PublicKey], error) {
-		privateKey, publicKey, err := ConsumeECDSA(jwk, preset)
-		if privateKey != nil {
-			return nil, fmt.Errorf("(NewECDSAPublicSource) %w: source is providing private keys", ErrJWKMismatch)
-		}
-
-		return publicKey, err
-	}
-
-	return NewGenericSource[*ecdsa.PublicKey](config, parser)
-}
-
-// NewECDSAPrivateSource returns a key source that yields ECDSA private keys.
-func NewECDSAPrivateSource(config SourceConfig, preset ECDSAPreset) *Source[*ecdsa.PrivateKey] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdsa.PrivateKey], error) {
-		privateKey, _, err := ConsumeECDSA(jwk, preset)
-		if privateKey == nil {
-			return nil, fmt.Errorf("(NewECDSAPrivateSource) %w: source is providing public keys", ErrJWKMismatch)
-		}
-
-		return privateKey, err
-	}
-
-	return NewGenericSource[*ecdsa.PrivateKey](config, parser)
 }

@@ -18,9 +18,6 @@ var ErrKeyNotFound = errors.New("key not found")
 // ID is requested.
 type KeysFetcher func(ctx context.Context) ([]*jwa.JWK, error)
 
-// KeyParser decodes a raw JSON Web Key into a typed [Key].
-type KeyParser[K any] func(ctx context.Context, jwk *jwa.JWK) (*Key[K], error)
-
 // DefaultRetryInterval bounds how often a [Source] retries a failing Fetch when the config leaves
 // RetryInterval unset, so a broken upstream is not called on every request.
 const DefaultRetryInterval = 30 * time.Second
@@ -38,13 +35,19 @@ type SourceConfig struct {
 	RetryInterval time.Duration
 }
 
-// A Source fetches, caches, and parses the keys used to sign or verify tokens. It refreshes lazily
-// once the cached set is older than CacheDuration, and is safe for concurrent use.
-type Source[K any] struct {
+// A Source fetches and caches the raw JSON Web Keys used to sign or verify tokens, looked up by ID.
+//
+// It is algorithm-agnostic: one Source serves keys of every family a JWK Set holds, and the signer
+// or verifier that consumes it decodes the key material it needs and skips the rest. A mixed set
+// (RSA, EC, HMAC, …) therefore needs a single Source rather than one per key type, which is what
+// lets a recipient verify tokens across an algorithm rotation through one endpoint.
+//
+// It refreshes lazily once the cached set is older than CacheDuration, and is safe for concurrent
+// use.
+type Source struct {
 	config SourceConfig
-	parser KeyParser[K]
 
-	cached      []*Key[K]
+	cached      []*jwa.JWK
 	lastCached  time.Time
 	lastFailure time.Time
 	lastErr     error
@@ -52,16 +55,26 @@ type Source[K any] struct {
 	mu *sync.RWMutex
 }
 
+// NewSource builds a [Source] from a config. The Source serves raw keys; decoding happens in the
+// signer or verifier that consumes it.
+func NewSource(config SourceConfig) *Source {
+	return &Source{
+		config: config,
+		cached: nil,
+		mu:     new(sync.RWMutex),
+	}
+}
+
 // fresh reports whether the cache is populated and still within CacheDuration, under a read lock so
 // concurrent readers of a warm cache never serialize behind the write lock.
-func (source *Source[K]) fresh() bool {
+func (source *Source) fresh() bool {
 	source.mu.RLock()
 	defer source.mu.RUnlock()
 
 	return source.cached != nil && time.Since(source.lastCached) < source.config.CacheDuration
 }
 
-func (source *Source[K]) refresh(ctx context.Context) error {
+func (source *Source) refresh(ctx context.Context) error {
 	if source.fresh() {
 		return nil
 	}
@@ -95,21 +108,13 @@ func (source *Source[K]) refresh(ctx context.Context) error {
 		return source.lastErr
 	}
 
-	parsedKeys := make([]*Key[K], len(keys))
-
-	for i, key := range keys {
-		parsed, parseErr := source.parser(ctx, key)
-		if parseErr != nil {
-			source.lastErr = fmt.Errorf("(Source.refresh) parse key: %w", parseErr)
-			source.lastFailure = time.Now()
-
-			return source.lastErr
-		}
-
-		parsedKeys[i] = parsed
+	// Keep the cache non-nil on success so an empty key set is still treated as fresh rather than
+	// re-fetched on every request.
+	if keys == nil {
+		keys = []*jwa.JWK{}
 	}
 
-	source.cached = parsedKeys
+	source.cached = keys
 	source.lastCached = time.Now()
 	source.lastErr = nil
 
@@ -117,7 +122,7 @@ func (source *Source[K]) refresh(ctx context.Context) error {
 }
 
 // List returns every cached key, refreshing the cache first when it has expired.
-func (source *Source[K]) List(ctx context.Context) ([]*Key[K], error) {
+func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
 	err := source.refresh(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("(Source.List) refresh keys: %w", err)
@@ -131,7 +136,7 @@ func (source *Source[K]) List(ctx context.Context) ([]*Key[K], error) {
 
 // Get returns the key with the given ID. An empty kid returns the first (highest-priority) key. It
 // returns ErrKeyNotFound when the source is empty or no key matches.
-func (source *Source[K]) Get(ctx context.Context, kid string) (*Key[K], error) {
+func (source *Source) Get(ctx context.Context, kid string) (*jwa.JWK, error) {
 	list, err := source.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("(Source.Get) list keys: %w", err)
@@ -152,16 +157,4 @@ func (source *Source[K]) Get(ctx context.Context, kid string) (*Key[K], error) {
 	}
 
 	return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
-}
-
-// NewGenericSource builds a [Source] from a config and a parser. The algorithm-specific
-// constructors, such as [NewRSAPublicSource], wrap this with a preset-bound parser.
-func NewGenericSource[K any](config SourceConfig, parser KeyParser[K]) *Source[K] {
-	return &Source[K]{
-		config:     config,
-		parser:     parser,
-		cached:     nil,
-		lastCached: time.Time{},
-		mu:         new(sync.RWMutex),
-	}
 }

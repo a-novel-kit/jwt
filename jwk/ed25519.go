@@ -1,7 +1,6 @@
 package jwk
 
 import (
-	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -114,33 +113,4 @@ func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.Pub
 	}
 
 	return privateKey, publicKey, nil
-}
-
-// NewED25519PublicSource returns a key source that yields Ed25519 public keys and rejects any
-// source that exposes private key material.
-func NewED25519PublicSource(config SourceConfig) *Source[ed25519.PublicKey] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[ed25519.PublicKey], error) {
-		privateKey, publicKey, err := ConsumeED25519(jwk)
-		if privateKey != nil {
-			return nil, fmt.Errorf("(NewED25519PublicSource) %w: source is providing private keys", ErrJWKMismatch)
-		}
-
-		return publicKey, err
-	}
-
-	return NewGenericSource[ed25519.PublicKey](config, parser)
-}
-
-// NewED25519PrivateSource returns a key source that yields Ed25519 private keys.
-func NewED25519PrivateSource(config SourceConfig) *Source[ed25519.PrivateKey] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[ed25519.PrivateKey], error) {
-		privateKey, _, err := ConsumeED25519(jwk)
-		if privateKey == nil {
-			return nil, fmt.Errorf("(NewED25519PrivateSource) %w: source is providing public keys", ErrJWKMismatch)
-		}
-
-		return privateKey, err
-	}
-
-	return NewGenericSource[ed25519.PrivateKey](config, parser)
 }

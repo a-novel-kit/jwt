@@ -1,7 +1,6 @@
 package jwk
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
@@ -230,33 +229,4 @@ func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[
 	}
 
 	return privateKey, publicKey, nil
-}
-
-// NewRSAPublicSource returns a key source that yields RSA public keys and rejects any source that
-// exposes private key material.
-func NewRSAPublicSource(config SourceConfig, preset RSAPreset) *Source[*rsa.PublicKey] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*rsa.PublicKey], error) {
-		privateKey, publicKey, err := ConsumeRSA(jwk, preset)
-		if privateKey != nil {
-			return nil, fmt.Errorf("(NewRSAPublicSource) %w: source is providing private keys", ErrJWKMismatch)
-		}
-
-		return publicKey, err
-	}
-
-	return NewGenericSource[*rsa.PublicKey](config, parser)
-}
-
-// NewRSAPrivateSource returns a key source that yields RSA private keys.
-func NewRSAPrivateSource(config SourceConfig, preset RSAPreset) *Source[*rsa.PrivateKey] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*rsa.PrivateKey], error) {
-		privateKey, _, err := ConsumeRSA(jwk, preset)
-		if privateKey == nil {
-			return nil, fmt.Errorf("(NewRSAPrivateSource) %w: source is providing public keys", ErrJWKMismatch)
-		}
-
-		return privateKey, err
-	}
-
-	return NewGenericSource[*rsa.PrivateKey](config, parser)
 }

@@ -186,11 +186,52 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 	return decoded, nil
 }
 
+// sourcedECDSAPublic decodes a raw JSON Web Key into an ECDSA public key for verification, matching
+// only signature keys on the preset's algorithm and curve and rejecting private material.
+func sourcedECDSAPublic(preset ECDSAPreset) keyDecoder[*ecdsa.PublicKey] {
+	jwkPreset := jwk.ECDSAPreset{Alg: preset.Alg, Curve: preset.Crv}
+
+	return func(key *jwa.JWK) (*ecdsa.PublicKey, error) {
+		privateKey, publicKey, err := jwk.ConsumeECDSA(key, jwkPreset)
+		if err != nil {
+			return nil, err
+		}
+
+		if privateKey != nil {
+			return nil, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
+		}
+
+		if publicKey == nil {
+			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
+		}
+
+		return publicKey.Key(), nil
+	}
+}
+
+// sourcedECDSAPrivate decodes a raw JSON Web Key into an ECDSA private key for signing.
+func sourcedECDSAPrivate(preset ECDSAPreset) keyDecoder[*ecdsa.PrivateKey] {
+	jwkPreset := jwk.ECDSAPreset{Alg: preset.Alg, Curve: preset.Crv}
+
+	return func(key *jwa.JWK) (*ecdsa.PrivateKey, error) {
+		privateKey, _, err := jwk.ConsumeECDSA(key, jwkPreset)
+		if err != nil {
+			return nil, err
+		}
+
+		if privateKey == nil {
+			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
+		}
+
+		return privateKey.Key(), nil
+	}
+}
+
 // A SourcedECDSASigner signs like an [ECDSASigner] but resolves its key from a [jwk.Source] at each
 // call, so the plugin follows key rotation instead of pinning one key. Build one with
 // [NewSourcedECDSASigner].
 type SourcedECDSASigner struct {
-	source *jwk.Source[*ecdsa.PrivateKey]
+	source *jwk.Source
 	preset ECDSAPreset
 }
 
@@ -199,7 +240,7 @@ type SourcedECDSASigner struct {
 // curve and hash.
 //
 // See RFC 7518, section 3.4: https://datatracker.ietf.org/doc/html/rfc7518#section-3.4
-func NewSourcedECDSASigner(source *jwk.Source[*ecdsa.PrivateKey], preset ECDSAPreset) *SourcedECDSASigner {
+func NewSourcedECDSASigner(source *jwk.Source, preset ECDSAPreset) *SourcedECDSASigner {
 	return &SourcedECDSASigner{
 		source: source,
 		preset: preset,
@@ -207,33 +248,33 @@ func NewSourcedECDSASigner(source *jwk.Source[*ecdsa.PrivateKey], preset ECDSAPr
 }
 
 func (signer *SourcedECDSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, err := signer.source.Get(ctx, header.KID)
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedECDSAPrivate(signer.preset))
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedECDSASigner.Header) %w", err)
 	}
 
 	// Stamp the resolved key's ID into the header so recipients can select it for verification.
 	if header.KID == "" {
-		header.KID = key.KID
+		header.KID = kid
 	}
 
-	return NewECDSASigner(key.Key(), signer.preset).Header(ctx, header)
+	return NewECDSASigner(key, signer.preset).Header(ctx, header)
 }
 
 func (signer *SourcedECDSASigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, err := signer.source.Get(ctx, header.KID)
+	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedECDSAPrivate(signer.preset))
 	if err != nil {
 		return "", fmt.Errorf("(SourcedECDSASigner.Transform) %w", err)
 	}
 
-	return NewECDSASigner(key.Key(), signer.preset).Transform(ctx, header, rawToken)
+	return NewECDSASigner(key, signer.preset).Transform(ctx, header, rawToken)
 }
 
 // A SourcedECDSAVerifier verifies like an [ECDSAVerifier] but resolves candidate keys from a
 // [jwk.Source] at each call. When the token names a KID it tries only that key; otherwise it tries
 // every key in the source. Build one with [NewSourcedECDSAVerifier].
 type SourcedECDSAVerifier struct {
-	source *jwk.Source[*ecdsa.PublicKey]
+	source *jwk.Source
 	preset ECDSAPreset
 }
 
@@ -242,7 +283,7 @@ type SourcedECDSAVerifier struct {
 // hash.
 //
 // See RFC 7518, section 3.4: https://datatracker.ietf.org/doc/html/rfc7518#section-3.4
-func NewSourcedECDSAVerifier(source *jwk.Source[*ecdsa.PublicKey], preset ECDSAPreset) *SourcedECDSAVerifier {
+func NewSourcedECDSAVerifier(source *jwk.Source, preset ECDSAPreset) *SourcedECDSAVerifier {
 	return &SourcedECDSAVerifier{
 		source: source,
 		preset: preset,
@@ -250,7 +291,8 @@ func NewSourcedECDSAVerifier(source *jwk.Source[*ecdsa.PublicKey], preset ECDSAP
 }
 
 func (verifier *SourcedECDSAVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, func(key *ecdsa.PublicKey) jwt.RecipientPlugin {
-		return NewECDSAVerifier(key, verifier.preset)
-	})
+	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedECDSAPublic(verifier.preset),
+		func(key *ecdsa.PublicKey) jwt.RecipientPlugin {
+			return NewECDSAVerifier(key, verifier.preset)
+		})
 }

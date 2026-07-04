@@ -28,21 +28,21 @@ func TestKeyEmbedder(t *testing.T) {
 	testCases := []struct {
 		name string
 
-		config jwp.EmbedKeyConfig[[]byte]
+		config jwp.EmbedKeyConfig
 
 		expect *jwa.JWH
 	}{
 		{
 			name: "Minimalistic",
 
-			config: jwp.EmbedKeyConfig[[]byte]{},
+			config: jwp.EmbedKeyConfig{},
 
 			expect: &jwa.JWH{},
 		},
 		{
 			name: "URL",
 
-			config: jwp.EmbedKeyConfig[[]byte]{URL: "http://test.com"},
+			config: jwp.EmbedKeyConfig{URL: "http://test.com"},
 
 			expect: &jwa.JWH{
 				JWHCommon: jwa.JWHCommon{
@@ -53,7 +53,7 @@ func TestKeyEmbedder(t *testing.T) {
 		{
 			name: "KeyDirect",
 
-			config: jwp.EmbedKeyConfig[[]byte]{Key: key.JWK},
+			config: jwp.EmbedKeyConfig{Key: key.JWK},
 
 			expect: &jwa.JWH{
 				JWHCommon: jwa.JWHCommon{
@@ -64,7 +64,7 @@ func TestKeyEmbedder(t *testing.T) {
 		{
 			name: "KeySourced",
 
-			config: jwp.EmbedKeyConfig[[]byte]{Source: keySource},
+			config: jwp.EmbedKeyConfig{Source: keySource},
 
 			expect: &jwa.JWH{
 				JWHCommon: jwa.JWHCommon{
@@ -75,7 +75,7 @@ func TestKeyEmbedder(t *testing.T) {
 		{
 			name: "KeySourcedAndDirect",
 
-			config: jwp.EmbedKeyConfig[[]byte]{Source: keySource, Key: key.JWK},
+			config: jwp.EmbedKeyConfig{Source: keySource, Key: key.JWK},
 
 			expect: &jwa.JWH{
 				JWHCommon: jwa.JWHCommon{
@@ -86,7 +86,7 @@ func TestKeyEmbedder(t *testing.T) {
 		{
 			name: "KeyDirectEmbed",
 
-			config: jwp.EmbedKeyConfig[[]byte]{Key: key.JWK, Embed: true},
+			config: jwp.EmbedKeyConfig{Key: key.JWK, Embed: true},
 
 			expect: &jwa.JWH{
 				JWHCommon: jwa.JWHCommon{
@@ -97,7 +97,7 @@ func TestKeyEmbedder(t *testing.T) {
 		{
 			name: "KeySourcedEmbed",
 
-			config: jwp.EmbedKeyConfig[[]byte]{Source: keySource, Embed: true},
+			config: jwp.EmbedKeyConfig{Source: keySource, Embed: true},
 
 			expect: &jwa.JWH{
 				JWHCommon: jwa.JWHCommon{
