@@ -284,6 +284,7 @@ func TestAESGCMBadIV(t *testing.T) {
 	// gcm.Open panics on a wrong-length nonce; a tampered IV must instead yield an error.
 	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
 	require.NoError(t, err)
+
 	parts.IV = base64.RawURLEncoding.EncodeToString([]byte("short"))
 
 	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
