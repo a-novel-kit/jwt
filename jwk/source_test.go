@@ -286,3 +286,60 @@ func TestSourceRefresh(t *testing.T) {
 		newBullshitKey[string](t, `"number":4`),
 	}, fetchedKeys)
 }
+
+func TestSourceNegativeCache(t *testing.T) {
+	t.Parallel()
+
+	errFoo := errors.New("foo")
+
+	fetchCount := 0
+	config := jwk.SourceConfig{
+		CacheDuration: time.Hour,
+		RetryInterval: time.Hour,
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			fetchCount++
+
+			return nil, errFoo
+		},
+	}
+
+	source := jwk.NewGenericSource[string](config, (&simulateParser[string]{}).parse)
+
+	// Two failing List calls: Fetch must run only once — the second is served from the negative
+	// cache instead of hammering the upstream.
+	_, err := source.List(t.Context())
+	require.ErrorIs(t, err, errFoo)
+
+	_, err = source.List(t.Context())
+	require.ErrorIs(t, err, errFoo)
+
+	require.Equal(t, 1, fetchCount)
+}
+
+func TestSourceCaches(t *testing.T) {
+	t.Parallel()
+
+	fetchCount := 0
+	key := newBullshitKey[string](t, "kid-1")
+	config := jwk.SourceConfig{
+		CacheDuration: time.Hour,
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			fetchCount++
+
+			return []*jwa.JWK{key.JWK}, nil
+		},
+	}
+
+	parser := simulateParser[string]{responses: []simulatedParserResp[string]{{key: key}}}
+	source := jwk.NewGenericSource[string](config, parser.parse)
+
+	// A warm cache within CacheDuration serves without a second fetch (nor a second parse, which
+	// would exhaust the one-response parser).
+	_, err := source.List(t.Context())
+	require.NoError(t, err)
+
+	_, err = source.List(t.Context())
+	require.NoError(t, err)
+
+	require.Equal(t, 1, fetchCount)
+}
