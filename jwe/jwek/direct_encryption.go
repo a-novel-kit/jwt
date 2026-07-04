@@ -39,7 +39,7 @@ func (manager *DirectKeyManager) ComputeCEK(_ context.Context, _ *jwa.JWH) ([]by
 	return manager.cek, nil
 }
 
-func (manager *DirectKeyManager) EncryptCEK(_ context.Context, _ []byte) ([]byte, error) {
+func (manager *DirectKeyManager) EncryptCEK(_ context.Context, _ *jwa.JWH, _ []byte) ([]byte, error) {
 	return nil, nil
 }
 
