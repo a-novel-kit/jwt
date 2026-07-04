@@ -66,6 +66,13 @@ func (signer *RSAPSSSigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH
 		return nil, fmt.Errorf("(RSAPSSSigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
+	if signer.secretKey.N.BitLen() < minRSAKeyBits {
+		return nil, fmt.Errorf(
+			"(RSAPSSSigner.Header) %w: RSA key is %d bits, need at least %d (RFC 7518 §3.5)",
+			jwt.ErrInvalidSecretKey, signer.secretKey.N.BitLen(), minRSAKeyBits,
+		)
+	}
+
 	header.Alg = signer.alg
 
 	return header, nil
@@ -120,6 +127,13 @@ func (verifier *RSAPSSVerifier) Transform(_ context.Context, header *jwa.JWH, ra
 		return nil, fmt.Errorf(
 			"(RSAPSSVerifier.Transform) %w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, verifier.alg,
+		)
+	}
+
+	if verifier.publicKey.N.BitLen() < minRSAKeyBits {
+		return nil, fmt.Errorf(
+			"(RSAPSSVerifier.Transform) %w: RSA key is %d bits, need at least %d (RFC 7518 §3.5)",
+			jwt.ErrInvalidSecretKey, verifier.publicKey.N.BitLen(), minRSAKeyBits,
 		)
 	}
 
