@@ -352,5 +352,7 @@ func TestAESGCMHeaderBound(t *testing.T) {
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
 
 	var claims map[string]any
-	require.Error(t, recipient.Consume(t.Context(), parts.String(), &claims))
+
+	// The tamper fails as an authenticated-decryption error, not an unrelated parse failure.
+	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidSecret)
 }
