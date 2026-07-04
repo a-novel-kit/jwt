@@ -24,6 +24,8 @@ type RecipientPlugin interface {
 // "none" algorithm. It runs no cryptographic check and returns the payload as it is.
 type DefaultRecipientPlugin struct{}
 
+var _ RecipientPlugin = (*DefaultRecipientPlugin)(nil)
+
 // NewDefaultRecipientPlugin returns a DefaultRecipientPlugin.
 func NewDefaultRecipientPlugin() *DefaultRecipientPlugin {
 	return &DefaultRecipientPlugin{}
