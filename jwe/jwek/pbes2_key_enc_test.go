@@ -96,6 +96,23 @@ func TestPBES2KeyEncKW(t *testing.T) {
 				_, err := decoder.ComputeCEK(t.Context(), header, nil)
 				require.Error(t, err)
 			})
+
+			t.Run("P2CTooLarge", func(t *testing.T) {
+				t.Parallel()
+
+				// A token whose p2c exceeds the cap must be rejected before PBKDF2 runs, or it's a
+				// CPU-exhaustion DoS.
+				hugeHeader := *header
+				hugeHeader.P2C = jwek.DefaultMaxPBES2Iterations + 1
+
+				decoder := jwek.NewPBES2KeyEncKWDecoder(
+					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
+					testCase.preset,
+				)
+
+				_, err := decoder.ComputeCEK(t.Context(), &hugeHeader, encryptedCEK)
+				require.Error(t, err)
+			})
 		})
 	}
 }
