@@ -149,8 +149,16 @@ type ClaimsChecker struct {
 // NewClaimsChecker returns a [ClaimsChecker] that runs the configured checks on each token before
 // decoding its payload.
 func NewClaimsChecker(config *ClaimsCheckerConfig) *ClaimsChecker {
+	resolved := *config
+
+	// Resolve the default here rather than lazily in Unmarshal: a ClaimsChecker is built once and
+	// shared across goroutines, so a first-call write to config would be a data race.
+	if resolved.Deserializer == nil {
+		resolved.Deserializer = json.Unmarshal
+	}
+
 	return &ClaimsChecker{
-		config: *config,
+		config: resolved,
 	}
 }
 
@@ -178,9 +186,5 @@ func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 		}
 	}
 
-	if checker.config.Deserializer == nil {
-		checker.config.Deserializer = json.Unmarshal
-	}
-
-	return json.Unmarshal(raw, dst)
+	return checker.config.Deserializer(raw, dst)
 }
