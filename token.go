@@ -27,7 +27,7 @@ func (decoder *HeaderDecoder) Decode(source string) (string, error) {
 	parts := strings.SplitN(source, ".", 2)
 	if len(parts) < 2 {
 		// The token is an untrusted bearer credential — never embed it in the error, only the shape.
-		return "", fmt.Errorf("(HeaderDecoder.Decode) %w: missing header segment", ErrUnsupportedTokenFormat)
+		return "", fmt.Errorf("(HeaderDecoder.Decode) %w: expected at least 2 segments", ErrUnsupportedTokenFormat)
 	}
 
 	return parts[0], nil
