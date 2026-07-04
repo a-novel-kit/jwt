@@ -11,7 +11,7 @@ A modular JWT, JWS, JWE, and JWK library for Go.
 ![GitHub repo file or directory count](https://img.shields.io/github/directory-file-count/a-novel-kit/jwt)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/a-novel-kit/jwt)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/a-novel-kit/jwt/main.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/a-novel-kit/jwt)](https://goreportcard.com/report/github.com/a-novel-kit/jwt)
+[![Go Report Card](https://goreportcard.com/badge/github.com/a-novel-kit/jwt/v2)](https://goreportcard.com/report/github.com/a-novel-kit/jwt/v2)
 [![codecov](https://codecov.io/gh/a-novel-kit/jwt/graph/badge.svg)](https://codecov.io/gh/a-novel-kit/jwt)
 
 ![Coverage graph](https://codecov.io/gh/a-novel-kit/jwt/graphs/sunburst.svg)
