@@ -24,10 +24,17 @@ func TestHMACWeakKey(t *testing.T) {
 
 	shortKey := []byte("too-short") // 9 bytes, under the 32-byte HS256 floor.
 
-	t.Run("Signer", func(t *testing.T) {
+	t.Run("SignerHeader", func(t *testing.T) {
 		t.Parallel()
 
 		_, err := jws.NewHMACSigner(shortKey, jws.HS256).Header(t.Context(), &jwa.JWH{})
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
+	t.Run("SignerTransform", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := jws.NewHMACSigner(shortKey, jws.HS256).Transform(t.Context(), &jwa.JWH{}, "a.b")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 
@@ -46,10 +53,17 @@ func TestRSAWeakKey(t *testing.T) {
 
 	key := smallRSAKey()
 
-	t.Run("Signer", func(t *testing.T) {
+	t.Run("SignerHeader", func(t *testing.T) {
 		t.Parallel()
 
 		_, err := jws.NewRSASigner(key, jws.RS256).Header(t.Context(), &jwa.JWH{})
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
+	t.Run("SignerTransform", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := jws.NewRSASigner(key, jws.RS256).Transform(t.Context(), &jwa.JWH{}, "a.b")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 
@@ -68,10 +82,17 @@ func TestRSAPSSWeakKey(t *testing.T) {
 
 	key := smallRSAKey()
 
-	t.Run("Signer", func(t *testing.T) {
+	t.Run("SignerHeader", func(t *testing.T) {
 		t.Parallel()
 
 		_, err := jws.NewRSAPSSSigner(key, jws.PS256).Header(t.Context(), &jwa.JWH{})
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
+	t.Run("SignerTransform", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := jws.NewRSAPSSSigner(key, jws.PS256).Transform(t.Context(), &jwa.JWH{}, "a.b")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 
@@ -85,23 +106,47 @@ func TestRSAPSSWeakKey(t *testing.T) {
 	})
 }
 
+// TestRSANilKey checks the size floor fails closed on a nil key or nil modulus, not panic, across
+// both the RS* and PS* variants and every code path that touches the key.
 func TestRSANilKey(t *testing.T) {
 	t.Parallel()
 
-	// The size floor must fail closed on a nil key or nil modulus, not panic.
-	t.Run("SignerNil", func(t *testing.T) {
+	t.Run("RS256SignerHeader", func(t *testing.T) {
 		t.Parallel()
 
 		_, err := jws.NewRSASigner(nil, jws.RS256).Header(t.Context(), &jwa.JWH{})
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 
-	t.Run("VerifierNilModulus", func(t *testing.T) {
+	t.Run("RS256SignerTransform", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := jws.NewRSASigner(nil, jws.RS256).Transform(t.Context(), &jwa.JWH{}, "a.b")
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
+	t.Run("RS256VerifierNilModulus", func(t *testing.T) {
 		t.Parallel()
 
 		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}}
 
 		_, err := jws.NewRSAVerifier(&rsa.PublicKey{}, jws.RS256).Transform(t.Context(), header, "a.b.c")
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
+	t.Run("PS256SignerHeader", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := jws.NewRSAPSSSigner(nil, jws.PS256).Header(t.Context(), &jwa.JWH{})
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
+	t.Run("PS256VerifierNilModulus", func(t *testing.T) {
+		t.Parallel()
+
+		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.PS256}}
+
+		_, err := jws.NewRSAPSSVerifier(&rsa.PublicKey{}, jws.PS256).Transform(t.Context(), header, "a.b.c")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 }

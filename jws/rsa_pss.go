@@ -79,6 +79,15 @@ func (signer *RSAPSSSigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH
 }
 
 func (signer *RSAPSSSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw string) (string, error) {
+	// Re-check on the signing path too: a sourced signer re-resolves its key here without going
+	// back through Header, so this is the only guard that actually gates every signature.
+	if signer.secretKey == nil || signer.secretKey.N == nil || signer.secretKey.N.BitLen() < minRSAKeyBits {
+		return "", fmt.Errorf(
+			"(RSAPSSSigner.Transform) %w: RSA key must be a valid modulus of at least %d bits (RFC 7518 §3.5)",
+			jwt.ErrInvalidSecretKey, minRSAKeyBits,
+		)
+	}
+
 	token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
 	if err != nil {
 		return "", fmt.Errorf("(RSAPSSSigner.Transform) split token: %w", err)
