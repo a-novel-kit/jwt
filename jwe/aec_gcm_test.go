@@ -324,3 +324,35 @@ func TestAESGCMBadTag(t *testing.T) {
 	var claims map[string]any
 	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidToken)
 }
+
+func TestAESGCMHeaderBound(t *testing.T) {
+	t.Parallel()
+
+	key, err := jwk.GenerateAES(jwk.A256GCM)
+	require.NoError(t, err)
+
+	encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
+		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
+	}, jwe.A256GCM)
+	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
+
+	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.NoError(t, err)
+
+	// The protected header is bound as AAD now. Swapping it for a different (still enc-valid) header
+	// must fail decryption.
+	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+	require.NoError(t, err)
+
+	parts.Header = base64.RawURLEncoding.EncodeToString([]byte(`{"enc":"A256GCM","x":1}`))
+
+	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
+		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},
+	}, jwe.A256GCM)
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
+
+	var claims map[string]any
+
+	// The tamper fails as an authenticated-decryption error, not an unrelated parse failure.
+	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidSecret)
+}
