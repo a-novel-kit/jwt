@@ -45,7 +45,7 @@ func NewBasicClaims(payload any, config ClaimsProducerConfig) (*jwa.Claims, erro
 			Iss: config.Issuer,
 			Sub: config.Subject,
 			Aud: config.Audience,
-			Exp: lo.Ternary(config.TTL == 0, 0, time.Now().Add(config.TTL).Unix()),
+			Exp: lo.Ternary(config.TTL == 0, 0, now.Add(config.TTL).Unix()),
 			Nbf: now.Unix(),
 			Iat: now.Unix(),
 			Jti: uuid.NewString(),
