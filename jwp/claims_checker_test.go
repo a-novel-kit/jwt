@@ -313,3 +313,36 @@ func TestClaimsChecker(t *testing.T) {
 		})
 	}
 }
+
+func TestClaimsCheckerCustomDeserializer(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	checker := jwp.NewClaimsChecker(&jwp.ClaimsCheckerConfig{
+		Deserializer: func(raw []byte, dst any) error {
+			called = true
+
+			return json.Unmarshal(raw, dst)
+		},
+	})
+
+	var dst map[string]any
+
+	// The configured Deserializer must actually run — it used to be dropped for a hardcoded
+	// json.Unmarshal.
+	require.NoError(t, checker.Unmarshal([]byte(`{"foo":"bar"}`), &dst))
+	require.True(t, called, "configured Deserializer should be used")
+	require.Equal(t, map[string]any{"foo": "bar"}, dst)
+}
+
+func TestClaimsCheckerNilDeserializer(t *testing.T) {
+	t.Parallel()
+
+	// A checker with no configured Deserializer must fall back to json.Unmarshal, not panic.
+	checker := jwp.NewClaimsChecker(&jwp.ClaimsCheckerConfig{})
+
+	var dst map[string]any
+
+	require.NoError(t, checker.Unmarshal([]byte(`{"foo":"bar"}`), &dst))
+	require.Equal(t, map[string]any{"foo": "bar"}, dst)
+}

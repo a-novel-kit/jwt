@@ -178,9 +178,12 @@ func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 		}
 	}
 
-	if checker.config.Deserializer == nil {
-		checker.config.Deserializer = json.Unmarshal
+	// Fall back to json.Unmarshal via a local variable, never by writing config: a first-call write
+	// to a shared checker would be a data race, and a zero-value checker must still work.
+	deserialize := checker.config.Deserializer
+	if deserialize == nil {
+		deserialize = json.Unmarshal
 	}
 
-	return json.Unmarshal(raw, dst)
+	return deserialize(raw, dst)
 }
