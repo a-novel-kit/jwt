@@ -11,16 +11,24 @@ import (
 // expect a plain string.
 type Audience []string
 
-// MarshalJSON emits a bare string for a single audience and an array otherwise.
+// MarshalJSON emits a bare string for a single audience and a (possibly empty) array otherwise.
 func (aud Audience) MarshalJSON() ([]byte, error) {
 	if len(aud) == 1 {
 		return json.Marshal(aud[0])
 	}
 
+	// A nil slice marshals to null; emit [] instead so the "array otherwise" contract holds. As an
+	// omitempty field an empty audience is omitted entirely, so this is only reached on direct
+	// marshaling.
+	if len(aud) == 0 {
+		return []byte("[]"), nil
+	}
+
 	return json.Marshal([]string(aud))
 }
 
-// UnmarshalJSON accepts both the array form and the single-string special case.
+// UnmarshalJSON accepts the array form, the single-string special case, and JSON null (which yields
+// a nil Audience).
 func (aud *Audience) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
 		*aud = nil

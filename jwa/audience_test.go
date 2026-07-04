@@ -20,6 +20,7 @@ func TestAudienceMarshal(t *testing.T) {
 		{"Single", jwa.Audience{"a"}, `"a"`},
 		{"Multiple", jwa.Audience{"a", "b"}, `["a","b"]`},
 		{"Empty", jwa.Audience{}, `[]`},
+		{"Nil", nil, `[]`},
 	}
 
 	for _, testCase := range testCases {
