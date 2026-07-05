@@ -14,8 +14,10 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-// An RSAPreset bundles the hash and algorithm identifier for one RSASSA-PKCS1-v1_5 signing scheme.
-// Pass one of the exported presets to the RSA constructors rather than assembling the fields by hand.
+// An RSAPreset bundles the hash and algorithm identifier for one RSA signing scheme. Pass one of the
+// exported presets to the RSA constructors rather than assembling the fields by hand: the RS* presets
+// use RSASSA-PKCS1-v1_5, the PS* presets use RSASSA-PSS. The algorithm alone determines the scheme,
+// so there is no separate field to keep consistent. Both run on the same RSA keys.
 type RSAPreset struct {
 	Hash crypto.Hash
 	Alg  jwa.Alg
@@ -23,24 +25,35 @@ type RSAPreset struct {
 
 var (
 	// RS256 is RSASSA-PKCS1-v1_5 using SHA-256.
-	RS256 = RSAPreset{
-		Hash: crypto.SHA256,
-		Alg:  jwa.RS256,
-	}
+	RS256 = RSAPreset{Hash: crypto.SHA256, Alg: jwa.RS256}
 	// RS384 is RSASSA-PKCS1-v1_5 using SHA-384.
-	RS384 = RSAPreset{
-		Hash: crypto.SHA384,
-		Alg:  jwa.RS384,
-	}
+	RS384 = RSAPreset{Hash: crypto.SHA384, Alg: jwa.RS384}
 	// RS512 is RSASSA-PKCS1-v1_5 using SHA-512.
-	RS512 = RSAPreset{
-		Hash: crypto.SHA512,
-		Alg:  jwa.RS512,
-	}
+	RS512 = RSAPreset{Hash: crypto.SHA512, Alg: jwa.RS512}
+	// PS256 is RSASSA-PSS using SHA-256 and MGF1 with SHA-256.
+	PS256 = RSAPreset{Hash: crypto.SHA256, Alg: jwa.PS256}
+	// PS384 is RSASSA-PSS using SHA-384 and MGF1 with SHA-384.
+	PS384 = RSAPreset{Hash: crypto.SHA384, Alg: jwa.PS384}
+	// PS512 is RSASSA-PSS using SHA-512 and MGF1 with SHA-512.
+	PS512 = RSAPreset{Hash: crypto.SHA512, Alg: jwa.PS512}
 )
 
-// An RSASigner signs tokens with RSASSA-PKCS1-v1_5 as a [jwt.ProducerPlugin]. Build one with
-// [NewRSASigner].
+// algIsPSS reports whether alg denotes RSASSA-PSS rather than RSASSA-PKCS1-v1_5. It errors for any
+// algorithm that is not an RSA signing algorithm, so a preset assembled by hand with an alg that
+// names no real RSA scheme fails loudly instead of signing under a mismatched one.
+func algIsPSS(alg jwa.Alg) (bool, error) {
+	switch alg {
+	case jwa.RS256, jwa.RS384, jwa.RS512:
+		return false, nil
+	case jwa.PS256, jwa.PS384, jwa.PS512:
+		return true, nil
+	default:
+		return false, fmt.Errorf("(jws) %w: %s", ErrUnsupportedAlgorithm, alg)
+	}
+}
+
+// An RSASigner signs tokens with RSA (RSASSA-PKCS1-v1_5 or RSASSA-PSS, per the preset) as a
+// [jwt.ProducerPlugin]. Build one with [NewRSASigner].
 type RSASigner struct {
 	secretKey *rsa.PrivateKey
 
@@ -48,10 +61,11 @@ type RSASigner struct {
 	hash crypto.Hash
 }
 
-// NewRSASigner returns a [jwt.ProducerPlugin] that signs tokens with RSASSA-PKCS1-v1_5, using the
-// hash carried by the preset (one of [RS256], [RS384], [RS512]). The key must be at least 2048 bits.
+// NewRSASigner returns a [jwt.ProducerPlugin] that signs tokens with RSA, using the hash carried by
+// the preset (one of [RS256], [RS384], [RS512], [PS256], [PS384], [PS512]); the preset's algorithm
+// selects PKCS1v15 (RS*) or PSS (PS*). The key must be at least 2048 bits.
 //
-// See RFC 7518, section 3.3: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
+// See RFC 7518, sections 3.3 and 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
 func NewRSASigner(secretKey *rsa.PrivateKey, preset RSAPreset) *RSASigner {
 	return &RSASigner{
 		secretKey: secretKey,
@@ -91,9 +105,9 @@ func (signer *RSASigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw strin
 	hasher := signer.hash.New()
 	hasher.Write(token.Bytes())
 
-	signature, err := rsa.SignPKCS1v15(rand.Reader, signer.secretKey, signer.hash, hasher.Sum(nil))
+	signature, err := signer.sign(hasher.Sum(nil))
 	if err != nil {
-		return "", fmt.Errorf("(rsaSigner.Sign) %w", err)
+		return "", fmt.Errorf("(RSASigner.Transform) %w", err)
 	}
 
 	return jwt.SignedToken{
@@ -103,8 +117,26 @@ func (signer *RSASigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw strin
 	}.String(), nil
 }
 
-// An RSAVerifier verifies RSASSA-PKCS1-v1_5-signed tokens as a [jwt.RecipientPlugin]. Build one with
-// [NewRSAVerifier]. It returns [ErrInvalidSignature] when the signature does not match.
+// sign produces the RSA signature over digest using the scheme its algorithm denotes. PSS uses a
+// salt length equal to the hash, the value RFC 7518 §3.5 mandates for the PS* algorithms.
+func (signer *RSASigner) sign(digest []byte) ([]byte, error) {
+	pss, err := algIsPSS(signer.alg)
+	if err != nil {
+		return nil, err
+	}
+
+	if pss {
+		return rsa.SignPSS(rand.Reader, signer.secretKey, signer.hash, digest, &rsa.PSSOptions{
+			SaltLength: rsa.PSSSaltLengthEqualsHash,
+		})
+	}
+
+	return rsa.SignPKCS1v15(rand.Reader, signer.secretKey, signer.hash, digest)
+}
+
+// An RSAVerifier verifies RSA-signed tokens (RSASSA-PKCS1-v1_5 or RSASSA-PSS, per the preset) as a
+// [jwt.RecipientPlugin]. Build one with [NewRSAVerifier]. It returns [ErrInvalidSignature] when the
+// signature does not match.
 type RSAVerifier struct {
 	publicKey *rsa.PublicKey
 
@@ -112,10 +144,12 @@ type RSAVerifier struct {
 	hash crypto.Hash
 }
 
-// NewRSAVerifier returns a [jwt.RecipientPlugin] that verifies RSASSA-PKCS1-v1_5-signed tokens,
-// using the hash carried by the preset (one of [RS256], [RS384], [RS512]).
+// NewRSAVerifier returns a [jwt.RecipientPlugin] that verifies RSA-signed tokens, using the hash
+// carried by the preset (one of [RS256], [RS384], [RS512], [PS256], [PS384], [PS512]); the preset's
+// algorithm selects PKCS1v15 (RS*) or PSS (PS*). It accepts only tokens whose alg matches the
+// preset's, so an RS* verifier rejects a PS* token.
 //
-// See RFC 7518, section 3.3: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
+// See RFC 7518, sections 3.3 and 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
 func NewRSAVerifier(publicKey *rsa.PublicKey, preset RSAPreset) *RSAVerifier {
 	return &RSAVerifier{
 		publicKey: publicKey,
@@ -152,7 +186,7 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 		return nil, fmt.Errorf("(RSAVerifier.Transform) decode signature: %w", err)
 	}
 
-	err = rsa.VerifyPKCS1v15(verifier.publicKey, verifier.hash, hasher.Sum(nil), sigBytes)
+	err = verifier.verify(hasher.Sum(nil), sigBytes)
 	if err != nil {
 		if errors.Is(err, rsa.ErrVerification) {
 			return nil, errors.Join(fmt.Errorf("(RSAVerifier.Transform) %w", ErrInvalidSignature), err)
@@ -169,9 +203,26 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 	return decoded, nil
 }
 
+// verify checks the RSA signature over digest using the scheme its algorithm denotes. PSS accepts
+// any salt length (PSSSaltLengthAuto), so it interoperates with signers that pad differently.
+func (verifier *RSAVerifier) verify(digest, sig []byte) error {
+	pss, err := algIsPSS(verifier.alg)
+	if err != nil {
+		return err
+	}
+
+	if pss {
+		return rsa.VerifyPSS(verifier.publicKey, verifier.hash, digest, sig, &rsa.PSSOptions{
+			SaltLength: rsa.PSSSaltLengthAuto,
+		})
+	}
+
+	return rsa.VerifyPKCS1v15(verifier.publicKey, verifier.hash, digest, sig)
+}
+
 // sourcedRSAPublic decodes a raw JSON Web Key into an RSA public key for verification, matching only
 // signature keys bound to alg and skipping any that carry private material (signing keys, which a
-// verifier does not use). It backs both the RS* and PS* sourced verifiers, which differ only in alg.
+// verifier does not use). It backs the sourced RSA verifiers for every RS*/PS* alg.
 func sourcedRSAPublic(alg jwa.Alg) keyDecoder[*rsa.PublicKey] {
 	preset := jwk.RSAPreset{
 		Alg:           alg,
@@ -230,11 +281,11 @@ type SourcedRSASigner struct {
 	preset RSAPreset
 }
 
-// NewSourcedRSASigner returns a [jwt.ProducerPlugin] that signs tokens with RSASSA-PKCS1-v1_5,
-// drawing the key from the source for the header's KID. The preset (one of [RS256], [RS384],
-// [RS512]) selects the hash, and the key must be at least 2048 bits.
+// NewSourcedRSASigner returns a [jwt.ProducerPlugin] that signs tokens with RSA, drawing the key from
+// the source for the header's KID. The preset (one of [RS256], [RS384], [RS512], [PS256], [PS384],
+// [PS512]) selects the hash and scheme, and the key must be at least 2048 bits.
 //
-// See RFC 7518, section 3.3: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
+// See RFC 7518, sections 3.3 and 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
 func NewSourcedRSASigner(source *jwk.Source, preset RSAPreset) *SourcedRSASigner {
 	return &SourcedRSASigner{
 		source: source,
@@ -273,11 +324,11 @@ type SourcedRSAVerifier struct {
 	preset RSAPreset
 }
 
-// NewSourcedRSAVerifier returns a [jwt.RecipientPlugin] that verifies RSASSA-PKCS1-v1_5-signed
-// tokens against keys drawn from the source. The preset (one of [RS256], [RS384], [RS512]) selects
-// the hash.
+// NewSourcedRSAVerifier returns a [jwt.RecipientPlugin] that verifies RSA-signed tokens against keys
+// drawn from the source. The preset (one of [RS256], [RS384], [RS512], [PS256], [PS384], [PS512])
+// selects the hash and scheme.
 //
-// See RFC 7518, section 3.3: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
+// See RFC 7518, sections 3.3 and 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
 func NewSourcedRSAVerifier(source *jwk.Source, preset RSAPreset) *SourcedRSAVerifier {
 	return &SourcedRSAVerifier{
 		source: source,

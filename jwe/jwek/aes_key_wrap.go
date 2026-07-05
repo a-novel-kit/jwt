@@ -10,24 +10,26 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
-// AESKWPreset pairs a JWA algorithm identifier with its wrap-key length. Use one
-// of the predefined presets rather than building one by hand.
-type AESKWPreset struct {
+// KeyWrapPreset pairs a JWA algorithm identifier with its wrap-key length. It is shared by the
+// AES-KW, AES-GCM-KW, and ECDH-ES+AES-KW key managers, which carry the same two fields; for ECDH-ES
+// the length is that of the key-wrapping key derived from the shared secret. Use one of the
+// predefined presets rather than building one by hand.
+type KeyWrapPreset struct {
 	Alg    jwa.Alg
 	KeyLen int
 }
 
 // The AES key-wrap presets, one per supported wrap-key length.
 var (
-	A128KW = AESKWPreset{
+	A128KW = KeyWrapPreset{
 		Alg:    jwa.A128KW,
 		KeyLen: 16,
 	}
-	A192KW = AESKWPreset{
+	A192KW = KeyWrapPreset{
 		Alg:    jwa.A192KW,
 		KeyLen: 24,
 	}
-	A256KW = AESKWPreset{
+	A256KW = KeyWrapPreset{
 		Alg:    jwa.A256KW,
 		KeyLen: 32,
 	}
@@ -52,10 +54,10 @@ type AESKWManager struct {
 
 // NewAESKWManager creates a jwe.CEKManager that wraps the content encryption key
 // with AES Key Wrap. The preset selects the algorithm and wrap-key length; use one
-// of the AESKWPreset values (for example A128KW).
+// of the KeyWrapPreset values (for example A128KW).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.4
-func NewAESKWManager(config *AESKWManagerConfig, preset AESKWPreset) *AESKWManager {
+func NewAESKWManager(config *AESKWManagerConfig, preset KeyWrapPreset) *AESKWManager {
 	return &AESKWManager{
 		cek:     config.CEK,
 		wrapKey: config.WrapKey,
@@ -116,10 +118,10 @@ type AESKWDecoder struct {
 
 // NewAESKWDecoder creates a jwe.CEKDecoder that unwraps an AES Key Wrap wrapped
 // content encryption key. The preset must match the one used to wrap it; use one
-// of the AESKWPreset values (for example A128KW).
+// of the KeyWrapPreset values (for example A128KW).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.4
-func NewAESKWDecoder(secret *AESKWDecoderConfig, preset AESKWPreset) *AESKWDecoder {
+func NewAESKWDecoder(secret *AESKWDecoderConfig, preset KeyWrapPreset) *AESKWDecoder {
 	return &AESKWDecoder{
 		wrapKey: secret.WrapKey,
 		alg:     preset.Alg,

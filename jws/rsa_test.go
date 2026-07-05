@@ -1,6 +1,7 @@
 package jws_test
 
 import (
+	"crypto"
 	"crypto/rsa"
 	"encoding/base64"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwk"
 	"github.com/a-novel-kit/jwt/v2/jws"
 	"github.com/a-novel-kit/jwt/v2/testutils"
@@ -305,4 +307,56 @@ func TestRSASourcedVerifier(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestRSACrossSchemeRejected(t *testing.T) {
+	t.Parallel()
+
+	privateKey, publicKey, err := jwk.GenerateRSA(jwk.RS256)
+	require.NoError(t, err)
+
+	claims := map[string]any{"foo": "bar"}
+
+	rsToken, err := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{jws.NewRSASigner(privateKey.Key(), jws.RS256)},
+	}).Issue(t.Context(), claims, nil)
+	require.NoError(t, err)
+
+	psToken, err := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{jws.NewRSASigner(privateKey.Key(), jws.PS256)},
+	}).Issue(t.Context(), claims, nil)
+	require.NoError(t, err)
+
+	rsVerifier := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKey.Key(), jws.RS256)},
+	})
+	psVerifier := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKey.Key(), jws.PS256)},
+	})
+
+	var dst map[string]any
+
+	// A PKCS1v15 (RS*) token must not verify with a PSS (PS*) verifier, and vice versa — each verifier
+	// is pinned to its preset's alg, so the two schemes never cross.
+	require.Error(t, psVerifier.Consume(t.Context(), rsToken, &dst))
+	require.Error(t, rsVerifier.Consume(t.Context(), psToken, &dst))
+
+	// Each token still verifies with its matching scheme.
+	require.NoError(t, rsVerifier.Consume(t.Context(), rsToken, &dst))
+	require.NoError(t, psVerifier.Consume(t.Context(), psToken, &dst))
+}
+
+func TestRSAUnknownAlgorithmRejected(t *testing.T) {
+	t.Parallel()
+
+	privateKey, _, err := jwk.GenerateRSA(jwk.RS256)
+	require.NoError(t, err)
+
+	// A hand-built preset whose algorithm is neither RS* nor PS* must fail loudly at signing, not
+	// silently sign under PKCS1v15 with a bogus header alg.
+	signer := jws.NewRSASigner(privateKey.Key(), jws.RSAPreset{Hash: crypto.SHA256, Alg: jwa.Alg("RS999")})
+	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{signer}})
+
+	_, err = producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.ErrorIs(t, err, jws.ErrUnsupportedAlgorithm)
 }

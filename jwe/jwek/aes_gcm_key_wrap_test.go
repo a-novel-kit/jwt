@@ -18,7 +18,7 @@ func TestAESGCMKW(t *testing.T) {
 		name string
 
 		keyPreset jwk.AESPreset
-		preset    jwek.AESGCMKWPreset
+		preset    jwek.KeyWrapPreset
 	}{
 		{
 			name:      "A128GCMKW",
