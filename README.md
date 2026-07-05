@@ -36,6 +36,9 @@ responsibility.
 go get github.com/a-novel-kit/jwt/v2
 ```
 
+Upgrading across a major version? See the [migration guides](docs/migrations/README.md) — start
+with [Upgrading to v2.0.0](docs/migrations/v2.0.0.md).
+
 The root `jwt.Producer` and `jwt.Recipient` types handle the token lifecycle. With no plugins, they produce and consume
 raw JWT payloads with the `"none"` algorithm; this is useful for tests and trusted internal hops, but production tokens
 normally add JWS or JWE plugins.
