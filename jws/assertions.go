@@ -14,8 +14,6 @@ var (
 	_ jwt.ProducerPlugin = (*SourcedECDSASigner)(nil)
 	_ jwt.ProducerPlugin = (*ED25519Signer)(nil)
 	_ jwt.ProducerPlugin = (*SourcedED25519Signer)(nil)
-	_ jwt.ProducerPlugin = (*RSAPSSSigner)(nil)
-	_ jwt.ProducerPlugin = (*SourcedRSAPSSSigner)(nil)
 
 	_ jwt.RecipientPlugin = (*HMACVerifier)(nil)
 	_ jwt.RecipientPlugin = (*SourceHMACVerifier)(nil)
@@ -25,6 +23,4 @@ var (
 	_ jwt.RecipientPlugin = (*SourcedECDSAVerifier)(nil)
 	_ jwt.RecipientPlugin = (*ED25519Verifier)(nil)
 	_ jwt.RecipientPlugin = (*SourcedED25519Verifier)(nil)
-	_ jwt.RecipientPlugin = (*RSAPSSVerifier)(nil)
-	_ jwt.RecipientPlugin = (*SourcedRSAPSSVerifier)(nil)
 )

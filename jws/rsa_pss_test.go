@@ -21,7 +21,7 @@ func TestRSAPSS(t *testing.T) {
 		name string
 
 		keyPreset jwk.RSAPreset
-		preset    jws.RSAPSSPreset
+		preset    jws.RSAPreset
 	}{
 		{
 			name:      "PS256",
@@ -47,8 +47,8 @@ func TestRSAPSS(t *testing.T) {
 			privateKey, publicKey, err := jwk.GenerateRSA(testCase.keyPreset)
 			require.NoError(t, err)
 
-			signer := jws.NewRSAPSSSigner(privateKey.Key(), testCase.preset)
-			verifier := jws.NewRSAPSSVerifier(publicKey.Key(), testCase.preset)
+			signer := jws.NewRSASigner(privateKey.Key(), testCase.preset)
+			verifier := jws.NewRSAVerifier(publicKey.Key(), testCase.preset)
 
 			producer := jwt.NewProducer(jwt.ProducerConfig{
 				Plugins: []jwt.ProducerPlugin{signer},
@@ -91,7 +91,7 @@ func TestRSAPSS(t *testing.T) {
 				otherPrivateKey, _, err := jwk.GenerateRSA(testCase.keyPreset)
 				require.NoError(t, err)
 
-				otherSigner := jws.NewRSAPSSSigner(otherPrivateKey.Key(), testCase.preset)
+				otherSigner := jws.NewRSASigner(otherPrivateKey.Key(), testCase.preset)
 				otherProducer := jwt.NewProducer(jwt.ProducerConfig{
 					Plugins: []jwt.ProducerPlugin{otherSigner},
 				})
@@ -115,7 +115,7 @@ func TestRSAPSSSourcedSigner(t *testing.T) {
 		name string
 
 		keyPreset jwk.RSAPreset
-		preset    jws.RSAPSSPreset
+		preset    jws.RSAPreset
 	}{
 		{
 			name:      "PS256",
@@ -151,7 +151,7 @@ func TestRSAPSSSourcedSigner(t *testing.T) {
 
 			source := testutils.NewStaticKeysSource(t, privateKeys)
 
-			signer := jws.NewSourcedRSAPSSSigner(source, testCase.preset)
+			signer := jws.NewSourcedRSASigner(source, testCase.preset)
 			producer := jwt.NewProducer(jwt.ProducerConfig{
 				Plugins: []jwt.ProducerPlugin{signer},
 			})
@@ -165,7 +165,7 @@ func TestRSAPSSSourcedSigner(t *testing.T) {
 				t.Parallel()
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewRSAPSSVerifier(publicKeys[0].Key(), testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKeys[0].Key(), testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
@@ -179,7 +179,7 @@ func TestRSAPSSSourcedSigner(t *testing.T) {
 				t.Parallel()
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewRSAPSSVerifier(publicKeys[1].Key(), testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKeys[1].Key(), testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
@@ -201,7 +201,7 @@ func TestRSAPSSSourcedVerifier(t *testing.T) {
 		name string
 
 		keyPreset jwk.RSAPreset
-		preset    jws.RSAPSSPreset
+		preset    jws.RSAPreset
 	}{
 		{
 			name:      "PS256",
@@ -237,7 +237,7 @@ func TestRSAPSSSourcedVerifier(t *testing.T) {
 
 			source := testutils.NewStaticKeysSource(t, publicKeys)
 
-			signer := jws.NewRSAPSSSigner(privateKeys[0].Key(), testCase.preset)
+			signer := jws.NewRSASigner(privateKeys[0].Key(), testCase.preset)
 			producer := jwt.NewProducer(jwt.ProducerConfig{
 				Plugins: []jwt.ProducerPlugin{signer},
 			})
@@ -251,7 +251,7 @@ func TestRSAPSSSourcedVerifier(t *testing.T) {
 				t.Parallel()
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAPSSVerifier(source, testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
@@ -273,7 +273,7 @@ func TestRSAPSSSourcedVerifier(t *testing.T) {
 				)
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAPSSVerifier(source, testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
@@ -292,7 +292,7 @@ func TestRSAPSSSourcedVerifier(t *testing.T) {
 				source = testutils.NewStaticKeysSource(t, []*jwk.Key[*rsa.PublicKey]{newPublicKey})
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAPSSVerifier(source, testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any

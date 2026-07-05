@@ -85,14 +85,14 @@ func TestRSAPSSWeakKey(t *testing.T) {
 	t.Run("SignerHeader", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := jws.NewRSAPSSSigner(key, jws.PS256).Header(t.Context(), &jwa.JWH{})
+		_, err := jws.NewRSASigner(key, jws.PS256).Header(t.Context(), &jwa.JWH{})
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 
 	t.Run("SignerTransform", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := jws.NewRSAPSSSigner(key, jws.PS256).Transform(t.Context(), &jwa.JWH{}, "a.b")
+		_, err := jws.NewRSASigner(key, jws.PS256).Transform(t.Context(), &jwa.JWH{}, "a.b")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 
@@ -101,7 +101,7 @@ func TestRSAPSSWeakKey(t *testing.T) {
 
 		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.PS256}}
 
-		_, err := jws.NewRSAPSSVerifier(&key.PublicKey, jws.PS256).Transform(t.Context(), header, "a.b.c")
+		_, err := jws.NewRSAVerifier(&key.PublicKey, jws.PS256).Transform(t.Context(), header, "a.b.c")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 }
@@ -137,14 +137,14 @@ func TestRSANilKey(t *testing.T) {
 	t.Run("PS256SignerHeader", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := jws.NewRSAPSSSigner(nil, jws.PS256).Header(t.Context(), &jwa.JWH{})
+		_, err := jws.NewRSASigner(nil, jws.PS256).Header(t.Context(), &jwa.JWH{})
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 
 	t.Run("PS256SignerTransform", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := jws.NewRSAPSSSigner(nil, jws.PS256).Transform(t.Context(), &jwa.JWH{}, "a.b")
+		_, err := jws.NewRSASigner(nil, jws.PS256).Transform(t.Context(), &jwa.JWH{}, "a.b")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 
@@ -153,7 +153,7 @@ func TestRSANilKey(t *testing.T) {
 
 		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.PS256}}
 
-		_, err := jws.NewRSAPSSVerifier(&rsa.PublicKey{}, jws.PS256).Transform(t.Context(), header, "a.b.c")
+		_, err := jws.NewRSAVerifier(&rsa.PublicKey{}, jws.PS256).Transform(t.Context(), header, "a.b.c")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 

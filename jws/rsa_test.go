@@ -306,3 +306,40 @@ func TestRSASourcedVerifier(t *testing.T) {
 		})
 	}
 }
+
+func TestRSACrossSchemeRejected(t *testing.T) {
+	t.Parallel()
+
+	privateKey, publicKey, err := jwk.GenerateRSA(jwk.RS256)
+	require.NoError(t, err)
+
+	claims := map[string]any{"foo": "bar"}
+
+	rsToken, err := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{jws.NewRSASigner(privateKey.Key(), jws.RS256)},
+	}).Issue(t.Context(), claims, nil)
+	require.NoError(t, err)
+
+	psToken, err := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{jws.NewRSASigner(privateKey.Key(), jws.PS256)},
+	}).Issue(t.Context(), claims, nil)
+	require.NoError(t, err)
+
+	rsVerifier := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKey.Key(), jws.RS256)},
+	})
+	psVerifier := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKey.Key(), jws.PS256)},
+	})
+
+	var dst map[string]any
+
+	// A PKCS1v15 (RS*) token must not verify with a PSS (PS*) verifier, and vice versa — each verifier
+	// is pinned to its preset's alg, so the two schemes never cross.
+	require.Error(t, psVerifier.Consume(t.Context(), rsToken, &dst))
+	require.Error(t, rsVerifier.Consume(t.Context(), psToken, &dst))
+
+	// Each token still verifies with its matching scheme.
+	require.NoError(t, rsVerifier.Consume(t.Context(), rsToken, &dst))
+	require.NoError(t, psVerifier.Consume(t.Context(), psToken, &dst))
+}
