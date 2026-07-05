@@ -181,10 +181,10 @@ func sourcedHMACKey(alg jwa.Alg) keyDecoder[[]byte] {
 	}
 }
 
-// A SourceHMACSigner signs like an [HMACSigner] but resolves its secret from a [jwk.Source] at each
+// A SourcedHMACSigner signs like an [HMACSigner] but resolves its secret from a [jwk.Source] at each
 // call, so the plugin follows key rotation instead of pinning one secret. Build one with
 // [NewSourcedHMACSigner].
-type SourceHMACSigner struct {
+type SourcedHMACSigner struct {
 	source *jwk.Source
 	preset HMACPreset
 }
@@ -194,17 +194,17 @@ type SourceHMACSigner struct {
 // selects the hash.
 //
 // See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
-func NewSourcedHMACSigner(source *jwk.Source, preset HMACPreset) *SourceHMACSigner {
-	return &SourceHMACSigner{
+func NewSourcedHMACSigner(source *jwk.Source, preset HMACPreset) *SourcedHMACSigner {
+	return &SourcedHMACSigner{
 		source: source,
 		preset: preset,
 	}
 }
 
-func (signer *SourceHMACSigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
+func (signer *SourcedHMACSigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedHMACKey(signer.preset.Alg))
 	if err != nil {
-		return nil, fmt.Errorf("(SourceHMACSigner.Header) %w", err)
+		return nil, fmt.Errorf("(SourcedHMACSigner.Header) %w", err)
 	}
 
 	// Stamp the resolved key's ID into the header so recipients can select it for verification.
@@ -215,19 +215,19 @@ func (signer *SourceHMACSigner) Header(ctx context.Context, header *jwa.JWH) (*j
 	return NewHMACSigner(key, signer.preset).Header(ctx, header)
 }
 
-func (signer *SourceHMACSigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
+func (signer *SourcedHMACSigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
 	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedHMACKey(signer.preset.Alg))
 	if err != nil {
-		return "", fmt.Errorf("(SourceHMACSigner.Transform) %w", err)
+		return "", fmt.Errorf("(SourcedHMACSigner.Transform) %w", err)
 	}
 
 	return NewHMACSigner(key, signer.preset).Transform(ctx, header, rawToken)
 }
 
-// A SourceHMACVerifier verifies like an [HMACVerifier] but resolves candidate secrets from a
+// A SourcedHMACVerifier verifies like an [HMACVerifier] but resolves candidate secrets from a
 // [jwk.Source] at each call. When the token names a KID it tries only that secret; otherwise it
 // tries every secret in the source. Build one with [NewSourcedHMACVerifier].
-type SourceHMACVerifier struct {
+type SourcedHMACVerifier struct {
 	source *jwk.Source
 	preset HMACPreset
 }
@@ -236,14 +236,14 @@ type SourceHMACVerifier struct {
 // secrets drawn from the source. The preset (one of [HS256], [HS384], [HS512]) selects the hash.
 //
 // See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
-func NewSourcedHMACVerifier(source *jwk.Source, preset HMACPreset) *SourceHMACVerifier {
-	return &SourceHMACVerifier{
+func NewSourcedHMACVerifier(source *jwk.Source, preset HMACPreset) *SourcedHMACVerifier {
+	return &SourcedHMACVerifier{
 		source: source,
 		preset: preset,
 	}
 }
 
-func (verifier *SourceHMACVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
+func (verifier *SourcedHMACVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
 	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedHMACKey(verifier.preset.Alg),
 		func(key []byte) jwt.RecipientPlugin {
 			return NewHMACVerifier(key, verifier.preset)
