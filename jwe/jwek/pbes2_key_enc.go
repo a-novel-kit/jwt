@@ -60,10 +60,10 @@ type PBES2KeyEncKWManagerConfig struct {
 	Secret string
 }
 
-// PBES2KeyEncKWConfig implements jwe.CEKManager: it derives a wrap key from a
+// PBES2KeyEncKWManager implements jwe.CEKManager: it derives a wrap key from a
 // password with PBES2 (PBKDF2) and wraps the content encryption key with AES Key
 // Wrap.
-type PBES2KeyEncKWConfig struct {
+type PBES2KeyEncKWManager struct {
 	config PBES2KeyEncKWManagerConfig
 
 	alg     jwa.Alg
@@ -77,8 +77,8 @@ type PBES2KeyEncKWConfig struct {
 // PBES2KeyEncKWPreset values (for example PBES2A128KW).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.8
-func NewPBES2KeyEncKWManager(config *PBES2KeyEncKWManagerConfig, preset PBES2KeyEncKWPreset) *PBES2KeyEncKWConfig {
-	return &PBES2KeyEncKWConfig{
+func NewPBES2KeyEncKWManager(config *PBES2KeyEncKWManagerConfig, preset PBES2KeyEncKWPreset) *PBES2KeyEncKWManager {
+	return &PBES2KeyEncKWManager{
 		config:  *config,
 		alg:     preset.Alg,
 		hash:    preset.Hash,
@@ -86,9 +86,9 @@ func NewPBES2KeyEncKWManager(config *PBES2KeyEncKWManagerConfig, preset PBES2Key
 	}
 }
 
-func (manager *PBES2KeyEncKWConfig) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
+func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(PBES2KeyEncKWConfig.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("(PBES2KeyEncKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
 	// A fresh salt per token widens the key space so the same password never
@@ -97,7 +97,7 @@ func (manager *PBES2KeyEncKWConfig) SetHeader(_ context.Context, header *jwa.JWH
 
 	_, err := rand.Read(salt)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWConfig.SetHeader) generate salt: %w", err)
+		return nil, fmt.Errorf("(PBES2KeyEncKWManager.SetHeader) generate salt: %w", err)
 	}
 
 	header.JWHPBES2 = jwa.JWHPBES2{
@@ -109,11 +109,11 @@ func (manager *PBES2KeyEncKWConfig) SetHeader(_ context.Context, header *jwa.JWH
 	return header, nil
 }
 
-func (manager *PBES2KeyEncKWConfig) ComputeCEK(_ context.Context, _ *jwa.JWH) ([]byte, error) {
+func (manager *PBES2KeyEncKWManager) ComputeCEK(_ context.Context, _ *jwa.JWH) ([]byte, error) {
 	return manager.config.CEK, nil
 }
 
-func (manager *PBES2KeyEncKWConfig) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
+func (manager *PBES2KeyEncKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
 	wrapKey := pbkdf2.Key(
 		[]byte(manager.config.Secret),
 		[]byte(header.P2S),
@@ -124,12 +124,12 @@ func (manager *PBES2KeyEncKWConfig) EncryptCEK(_ context.Context, header *jwa.JW
 
 	block, err := aes.NewCipher(wrapKey)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWConfig.EncryptCEK) create cipher: %w", err)
+		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) create cipher: %w", err)
 	}
 
 	wrapped, err := internal.KeyWrap(block, cek)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWConfig.EncryptCEK) wrap key: %w", err)
+		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) wrap key: %w", err)
 	}
 
 	return wrapped, nil
