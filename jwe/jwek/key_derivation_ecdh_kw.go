@@ -15,25 +15,17 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-// ECDHKeyAgrKWPreset pairs a JWA algorithm identifier with the length of the
-// key-wrapping key derived from the shared secret. Use one of the predefined
-// presets rather than building one by hand.
-type ECDHKeyAgrKWPreset struct {
-	Alg    jwa.Alg
-	KeyLen int
-}
-
 // The ECDH-ES with AES Key Wrap presets, one per supported wrap-key length.
 var (
-	ECDHESA128KW = ECDHKeyAgrKWPreset{
+	ECDHESA128KW = KeyWrapPreset{
 		Alg:    jwa.ECDHESA128KW,
 		KeyLen: 16,
 	}
-	ECDHESA192KW = ECDHKeyAgrKWPreset{
+	ECDHESA192KW = KeyWrapPreset{
 		Alg:    jwa.ECDHESA192KW,
 		KeyLen: 24,
 	}
-	ECDHESA256KW = ECDHKeyAgrKWPreset{
+	ECDHESA256KW = KeyWrapPreset{
 		Alg:    jwa.ECDHESA256KW,
 		KeyLen: 32,
 	}
@@ -65,11 +57,11 @@ type ECDHKeyAgrKWManager struct {
 // NewECDHKeyAgrKWManager creates a jwe.CEKManager that derives a key-wrapping key
 // with ECDH-ES (Concat KDF) and wraps the content encryption key with AES Key Wrap.
 // The preset selects the algorithm and wrap-key length; use one of the
-// ECDHKeyAgrKWPreset values (for example ECDHESA128KW).
+// KeyWrapPreset values (for example ECDHESA128KW).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
 func NewECDHKeyAgrKWManager(
-	config *ECDHKeyAgrKWManagerConfig, preset ECDHKeyAgrKWPreset,
+	config *ECDHKeyAgrKWManagerConfig, preset KeyWrapPreset,
 ) *ECDHKeyAgrKWManager {
 	return &ECDHKeyAgrKWManager{
 		config: *config,
@@ -151,10 +143,10 @@ type ECDHKeyAgrKWDecoder struct {
 // NewECDHKeyAgrKWDecoder creates a jwe.CEKDecoder that re-derives the key-wrapping
 // key with ECDH-ES (Concat KDF) and unwraps the content encryption key with AES Key
 // Wrap. The preset must match the one used to encrypt the token; use one of the
-// ECDHKeyAgrKWPreset values (for example ECDHESA128KW).
+// KeyWrapPreset values (for example ECDHESA128KW).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
-func NewECDHKeyAgrKWDecoder(config *ECDHKeyAgrKWDecoderConfig, preset ECDHKeyAgrKWPreset) *ECDHKeyAgrKWDecoder {
+func NewECDHKeyAgrKWDecoder(config *ECDHKeyAgrKWDecoderConfig, preset KeyWrapPreset) *ECDHKeyAgrKWDecoder {
 	return &ECDHKeyAgrKWDecoder{
 		config: *config,
 		alg:    preset.Alg,

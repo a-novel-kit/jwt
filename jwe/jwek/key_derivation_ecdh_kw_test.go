@@ -17,7 +17,7 @@ func TestECDHKeyAgrKW(t *testing.T) {
 	testCases := []struct {
 		name string
 
-		preset jwek.ECDHKeyAgrKWPreset
+		preset jwek.KeyWrapPreset
 	}{
 		{
 			name:   "ECDHESA128KW",

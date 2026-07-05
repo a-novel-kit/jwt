@@ -13,24 +13,17 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// AESGCMKWPreset pairs a JWA algorithm identifier with its wrap-key length. Use
-// one of the predefined presets rather than building one by hand.
-type AESGCMKWPreset struct {
-	Alg    jwa.Alg
-	KeyLen int
-}
-
 // The AES GCM key-wrap presets, one per supported wrap-key length.
 var (
-	A128GCMKW = AESGCMKWPreset{
+	A128GCMKW = KeyWrapPreset{
 		Alg:    jwa.A128GCMKW,
 		KeyLen: 16,
 	}
-	A192GCMKW = AESGCMKWPreset{
+	A192GCMKW = KeyWrapPreset{
 		Alg:    jwa.A192GCMKW,
 		KeyLen: 24,
 	}
-	A256GCMKW = AESGCMKWPreset{
+	A256GCMKW = KeyWrapPreset{
 		Alg:    jwa.A256GCMKW,
 		KeyLen: 32,
 	}
@@ -55,11 +48,11 @@ type AESGCMKWManager struct {
 
 // NewAESGCMKWManager creates a jwe.CEKManager that wraps the content encryption
 // key with AES GCM. The preset selects the algorithm and wrap-key length; use one
-// of the AESGCMKWPreset values (for example A128GCMKW).
+// of the KeyWrapPreset values (for example A128GCMKW).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.7
 func NewAESGCMKWManager(
-	config *AESGCMKWManagerConfig, preset AESGCMKWPreset,
+	config *AESGCMKWManagerConfig, preset KeyWrapPreset,
 ) *AESGCMKWManager {
 	return &AESGCMKWManager{
 		cek:     config.CEK,
@@ -147,10 +140,10 @@ type AESGCMKWDecoder struct {
 
 // NewAESGCMKWDecoder creates a jwe.CEKDecoder that unwraps an AES GCM wrapped
 // content encryption key. The preset must match the one used to wrap it; use one
-// of the AESGCMKWPreset values (for example A128GCMKW).
+// of the KeyWrapPreset values (for example A128GCMKW).
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.7
-func NewAESGCMKWDecoder(config *AESGCMKWDecoderConfig, preset AESGCMKWPreset) *AESGCMKWDecoder {
+func NewAESGCMKWDecoder(config *AESGCMKWDecoderConfig, preset KeyWrapPreset) *AESGCMKWDecoder {
 	return &AESGCMKWDecoder{
 		wrapKey: config.WrapKey,
 		alg:     preset.Alg,
