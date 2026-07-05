@@ -99,7 +99,7 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 }
 
 // sourcedED25519Public decodes a raw JSON Web Key into an Ed25519 public key for verification,
-// rejecting a source that exposes private material.
+// skipping any that carry private material (signing keys, which a verifier does not use).
 func sourcedED25519Public() keyDecoder[ed25519.PublicKey] {
 	return func(key *jwa.JWK) (ed25519.PublicKey, error) {
 		privateKey, publicKey, err := jwk.ConsumeED25519(key)

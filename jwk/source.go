@@ -75,7 +75,12 @@ func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
 	source.mu.RLock()
 	defer source.mu.RUnlock()
 
-	return source.cached, nil
+	// Return a copy so a caller that reorders or appends to the result cannot mutate the shared
+	// cache other goroutines read.
+	out := make([]*jwa.JWK, len(source.cached))
+	copy(out, source.cached)
+
+	return out, nil
 }
 
 // Get returns the key with the given ID. An empty kid returns the first (highest-priority) key. It
@@ -146,13 +151,13 @@ func (source *Source) refresh(ctx context.Context) error {
 		return source.lastErr
 	}
 
-	// Keep the cache non-nil on success so an empty key set is still treated as fresh rather than
-	// re-fetched on every request.
-	if keys == nil {
-		keys = []*jwa.JWK{}
-	}
+	// Copy the returned slice before caching so a Fetch that reuses or later mutates its backing
+	// array can't corrupt the cache. make(...) also keeps the cache non-nil for an empty result, so
+	// an empty key set still reads as fresh rather than re-fetching on every request.
+	cached := make([]*jwa.JWK, len(keys))
+	copy(cached, keys)
 
-	source.cached = keys
+	source.cached = cached
 	source.lastCached = time.Now()
 	source.lastErr = nil
 

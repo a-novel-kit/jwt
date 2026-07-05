@@ -187,7 +187,8 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 }
 
 // sourcedECDSAPublic decodes a raw JSON Web Key into an ECDSA public key for verification, matching
-// only signature keys on the preset's algorithm and curve and rejecting private material.
+// only signature keys on the preset's algorithm and curve, skipping any that carry private material
+// (signing keys, which a verifier does not use).
 func sourcedECDSAPublic(preset ECDSAPreset) keyDecoder[*ecdsa.PublicKey] {
 	jwkPreset := jwk.ECDSAPreset{Alg: preset.Alg, Curve: preset.Crv}
 

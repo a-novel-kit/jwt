@@ -170,8 +170,8 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 }
 
 // sourcedRSAPublic decodes a raw JSON Web Key into an RSA public key for verification, matching only
-// signature keys bound to alg and rejecting a source that exposes private material. It backs both
-// the RS* and PS* sourced verifiers, which differ only in alg.
+// signature keys bound to alg and skipping any that carry private material (signing keys, which a
+// verifier does not use). It backs both the RS* and PS* sourced verifiers, which differ only in alg.
 func sourcedRSAPublic(alg jwa.Alg) keyDecoder[*rsa.PublicKey] {
 	preset := jwk.RSAPreset{
 		Alg:           alg,
