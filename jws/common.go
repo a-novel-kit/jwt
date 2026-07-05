@@ -13,6 +13,10 @@ import (
 // candidate key accepts the token.
 var ErrInvalidSignature = errors.New("invalid signature")
 
+// ErrUnsupportedAlgorithm is returned when a preset names an algorithm the plugin cannot map to a
+// signing scheme — for example an RSA plugin given an algorithm that is neither RS* nor PS*.
+var ErrUnsupportedAlgorithm = errors.New("unsupported algorithm")
+
 // minRSAKeyBits is the smallest RSA modulus the RS* and PS* algorithms accept, per RFC 7518 §3.3
 // and §3.5 ("A key of size 2048 bits or larger MUST be used"). Enforced at both sign and verify.
 const minRSAKeyBits = 2048
