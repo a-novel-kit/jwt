@@ -10,9 +10,9 @@ import (
 
 // An EmbedKeyConfig configures how an [EmbedKey] advertises the signing key in a token's header: by
 // identifier, by URL, or by embedding the key itself.
-type EmbedKeyConfig[K any] struct {
-	// Key source resolved at signing time. When set, it supersedes Key.
-	Source *jwk.Source[K]
+type EmbedKeyConfig struct {
+	// Source of keys resolved at signing time. When set, it supersedes Key.
+	Source *jwk.Source
 	// JSON Web Key to embed directly. Ignored when Source is set.
 	Key *jwa.JWK
 	// Identifier of the key. With a Source set, it selects which key to fetch. Left empty, it is
@@ -27,13 +27,19 @@ type EmbedKeyConfig[K any] struct {
 
 // An EmbedKey records the signing key in a token's header so recipients can locate it, as a
 // [jwt.ProducerStaticPlugin]. Build one with [NewEmbedKey].
-type EmbedKey[K any] struct {
-	config EmbedKeyConfig[K]
+type EmbedKey struct {
+	config EmbedKeyConfig
+}
+
+// NewEmbedKey returns an [EmbedKey] that advertises the signing key in the token header. Use it as a
+// [jwt.ProducerStaticPlugin].
+func NewEmbedKey(config EmbedKeyConfig) *EmbedKey {
+	return &EmbedKey{config: config}
 }
 
 // Header writes the key's identifier, URL, and — when configured — the key itself into the token
 // header.
-func (plugin *EmbedKey[K]) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
+func (plugin *EmbedKey) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	key := plugin.config.Key
 	kid := plugin.config.KID
 
@@ -43,7 +49,7 @@ func (plugin *EmbedKey[K]) Header(ctx context.Context, header *jwa.JWH) (*jwa.JW
 			return nil, fmt.Errorf("(EmbedKey.Header) get key: %w", err)
 		}
 
-		key = sourceKey.JWK
+		key = sourceKey
 	}
 
 	if kid == "" && key != nil {
@@ -58,10 +64,4 @@ func (plugin *EmbedKey[K]) Header(ctx context.Context, header *jwa.JWH) (*jwa.JW
 	}
 
 	return header, nil
-}
-
-// NewEmbedKey returns an [EmbedKey] that advertises the signing key in the token header. Use it as a
-// [jwt.ProducerStaticPlugin].
-func NewEmbedKey[K any](config EmbedKeyConfig[K]) *EmbedKey[K] {
-	return &EmbedKey[K]{config: config}
 }

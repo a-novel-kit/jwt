@@ -169,11 +169,64 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 	return decoded, nil
 }
 
+// sourcedRSAPublic decodes a raw JSON Web Key into an RSA public key for verification, matching only
+// signature keys bound to alg and skipping any that carry private material (signing keys, which a
+// verifier does not use). It backs both the RS* and PS* sourced verifiers, which differ only in alg.
+func sourcedRSAPublic(alg jwa.Alg) keyDecoder[*rsa.PublicKey] {
+	preset := jwk.RSAPreset{
+		Alg:           alg,
+		Use:           jwa.UseSig,
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
+	}
+
+	return func(key *jwa.JWK) (*rsa.PublicKey, error) {
+		privateKey, publicKey, err := jwk.ConsumeRSA(key, preset)
+		if err != nil {
+			return nil, err
+		}
+
+		if privateKey != nil {
+			return nil, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
+		}
+
+		if publicKey == nil {
+			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
+		}
+
+		return publicKey.Key(), nil
+	}
+}
+
+// sourcedRSAPrivate decodes a raw JSON Web Key into an RSA private key for signing, matching only
+// signature keys bound to alg.
+func sourcedRSAPrivate(alg jwa.Alg) keyDecoder[*rsa.PrivateKey] {
+	preset := jwk.RSAPreset{
+		Alg:           alg,
+		Use:           jwa.UseSig,
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
+	}
+
+	return func(key *jwa.JWK) (*rsa.PrivateKey, error) {
+		privateKey, _, err := jwk.ConsumeRSA(key, preset)
+		if err != nil {
+			return nil, err
+		}
+
+		if privateKey == nil {
+			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
+		}
+
+		return privateKey.Key(), nil
+	}
+}
+
 // A SourcedRSASigner signs like an [RSASigner] but resolves its key from a [jwk.Source] at each
 // call, so the plugin follows key rotation instead of pinning one key. Build one with
 // [NewSourcedRSASigner].
 type SourcedRSASigner struct {
-	source *jwk.Source[*rsa.PrivateKey]
+	source *jwk.Source
 	preset RSAPreset
 }
 
@@ -182,7 +235,7 @@ type SourcedRSASigner struct {
 // [RS512]) selects the hash, and the key must be at least 2048 bits.
 //
 // See RFC 7518, section 3.3: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
-func NewSourcedRSASigner(source *jwk.Source[*rsa.PrivateKey], preset RSAPreset) *SourcedRSASigner {
+func NewSourcedRSASigner(source *jwk.Source, preset RSAPreset) *SourcedRSASigner {
 	return &SourcedRSASigner{
 		source: source,
 		preset: preset,
@@ -190,33 +243,33 @@ func NewSourcedRSASigner(source *jwk.Source[*rsa.PrivateKey], preset RSAPreset) 
 }
 
 func (signer *SourcedRSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, err := signer.source.Get(ctx, header.KID)
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedRSAPrivate(signer.preset.Alg))
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedRSASigner.Header) %w", err)
 	}
 
 	// Stamp the resolved key's ID into the header so recipients can select it for verification.
 	if header.KID == "" {
-		header.KID = key.KID
+		header.KID = kid
 	}
 
-	return NewRSASigner(key.Key(), signer.preset).Header(ctx, header)
+	return NewRSASigner(key, signer.preset).Header(ctx, header)
 }
 
 func (signer *SourcedRSASigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, err := signer.source.Get(ctx, header.KID)
+	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedRSAPrivate(signer.preset.Alg))
 	if err != nil {
 		return "", fmt.Errorf("(SourcedRSASigner.Transform) %w", err)
 	}
 
-	return NewRSASigner(key.Key(), signer.preset).Transform(ctx, header, rawToken)
+	return NewRSASigner(key, signer.preset).Transform(ctx, header, rawToken)
 }
 
 // A SourcedRSAVerifier verifies like an [RSAVerifier] but resolves candidate keys from a
 // [jwk.Source] at each call. When the token names a KID it tries only that key; otherwise it tries
 // every key in the source. Build one with [NewSourcedRSAVerifier].
 type SourcedRSAVerifier struct {
-	source *jwk.Source[*rsa.PublicKey]
+	source *jwk.Source
 	preset RSAPreset
 }
 
@@ -225,7 +278,7 @@ type SourcedRSAVerifier struct {
 // the hash.
 //
 // See RFC 7518, section 3.3: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
-func NewSourcedRSAVerifier(source *jwk.Source[*rsa.PublicKey], preset RSAPreset) *SourcedRSAVerifier {
+func NewSourcedRSAVerifier(source *jwk.Source, preset RSAPreset) *SourcedRSAVerifier {
 	return &SourcedRSAVerifier{
 		source: source,
 		preset: preset,
@@ -235,7 +288,8 @@ func NewSourcedRSAVerifier(source *jwk.Source[*rsa.PublicKey], preset RSAPreset)
 func (verifier *SourcedRSAVerifier) Transform(
 	ctx context.Context, header *jwa.JWH, rawToken string,
 ) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, func(key *rsa.PublicKey) jwt.RecipientPlugin {
-		return NewRSAVerifier(key, verifier.preset)
-	})
+	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedRSAPublic(verifier.preset.Alg),
+		func(key *rsa.PublicKey) jwt.RecipientPlugin {
+			return NewRSAVerifier(key, verifier.preset)
+		})
 }

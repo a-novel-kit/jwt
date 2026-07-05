@@ -1,7 +1,6 @@
 package jwk
 
 import (
-	"context"
 	"crypto/ecdh"
 	"crypto/rand"
 	"encoding/json"
@@ -113,33 +112,4 @@ func ConsumeECDH(source *jwa.JWK) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey]
 	}
 
 	return privateKey, publicKey, nil
-}
-
-// NewECDHPublicSource returns a key source that yields ECDH public keys and rejects any source
-// that exposes private key material.
-func NewECDHPublicSource(config SourceConfig) *Source[*ecdh.PublicKey] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdh.PublicKey], error) {
-		privateKey, publicKey, err := ConsumeECDH(jwk)
-		if privateKey != nil {
-			return nil, fmt.Errorf("(NewECDHPublicSource) %w: source is providing private keys", ErrJWKMismatch)
-		}
-
-		return publicKey, err
-	}
-
-	return NewGenericSource[*ecdh.PublicKey](config, parser)
-}
-
-// NewECDHPrivateSource returns a key source that yields ECDH private keys.
-func NewECDHPrivateSource(config SourceConfig) *Source[*ecdh.PrivateKey] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[*ecdh.PrivateKey], error) {
-		privateKey, _, err := ConsumeECDH(jwk)
-		if privateKey == nil {
-			return nil, fmt.Errorf("(NewECDHPrivateSource) %w: source is providing public keys", ErrJWKMismatch)
-		}
-
-		return privateKey, err
-	}
-
-	return NewGenericSource[*ecdh.PrivateKey](config, parser)
 }

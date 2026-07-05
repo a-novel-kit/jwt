@@ -1,12 +1,9 @@
 package jwk_test
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
@@ -114,93 +111,6 @@ func TestConsumeHMAC(t *testing.T) {
 			if err == nil {
 				require.Equal(t, testCase.key.Key(), key.Key())
 			}
-		})
-	}
-}
-
-func TestHMACSource(t *testing.T) {
-	t.Parallel()
-
-	errFoo := errors.New("foo")
-
-	testCases := []struct {
-		name   string
-		preset jwk.HMACPreset
-	}{
-		{
-			name:   "HS256",
-			preset: jwk.HS256,
-		},
-		{
-			name:   "HS384",
-			preset: jwk.HS384,
-		},
-		{
-			name:   "HS512",
-			preset: jwk.HS512,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			keys := make([]*jwk.Key[[]byte], 3)
-			for i := range keys {
-				key, err := jwk.GenerateHMAC(testCase.preset)
-				require.NoError(t, err)
-
-				keys[i] = key
-			}
-
-			t.Run("OK", func(t *testing.T) {
-				t.Parallel()
-
-				fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-					mapped := lo.Map(keys, func(item *jwk.Key[[]byte], _ int) *jwa.JWK {
-						return item.JWK
-					})
-
-					return mapped, nil
-				}
-
-				source := jwk.NewHMACSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
-				require.NotNil(t, source)
-
-				fetchedKeys, err := source.List(t.Context())
-				require.NoError(t, err)
-				require.Equal(t, keys, fetchedKeys)
-			})
-
-			t.Run("FetchError", func(t *testing.T) {
-				t.Parallel()
-
-				fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-					return nil, errFoo
-				}
-
-				source := jwk.NewHMACSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
-				require.NotNil(t, source)
-
-				_, err := source.List(t.Context())
-				require.ErrorIs(t, err, errFoo)
-			})
-
-			t.Run("UnsupportedKey", func(t *testing.T) {
-				t.Parallel()
-
-				fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-					bullshitKey := newBullshitKey[[]byte](t, "kid-1")
-
-					return []*jwa.JWK{bullshitKey.JWK}, nil
-				}
-
-				source := jwk.NewHMACSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
-				require.NotNil(t, source)
-
-				_, err := source.List(t.Context())
-				require.ErrorIs(t, err, jwk.ErrJWKMismatch)
-			})
 		})
 	}
 }

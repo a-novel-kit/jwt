@@ -1,7 +1,6 @@
 package jwk
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -188,13 +187,4 @@ func ConsumeAES(source *jwa.JWK, preset AESPreset) (*Key[[]byte], error) {
 	}
 
 	return NewKey[[]byte](source, decoded), nil
-}
-
-// NewAESSource returns a key source that parses the AES keys matching preset.
-func NewAESSource(config SourceConfig, preset AESPreset) *Source[[]byte] {
-	parser := func(_ context.Context, jwk *jwa.JWK) (*Key[[]byte], error) {
-		return ConsumeAES(jwk, preset)
-	}
-
-	return NewGenericSource[[]byte](config, parser)
 }

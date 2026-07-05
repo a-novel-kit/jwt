@@ -1,12 +1,9 @@
 package jwk_test
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
@@ -197,105 +194,6 @@ func TestConsumeAES(t *testing.T) {
 			if err == nil {
 				require.Equal(t, testCase.key.Key(), key.Key())
 			}
-		})
-	}
-}
-
-func TestAESSource(t *testing.T) {
-	t.Parallel()
-
-	errFoo := errors.New("foo")
-
-	testCases := []struct {
-		name   string
-		preset jwk.AESPreset
-	}{
-		{
-			name:   "A128CBC",
-			preset: jwk.A128CBC,
-		},
-		{
-			name:   "A192CBC",
-			preset: jwk.A192CBC,
-		},
-		{
-			name:   "A256CBC",
-			preset: jwk.A256CBC,
-		},
-		{
-			name:   "A128GCM",
-			preset: jwk.A128GCM,
-		},
-		{
-			name:   "A192GCM",
-			preset: jwk.A192GCM,
-		},
-		{
-			name:   "A256GCM",
-			preset: jwk.A256GCM,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			keys := make([]*jwk.Key[[]byte], 3)
-			for i := range keys {
-				key, err := jwk.GenerateAES(testCase.preset)
-				require.NoError(t, err)
-
-				keys[i] = key
-			}
-
-			t.Run("OK", func(t *testing.T) {
-				t.Parallel()
-
-				fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-					mapped := lo.Map(keys, func(item *jwk.Key[[]byte], _ int) *jwa.JWK {
-						return item.JWK
-					})
-
-					return mapped, nil
-				}
-
-				source := jwk.NewAESSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
-				require.NotNil(t, source)
-
-				fetchedKeys, err := source.List(t.Context())
-				require.NoError(t, err)
-				require.Equal(t, keys, fetchedKeys)
-			})
-
-			t.Run("FetchError", func(t *testing.T) {
-				t.Parallel()
-
-				fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-					return nil, errFoo
-				}
-
-				source := jwk.NewAESSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
-				require.NotNil(t, source)
-
-				_, err := source.List(t.Context())
-				require.ErrorIs(t, err, errFoo)
-			})
-
-			t.Run("UnsupportedKey", func(t *testing.T) {
-				t.Parallel()
-
-				fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-					bullshitKey := newBullshitKey[[]byte](t, "kid-1")
-
-					return []*jwa.JWK{bullshitKey.JWK}, nil
-				}
-
-				source := jwk.NewAESSource(jwk.SourceConfig{Fetch: fetcher}, testCase.preset)
-				require.NotNil(t, source)
-
-				_, err := source.List(t.Context())
-				require.ErrorIs(t, err, jwk.ErrJWKMismatch)
-			})
 		})
 	}
 }
