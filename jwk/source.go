@@ -86,20 +86,25 @@ func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
 // Get returns the key with the given ID. An empty kid returns the first (highest-priority) key. It
 // returns ErrKeyNotFound when the source is empty or no key matches.
 func (source *Source) Get(ctx context.Context, kid string) (*jwa.JWK, error) {
-	list, err := source.List(ctx)
+	err := source.refresh(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("(Source.Get) list keys: %w", err)
+		return nil, fmt.Errorf("(Source.Get) refresh keys: %w", err)
 	}
 
-	if len(list) == 0 {
+	// Search the cache in place under the read lock. Get returns a single key, so — unlike List — it
+	// needs no defensive slice copy, which keeps it cheap on the signing and key-embedding hot paths.
+	source.mu.RLock()
+	defer source.mu.RUnlock()
+
+	if len(source.cached) == 0 {
 		return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
 	}
 
 	if kid == "" {
-		return list[0], nil
+		return source.cached[0], nil
 	}
 
-	for _, key := range list {
+	for _, key := range source.cached {
 		if key.KID == kid {
 			return key, nil
 		}
