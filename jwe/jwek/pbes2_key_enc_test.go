@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
@@ -115,4 +116,32 @@ func TestPBES2KeyEncKW(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestPBES2KeyEncKWSetHeaderConflict(t *testing.T) {
+	t.Parallel()
+
+	manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
+		Iterations: 1000,
+		SaltSize:   16,
+		CEK:        make([]byte, 32),
+		Secret:     "password",
+	}, jwek.PBES2A256KW)
+
+	// SetHeader refuses to overwrite an algorithm already stamped on the header.
+	_, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}})
+	require.ErrorIs(t, err, jwt.ErrConflictingHeader)
+}
+
+func TestPBES2KeyEncKWDecoderAlgMismatch(t *testing.T) {
+	t.Parallel()
+
+	decoder := jwek.NewPBES2KeyEncKWDecoder(
+		&jwek.PBES2KeyEncKWDecoderConfig{Secret: "password"},
+		jwek.PBES2A256KW,
+	)
+
+	// The decoder rejects a token whose alg is not the one it manages.
+	_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}}, []byte("enc"))
+	require.Error(t, err)
 }
