@@ -173,3 +173,50 @@ func TestConsumeECDSA(t *testing.T) {
 		})
 	}
 }
+
+// RFC 7518 §3.4 binds each algorithm to one curve. The binding lives in the payload's "crv", which
+// MatchPreset cannot see — it compares kty, use, key_ops and alg only — so a key labelled ES256 and
+// carrying a P-384 point satisfies every check the header can make.
+//
+// This is the case the existing tests miss by generating and consuming with the same preset.
+func TestConsumeECDSARejectsAMismatchedCurve(t *testing.T) {
+	t.Parallel()
+
+	private, public := mustECDSA(t, jwk.ES384)
+
+	// A source that labels a P-384 key as ES256: everything the header says is consistent, and only
+	// the point itself disagrees.
+	mislabelled := *private.JWK
+	mislabelled.Alg = jwa.ES256
+
+	_, _, err := jwk.ConsumeECDSA(&mislabelled, jwk.ES256)
+	require.ErrorIs(t, err, jwk.ErrJWKMismatch)
+	require.ErrorContains(t, err, "P-384")
+
+	mislabelledPublic := *public.JWK
+	mislabelledPublic.Alg = jwa.ES256
+
+	_, _, err = jwk.ConsumeECDSA(&mislabelledPublic, jwk.ES256)
+	require.ErrorIs(t, err, jwk.ErrJWKMismatch)
+}
+
+func TestConsumeECDSAAcceptsEveryPresetsOwnCurve(t *testing.T) {
+	t.Parallel()
+
+	// The check must not reject the keys the presets themselves produce.
+	for _, preset := range []jwk.ECDSAPreset{jwk.ES256, jwk.ES384, jwk.ES512} {
+		t.Run(string(preset.Alg), func(t *testing.T) {
+			t.Parallel()
+
+			private, public := mustECDSA(t, preset)
+
+			gotPrivate, _, err := jwk.ConsumeECDSA(private.JWK, preset)
+			require.NoError(t, err)
+			require.Equal(t, preset.Curve, gotPrivate.Key().Curve)
+
+			_, gotPublic, err := jwk.ConsumeECDSA(public.JWK, preset)
+			require.NoError(t, err)
+			require.Equal(t, preset.Curve, gotPublic.Key().Curve)
+		})
+	}
+}
