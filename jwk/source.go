@@ -22,6 +22,10 @@ type KeysFetcher func(ctx context.Context) ([]*jwa.JWK, error)
 // RetryInterval unset, so a broken upstream is not called on every request.
 const DefaultRetryInterval = 30 * time.Second
 
+// DefaultUnknownKeyIDInterval bounds how often an unknown key id may force a fetch when
+// RefreshOnUnknownKeyID is set and UnknownKeyIDInterval is not.
+const DefaultUnknownKeyIDInterval = 10 * time.Second
+
 // SourceConfig configures a [Source].
 type SourceConfig struct {
 	// CacheDuration is how long fetched keys are held before the next fetch.
@@ -33,6 +37,30 @@ type SourceConfig struct {
 	// RetryInterval bounds how often a failing Fetch is retried (negative caching), so a broken
 	// upstream is not hit on every request. Non-positive selects DefaultRetryInterval.
 	RetryInterval time.Duration
+	// RefreshOnUnknownKeyID lets a key id absent from the cache force a fetch, instead of reporting
+	// ErrKeyNotFound against a set that may simply be stale.
+	//
+	// Without it a verifier cannot recognise a key the issuer has rotated to until CacheDuration
+	// elapses on its own schedule; every token signed with the new key is rejected until then, and
+	// the symptom — a wall of 401s that a restart cures — is a reliably misdiagnosed failure.
+	//
+	// Off by default because the trigger is attacker-controlled: whoever can present a token chooses
+	// the key id. UnknownKeyIDInterval is what makes it safe to turn on.
+	RefreshOnUnknownKeyID bool
+	// UnknownKeyIDInterval is the minimum age the cache must have before an unknown key id may force
+	// a fetch. Non-positive selects DefaultUnknownKeyIDInterval. Ignored unless
+	// RefreshOnUnknownKeyID is set.
+	//
+	// This is the whole rate limit, and it holds regardless of input: a forced fetch resets the
+	// cache age, so every subsequent unknown id within the interval finds the cache too young and
+	// fetches nothing. A flood of distinct forged key ids therefore costs at most one upstream call
+	// per interval — the same as a single one. Tracking which ids were absent would bound nothing
+	// further and would grow with attacker input.
+	//
+	// The cost of the bound is latency: a genuinely new key id arriving just after a forced fetch
+	// waits up to one interval. That is a different order of magnitude from CacheDuration, which is
+	// the window this exists to close.
+	UnknownKeyIDInterval time.Duration
 }
 
 // A Source fetches and caches the raw JSON Web Keys used to sign or verify tokens, looked up by ID.
@@ -85,32 +113,94 @@ func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
 
 // Get returns the key with the given ID. An empty kid returns the first (highest-priority) key. It
 // returns ErrKeyNotFound when the source is empty or no key matches.
+//
+// With RefreshOnUnknownKeyID set, a named kid absent from the cache forces one bounded fetch before
+// the miss is reported, so a key the issuer has just rotated to is found without waiting out
+// CacheDuration. See UnknownKeyIDInterval for the bound.
 func (source *Source) Get(ctx context.Context, kid string) (*jwa.JWK, error) {
 	err := source.refresh(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("(Source.Get) refresh keys: %w", err)
 	}
 
-	// Search the cache in place under the read lock. Get returns a single key, so — unlike List — it
-	// needs no defensive slice copy, which keeps it cheap on the signing and key-embedding hot paths.
-	source.mu.RLock()
-	defer source.mu.RUnlock()
+	key, found := source.lookup(kid)
+	if found {
+		return key, nil
+	}
 
-	if len(source.cached) == 0 {
+	// An empty kid asks for whichever key ranks first, so a miss means the set is empty rather than
+	// missing a particular key — re-fetching is the caller's business, not a stale-id recovery.
+	if kid == "" || !source.config.RefreshOnUnknownKeyID {
 		return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
 	}
 
-	if kid == "" {
-		return source.cached[0], nil
+	refreshed, err := source.refreshForUnknownKeyID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("(Source.Get) refresh keys: %w", err)
 	}
 
-	for _, key := range source.cached {
-		if key.KID == kid {
+	if refreshed {
+		key, found = source.lookup(kid)
+		if found {
 			return key, nil
 		}
 	}
 
 	return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
+}
+
+// lookup resolves kid against the cache under the read lock, reporting whether it matched. An empty
+// kid resolves to the first (highest-priority) key.
+//
+// It returns the cached pointer rather than a copy: Get yields a single key, so — unlike List — it
+// needs no defensive slice copy, which keeps it cheap on the signing and key-embedding hot paths.
+func (source *Source) lookup(kid string) (*jwa.JWK, bool) {
+	source.mu.RLock()
+	defer source.mu.RUnlock()
+
+	if len(source.cached) == 0 {
+		return nil, false
+	}
+
+	if kid == "" {
+		return source.cached[0], true
+	}
+
+	for _, key := range source.cached {
+		if key.KID == kid {
+			return key, true
+		}
+	}
+
+	return nil, false
+}
+
+// refreshForUnknownKeyID fetches when the cache is at least UnknownKeyIDInterval old, reporting
+// whether it did.
+//
+// The age check is the rate limit. Because a fetch resets the cache age, concurrent or successive
+// unknown ids collapse into at most one upstream call per interval however many distinct ids arrive.
+func (source *Source) refreshForUnknownKeyID(ctx context.Context) (bool, error) {
+	interval := source.config.UnknownKeyIDInterval
+	if interval <= 0 {
+		interval = DefaultUnknownKeyIDInterval
+	}
+
+	source.mu.Lock()
+	defer source.mu.Unlock()
+
+	// Re-checked under the write lock: another goroutine may have fetched while we queued for it,
+	// which is what collapses a burst of unknown ids into a single call.
+	if time.Since(source.lastCached) < interval {
+		return false, nil
+	}
+
+	err := source.fetchLocked(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // fresh reports whether the cache is populated and still within CacheDuration, under a read lock so
@@ -135,6 +225,14 @@ func (source *Source) refresh(ctx context.Context) error {
 		return nil
 	}
 
+	return source.fetchLocked(ctx)
+}
+
+// fetchLocked replaces the cache from Fetch. The caller must hold the write lock.
+//
+// Both refresh paths go through it so the failure backoff applies whichever one reached it: an
+// unknown key id must not become a way around the negative caching that protects a broken upstream.
+func (source *Source) fetchLocked(ctx context.Context) error {
 	// Negative caching: after a failure, don't call Fetch again until RetryInterval has elapsed, so
 	// a broken upstream isn't hit on every request (a thundering-herd / amplification DoS).
 	retry := source.config.RetryInterval
@@ -150,7 +248,7 @@ func (source *Source) refresh(ctx context.Context) error {
 
 	keys, err := source.config.Fetch(ctx)
 	if err != nil {
-		source.lastErr = fmt.Errorf("(Source.refresh) fetch keys: %w", err)
+		source.lastErr = fmt.Errorf("(Source.fetch) fetch keys: %w", err)
 		source.lastFailure = time.Now()
 
 		return source.lastErr
