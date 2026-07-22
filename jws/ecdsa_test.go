@@ -285,3 +285,35 @@ func TestECDSASourcedVerifier(t *testing.T) {
 		})
 	}
 }
+
+// The signer refuses a key off the preset's curve; the verifier accepted one and reported a plain
+// signature failure, which reads as "this token is bad" rather than "this verifier is misconfigured
+// and enforces nothing".
+func TestECDSAVerifierRejectsAKeyOffThePresetCurve(t *testing.T) {
+	t.Parallel()
+
+	_, wrongCurve, err := jwk.GenerateECDSA(jwk.ES384)
+	require.NoError(t, err)
+
+	verifier := jws.NewECDSAVerifier(wrongCurve.Key(), jws.ES256)
+
+	// Signed correctly under ES256, so nothing about the token is at fault.
+	signingKey, _, err := jwk.GenerateECDSA(jwk.ES256)
+	require.NoError(t, err)
+
+	producer := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{jws.NewECDSASigner(signingKey.Key(), jws.ES256)},
+	})
+
+	token, err := producer.Issue(t.Context(), map[string]any{"sub": "x"}, nil)
+	require.NoError(t, err)
+
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{verifier},
+	})
+
+	var claims map[string]any
+
+	err = recipient.Consume(t.Context(), token, &claims)
+	require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+}

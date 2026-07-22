@@ -128,6 +128,7 @@ type ECDSAVerifier struct {
 	publicKey *ecdsa.PublicKey
 	alg       jwa.Alg
 	hash      crypto.Hash
+	crv       elliptic.Curve
 }
 
 // NewECDSAVerifier returns a [jwt.RecipientPlugin] that verifies ECDSA-signed tokens, using the
@@ -139,6 +140,7 @@ func NewECDSAVerifier(publicKey *ecdsa.PublicKey, preset ECDSAPreset) *ECDSAVeri
 		publicKey: publicKey,
 		alg:       preset.Alg,
 		hash:      preset.Hash,
+		crv:       preset.Crv,
 	}
 }
 
@@ -147,6 +149,16 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf(
 			"(ECDSAVerifier.Transform) %w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, verifier.alg,
+		)
+	}
+
+	// RFC 7518 §3.4 binds the algorithm to the curve, and the signer checks the same thing. An
+	// operator who configures ES256 against a P-384 key does not enforce ES256, and matching on alg
+	// alone leaves that unsaid — the signature simply fails to verify.
+	if verifier.publicKey == nil || verifier.publicKey.Curve != verifier.crv {
+		return nil, fmt.Errorf(
+			"(ECDSAVerifier.Transform) %w: verification key does not live on the curve %s requires",
+			jwt.ErrInvalidSecretKey, verifier.alg,
 		)
 	}
 

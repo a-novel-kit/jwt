@@ -133,6 +133,26 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 		return nil, nil, fmt.Errorf("(ConsumeECDSA) decode payload: %w", err)
 	}
 
+	// RFC 7518 §3.4 binds each algorithm to one curve — ES256 to P-256, ES384 to P-384, ES512 to
+	// P-521 — and the curve lives in the payload, where MatchPreset above cannot see it. Without
+	// this the preset's Curve is written by GenerateECDSA and read by nothing, so a source
+	// labelled ES256 holding a P-384 key is accepted.
+	var curve elliptic.Curve
+
+	switch {
+	case decodedPrivate != nil:
+		curve = decodedPrivate.Curve
+	case decodedPublic != nil:
+		curve = decodedPublic.Curve
+	}
+
+	if curve != preset.Curve {
+		return nil, nil, fmt.Errorf(
+			"(ConsumeECDSA) %w: key is on %s, preset %s requires %s",
+			ErrJWKMismatch, curveName(curve), preset.Alg, curveName(preset.Curve),
+		)
+	}
+
 	var (
 		privateKey *Key[*ecdsa.PrivateKey]
 		publicKey  *Key[*ecdsa.PublicKey]
@@ -147,4 +167,14 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 	}
 
 	return privateKey, publicKey, nil
+}
+
+// curveName reports a curve's standard name for an error message. A key whose payload named no
+// recognised curve decodes to none at all, and that has to read as a mismatch rather than panic.
+func curveName(curve elliptic.Curve) string {
+	if curve == nil {
+		return "no recognised curve"
+	}
+
+	return curve.Params().Name
 }
