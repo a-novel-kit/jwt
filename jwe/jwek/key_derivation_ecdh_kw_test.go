@@ -1,6 +1,7 @@
 package jwek_test
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -100,7 +101,7 @@ func TestECDHKeyAgrKW(t *testing.T) {
 				}, testCase.preset)
 
 				common := header.JWHCommon
-				common.APU = "fake-producer"
+				common.APU = base64.RawURLEncoding.EncodeToString([]byte("fake-producer"))
 
 				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
 				require.Error(t, err)
@@ -114,7 +115,7 @@ func TestECDHKeyAgrKW(t *testing.T) {
 				}, testCase.preset)
 
 				common := header.JWHCommon
-				common.APV = "fake-recipient"
+				common.APV = base64.RawURLEncoding.EncodeToString([]byte("fake-recipient"))
 
 				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
 				require.Error(t, err)

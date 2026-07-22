@@ -3,6 +3,7 @@ package jwek
 import (
 	"context"
 	"crypto/ecdh"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -110,8 +111,8 @@ func (manager *ECDHKeyAgrManager) SetHeader(_ context.Context, header *jwa.JWH) 
 
 	header.JWHKeyAgreement = jwa.JWHKeyAgreement{
 		EPK: &jwa.JWK{Payload: publicKeySerialized},
-		APU: manager.config.ProducerInfo,
-		APV: manager.config.RecipientInfo,
+		APU: base64.RawURLEncoding.EncodeToString([]byte(manager.config.ProducerInfo)),
+		APV: base64.RawURLEncoding.EncodeToString([]byte(manager.config.RecipientInfo)),
 	}
 	header.Alg = jwa.ECDHES
 	header.Enc = manager.enc
@@ -125,7 +126,12 @@ func (manager *ECDHKeyAgrManager) ComputeCEK(_ context.Context, header *jwa.JWH)
 		return nil, fmt.Errorf("(ECDHKeyAgrManager.ComputeCEK) derive shared secret: %w", err)
 	}
 
-	cek, err := internal.Derive(z, string(manager.enc), manager.keyLen, header.APU, header.APV)
+	apu, apv, err := agreementInfo(header)
+	if err != nil {
+		return nil, fmt.Errorf("(ECDHKeyAgrManager.ComputeCEK) %w", err)
+	}
+
+	cek, err := internal.Derive(z, string(manager.enc), manager.keyLen, apu, apv)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrManager.ComputeCEK) derive key: %w", err)
 	}
@@ -215,10 +221,32 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) derive shared secret: %w", err)
 	}
 
-	cek, err := internal.Derive(z, string(decoder.enc), decoder.keyLen, header.APU, header.APV)
+	apu, apv, err := agreementInfo(header)
+	if err != nil {
+		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) %w", err)
+	}
+
+	cek, err := internal.Derive(z, string(decoder.enc), decoder.keyLen, apu, apv)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) derive key: %w", err)
 	}
 
 	return cek, nil
+}
+
+// agreementInfo decodes the apu/apv agreement parameters a header carries. RFC 7518 §4.6.1.2 defines
+// both as base64url-encoded, and internal.Derive mixes in the decoded bytes, so the two cannot be
+// the same value.
+func agreementInfo(header *jwa.JWH) ([]byte, []byte, error) {
+	apu, err := base64.RawURLEncoding.DecodeString(header.APU)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decode apu: %w", err)
+	}
+
+	apv, err := base64.RawURLEncoding.DecodeString(header.APV)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decode apv: %w", err)
+	}
+
+	return apu, apv, nil
 }
