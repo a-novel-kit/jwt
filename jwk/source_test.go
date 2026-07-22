@@ -3,6 +3,9 @@ package jwk_test
 import (
 	"context"
 	"errors"
+	"strconv"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -248,4 +251,179 @@ func TestSourceCaches(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, fetchCount)
+}
+
+// Tests for RefreshOnUnknownKeyID: a key id absent from the cache forcing a bounded fetch, so a
+// verifier finds a key the issuer has just rotated to instead of waiting out CacheDuration.
+
+func TestSourceGetUnknownKeyIDDisabled(t *testing.T) {
+	t.Parallel()
+
+	var fetches atomic.Int64
+
+	source := jwk.NewSource(jwk.SourceConfig{
+		CacheDuration: time.Hour,
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			fetches.Add(1)
+
+			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+		},
+	})
+
+	_, err := source.Get(t.Context(), "kid-1")
+	require.NoError(t, err)
+
+	// The default must be untouched: an unknown id reports the miss against the cached set without
+	// going upstream, however old that set is.
+	_, err = source.Get(t.Context(), "rotated-kid")
+	require.ErrorIs(t, err, jwk.ErrKeyNotFound)
+	require.EqualValues(t, 1, fetches.Load())
+}
+
+func TestSourceGetUnknownKeyIDRefreshes(t *testing.T) {
+	t.Parallel()
+
+	var (
+		fetches atomic.Int64
+		rotated atomic.Bool
+	)
+
+	source := jwk.NewSource(jwk.SourceConfig{
+		CacheDuration: time.Hour,
+		// Long enough that the cache is nowhere near expiry, so any fetch after the first can only
+		// have come from the unknown-key-id path.
+		RefreshOnUnknownKeyID: true,
+		UnknownKeyIDInterval:  time.Nanosecond,
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			fetches.Add(1)
+
+			if rotated.Load() {
+				return []*jwa.JWK{newBullshitKey[string](t, "kid-2").JWK}, nil
+			}
+
+			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+		},
+	})
+
+	_, err := source.Get(t.Context(), "kid-1")
+	require.NoError(t, err)
+	require.EqualValues(t, 1, fetches.Load())
+
+	// The issuer rotates. CacheDuration has not elapsed, so without this feature the new key stays
+	// invisible for an hour.
+	rotated.Store(true)
+
+	key, err := source.Get(t.Context(), "kid-2")
+	require.NoError(t, err)
+	require.Equal(t, "kid-2", key.KID)
+	require.EqualValues(t, 2, fetches.Load())
+}
+
+func TestSourceGetUnknownKeyIDRateLimited(t *testing.T) {
+	t.Parallel()
+
+	var fetches atomic.Int64
+
+	source := jwk.NewSource(jwk.SourceConfig{
+		CacheDuration:         time.Hour,
+		RefreshOnUnknownKeyID: true,
+		UnknownKeyIDInterval:  time.Hour,
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			fetches.Add(1)
+
+			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+		},
+	})
+
+	_, err := source.Get(t.Context(), "kid-1")
+	require.NoError(t, err)
+	require.EqualValues(t, 1, fetches.Load())
+
+	// The trigger is attacker-controlled: whoever presents a token picks the key id. A flood of
+	// distinct forged ids must not amplify into a flood of upstream calls.
+	//
+	// Nothing at all goes upstream here, because the bound is the cache's age rather than a count:
+	// the set was just fetched, so no id is old enough to justify re-fetching. The amplification
+	// factor is zero for as long as the interval holds, and one fetch per interval after that —
+	// independent of how many distinct ids arrive.
+	for i := range 500 {
+		_, err = source.Get(t.Context(), "forged-"+strconv.Itoa(i))
+		require.ErrorIs(t, err, jwk.ErrKeyNotFound)
+	}
+
+	require.EqualValues(t, 1, fetches.Load(), "500 distinct unknown key ids must cost no fetch")
+}
+
+func TestSourceGetUnknownKeyIDConcurrent(t *testing.T) {
+	t.Parallel()
+
+	var fetches atomic.Int64
+
+	source := jwk.NewSource(jwk.SourceConfig{
+		CacheDuration:         time.Hour,
+		RefreshOnUnknownKeyID: true,
+		UnknownKeyIDInterval:  time.Hour,
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			fetches.Add(1)
+
+			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+		},
+	})
+
+	_, err := source.Get(t.Context(), "kid-1")
+	require.NoError(t, err)
+
+	// Same bound under contention: the age is re-checked under the write lock, so goroutines that
+	// queue behind one another find the cache young rather than each fetching in turn.
+	var wg sync.WaitGroup
+
+	for i := range 50 {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			_, _ = source.Get(t.Context(), "forged-"+strconv.Itoa(i))
+		}()
+	}
+
+	wg.Wait()
+
+	require.EqualValues(t, 1, fetches.Load())
+}
+
+func TestSourceGetUnknownKeyIDHonoursBackoff(t *testing.T) {
+	t.Parallel()
+
+	var fetches atomic.Int64
+
+	errUpstream := errors.New("upstream down")
+
+	source := jwk.NewSource(jwk.SourceConfig{
+		CacheDuration:         time.Hour,
+		RetryInterval:         time.Hour,
+		RefreshOnUnknownKeyID: true,
+		UnknownKeyIDInterval:  time.Nanosecond,
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			if fetches.Add(1) == 1 {
+				return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+			}
+
+			return nil, errUpstream
+		},
+	})
+
+	_, err := source.Get(t.Context(), "kid-1")
+	require.NoError(t, err)
+
+	// The first unknown id reaches a broken upstream and records the failure.
+	_, err = source.Get(t.Context(), "forged-1")
+	require.ErrorIs(t, err, errUpstream)
+	require.EqualValues(t, 2, fetches.Load())
+
+	// An unknown key id must not be a way around the retry backoff — otherwise the negative caching
+	// that protects a broken upstream is bypassed by the one input an attacker controls.
+	_, err = source.Get(t.Context(), "forged-2")
+	require.ErrorIs(t, err, errUpstream)
+	require.EqualValues(t, 2, fetches.Load(), "the backoff must hold on the unknown-key-id path")
 }
