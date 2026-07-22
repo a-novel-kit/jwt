@@ -10,7 +10,7 @@ import (
 )
 
 // ErrMismatchRecipientPlugin is returned by a plugin that does not recognize a token, signaling
-// the Recipient to try the next plugin instead of failing.
+// the Recipient to try the next plugin.
 var ErrMismatchRecipientPlugin = errors.New("mismatch recipient plugin")
 
 // A RecipientPlugin validates a token and extracts its raw claims payload. It returns

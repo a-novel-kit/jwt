@@ -82,7 +82,7 @@ func TestSourcedMixedRotation(t *testing.T) {
 }
 
 // TestSourcedVerifierSurfacesMalformedKey checks that a key of the verifier's own family that fails
-// to decode surfaces as an error, rather than being skipped and masked as an invalid signature.
+// to decode surfaces as an error.
 func TestSourcedVerifierSurfacesMalformedKey(t *testing.T) {
 	t.Parallel()
 

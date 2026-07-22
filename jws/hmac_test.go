@@ -300,7 +300,7 @@ func TestHMACSourcedVerifier(t *testing.T) {
 func TestSourcedHMACSignerEmptySource(t *testing.T) {
 	t.Parallel()
 
-	// A sourced signer whose source holds no key fails instead of signing with nothing.
+	// A sourced signer whose source holds no key fails.
 	source := testutils.NewStaticKeysSource(t, []*jwk.Key[[]byte]{})
 	producer := jwt.NewProducer(jwt.ProducerConfig{
 		Plugins: []jwt.ProducerPlugin{jws.NewSourcedHMACSigner(source, jws.HS256)},
