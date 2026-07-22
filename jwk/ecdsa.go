@@ -173,7 +173,7 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 // recognised curve decodes to none at all, and that has to read as a mismatch rather than panic.
 func curveName(curve elliptic.Curve) string {
 	if curve == nil {
-		return "no recognised curve"
+		return "unknown"
 	}
 
 	return curve.Params().Name
