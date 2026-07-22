@@ -214,6 +214,9 @@ func TestUnmarshalPartial(t *testing.T) {
 		extra  json.RawMessage
 	}{
 		{
+			// The typed fields come back in the value, and only the rest comes
+			// back as custom — so re-encoding the pair does not re-supply a and b
+			// as overrides of themselves.
 			name: "Success",
 
 			src: []byte(`{"a":"foo","b":"bar","c":"baz"}`),
@@ -222,7 +225,18 @@ func TestUnmarshalPartial(t *testing.T) {
 				A: "foo",
 				B: "bar",
 			},
-			extra: json.RawMessage(`{"a":"foo","b":"bar","c":"baz"}`),
+			extra: json.RawMessage(`{"c":"baz"}`),
+		},
+		{
+			name: "NoCustomMembers",
+
+			src: []byte(`{"a":"foo","b":"bar"}`),
+
+			expect: partialType{
+				A: "foo",
+				B: "bar",
+			},
+			extra: json.RawMessage(`{}`),
 		},
 	}
 
@@ -234,6 +248,54 @@ func TestUnmarshalPartial(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, testCase.expect, actual)
 			require.JSONEq(t, string(testCase.extra), string(extra))
+		})
+	}
+}
+
+// The pair has to compose: decoding an object and encoding the result back must
+// reproduce it. Without this, every registered member lands in the custom half
+// on the way in and is rejected as an override on the way out.
+func TestPartialRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	type common struct {
+		Kty string `json:"kty,omitempty"`
+		Kid string `json:"kid,omitempty"`
+		Alg string `json:"alg,omitempty"`
+	}
+
+	testCases := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "registered and custom members",
+			src:  `{"kty":"EC","kid":"k1","alg":"ES256","x":"abc","crv":"P-256"}`,
+		},
+		{
+			name: "registered members only",
+			src:  `{"kty":"oct","kid":"k1"}`,
+		},
+		{
+			name: "custom members only",
+			src:  `{"x":"abc","crv":"P-256"}`,
+		},
+		{
+			name: "no members at all",
+			src:  `{}`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			decoded, custom, err := internal.UnmarshalPartial[common]([]byte(testCase.src))
+			require.NoError(t, err)
+
+			encoded, err := internal.MarshalPartial(decoded, custom)
+			require.NoError(t, err)
+			require.JSONEq(t, testCase.src, string(encoded))
 		})
 	}
 }

@@ -152,8 +152,14 @@ func declaredMembers(typ reflect.Type) map[string]struct{} {
 }
 
 // UnmarshalPartial decodes the typed fields of src into a value of type T and
-// returns src unchanged alongside it, so the caller can later decode its own
-// custom fields from the same bytes.
+// returns the members left over, so the caller can decode its own custom fields
+// from them.
+//
+// The members T declares are removed from that remainder, which makes this the
+// inverse of MarshalPartial: what the typed value carries comes back out of the
+// typed value, and re-encoding the pair reproduces src. Returning src whole
+// would put every registered member in the custom half, and encoding it again
+// would be rejected as an override of the value it was read from.
 func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 	var common T
 
@@ -162,5 +168,26 @@ func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 		return common, nil, fmt.Errorf("(UnmarshalPartial) unmarshal common: %w", err)
 	}
 
-	return common, src, nil
+	declared := declaredMembers(reflect.TypeFor[T]())
+	if len(declared) == 0 {
+		return common, src, nil
+	}
+
+	var members map[string]json.RawMessage
+
+	err = json.Unmarshal(src, &members)
+	if err != nil {
+		return common, nil, fmt.Errorf("(UnmarshalPartial) convert source to map: %w", err)
+	}
+
+	for name := range declared {
+		delete(members, name)
+	}
+
+	custom, err := json.Marshal(members)
+	if err != nil {
+		return common, nil, fmt.Errorf("(UnmarshalPartial) serialize custom: %w", err)
+	}
+
+	return common, custom, nil
 }
