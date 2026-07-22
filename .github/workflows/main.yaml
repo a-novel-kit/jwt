@@ -17,6 +17,20 @@ jobs:
         with:
           modfile: gotestsum.mod
 
+  # A package that names a crypto.Hash without importing its registrar builds cleanly, passes every
+  # test — a test binary links the hash packages through its own dependencies — and panics in a
+  # consumer that imports the library alone. The check is structural because nothing inside the test
+  # suite can observe the gap.
+  lint-hash-registration:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Every package naming a crypto.Hash imports its registrar
+        shell: bash
+        run: bash .github/scripts/lint-hash-registration.sh .
+
   lint-go:
     runs-on: ubuntu-latest
     permissions:
