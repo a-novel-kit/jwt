@@ -25,12 +25,23 @@ func TestKeyEmbedder(t *testing.T) {
 
 	keySource := testutils.NewStaticKeysSource(t, []*jwk.Key[[]byte]{otherKey, olderKey})
 
+	// An asymmetric pair, to separate "carries private material" from "is
+	// symmetric": the private half must be refused and the public half embedded.
+	signingKey, _, err := jwk.GenerateED25519()
+	require.NoError(t, err)
+
+	publicKey, err := jwk.Public(signingKey.JWK)
+	require.NoError(t, err)
+
 	testCases := []struct {
 		name string
 
 		config jwp.EmbedKeyConfig
 
 		expect *jwa.JWH
+		// expectErr is set on the configurations that must not produce a header
+		// at all.
+		expectErr error
 	}{
 		{
 			name: "Minimalistic",
@@ -84,24 +95,40 @@ func TestKeyEmbedder(t *testing.T) {
 			},
 		},
 		{
-			name: "KeyDirectEmbed",
+			// A symmetric key is its own secret, so embedding one publishes the
+			// signing key in every token it signs.
+			name: "KeyDirectEmbed/Symmetric",
 
 			config: jwp.EmbedKeyConfig{Key: key.JWK, Embed: true},
 
-			expect: &jwa.JWH{
-				JWHCommon: jwa.JWHCommon{
-					JWHEmbeddedKey: jwa.JWHEmbeddedKey{KID: key.KID, JWK: key.JWK},
-				},
-			},
+			expectErr: jwk.ErrPrivateKeyMaterial,
 		},
 		{
-			name: "KeySourcedEmbed",
+			// Source resolves signing keys, which is where a private key comes
+			// from. This is the configuration that would leak on every token.
+			name: "KeySourcedEmbed/Symmetric",
 
 			config: jwp.EmbedKeyConfig{Source: keySource, Embed: true},
 
+			expectErr: jwk.ErrPrivateKeyMaterial,
+		},
+		{
+			name: "KeyDirectEmbed/AsymmetricPrivate",
+
+			config: jwp.EmbedKeyConfig{Key: signingKey.JWK, Embed: true},
+
+			expectErr: jwk.ErrPrivateKeyMaterial,
+		},
+		{
+			// The public half is what the affordance exists for: a recipient can
+			// verify with it, and it gives nothing away.
+			name: "KeyDirectEmbed/AsymmetricPublic",
+
+			config: jwp.EmbedKeyConfig{Key: publicKey, Embed: true},
+
 			expect: &jwa.JWH{
 				JWHCommon: jwa.JWHCommon{
-					JWHEmbeddedKey: jwa.JWHEmbeddedKey{KID: otherKey.KID, JWK: otherKey.JWK},
+					JWHEmbeddedKey: jwa.JWHEmbeddedKey{KID: publicKey.KID, JWK: publicKey},
 				},
 			},
 		},
@@ -112,7 +139,16 @@ func TestKeyEmbedder(t *testing.T) {
 			t.Parallel()
 
 			embedder := jwp.NewEmbedKey(testCase.config)
+
 			header, err := embedder.Header(t.Context(), &jwa.JWH{})
+
+			if testCase.expectErr != nil {
+				require.ErrorIs(t, err, testCase.expectErr)
+				require.Nil(t, header)
+
+				return
+			}
+
 			require.NoError(t, err)
 			require.Equal(t, testCase.expect, header)
 		})
