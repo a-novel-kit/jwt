@@ -13,25 +13,18 @@ import (
 	"sync"
 )
 
-// ErrReservedMember reports a custom payload naming a member that belongs to the
-// registered set. The registered value is the one every guard in this library is
-// written against, and a custom member displacing it takes effect during
-// encoding, after each of those guards has run and passed.
+// ErrReservedMember reports a custom payload naming a member of the registered
+// set. Every guard in this library reads the registered value; a custom member
+// displaces it during encoding, once those guards have run and passed.
 var ErrReservedMember = errors.New("custom payload may not set a registered member")
 
 // MarshalPartial encodes common and custom into one JSON object. A nil or "null"
 // custom yields the encoding of common alone.
 //
-// The two sets of members must be disjoint. A custom member naming one that
-// common reserves is an error rather than an override: common holds the
-// parameters the format assigns meaning to, and the callers that populate it —
-// signers setting alg, producers setting exp — have no way to observe a value
-// that replaces theirs at encoding time.
-//
-// Reserved means every member common could contribute, not only those it did.
-// Registered parameters are omitempty throughout, so an unset one encodes to
-// nothing, and a rule written against the encoded object would leave exactly the
-// absent parameters open.
+// The two sets must be disjoint: a custom member naming one that common reserves
+// is an error. Reserved covers every member common declares, not only those it
+// encoded — registered parameters are omitempty, so an unset one encodes to
+// nothing and would otherwise stay open to a custom value.
 func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 	if custom == nil || string(custom) == "null" {
 		return json.Marshal(common)
@@ -94,10 +87,9 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 var declaredMembersCache sync.Map // reflect.Type -> map[string]struct{}
 
 // declaredMembers returns the JSON member names a struct type declares,
-// including those promoted from the structs it embeds. A type with no fields to
-// declare — a map, or the interface a caller passes through the generic
-// parameter — yields none, and the encoded object is then the only account of
-// what common contributes.
+// including those promoted from embedded structs. A non-struct — a map, or the
+// interface a caller reaches the generic parameter through — yields none,
+// leaving the encoded object as the only account of common's members.
 func declaredMembers(typ reflect.Type) map[string]struct{} {
 	for typ != nil && typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
@@ -125,11 +117,14 @@ func declaredMembers(typ reflect.Type) map[string]struct{} {
 
 		name, _, _ := strings.Cut(tag, ",")
 
-		// An embedded struct with no name of its own promotes its members into
-		// the enclosing object, so they are the enclosing type's members too.
-		// encoding/json promotes them even when the embedded type is unexported,
-		// which is why this runs before the exported check; an embedded
-		// non-struct is a plain member named after its type.
+		// An embedded struct promotes its members into the enclosing object, and
+		// encoding/json does so even when the embedded type is unexported —
+		// hence promotion before the exported check.
+		//
+		// An embedded non-struct falls through to be named after its type, which
+		// is how encoding/json encodes it: `struct{ MyString }` emits
+		// {"MyString":…}. It is a member like any other, so it is reserved like
+		// any other.
 		if field.Anonymous && name == "" {
 			if promoted := declaredMembers(field.Type); promoted != nil {
 				for member := range promoted {
