@@ -142,6 +142,24 @@ func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	return keyPriv, keyPub, nil
 }
 
+// encodeCoordinate renders an affine coordinate at the curve's full octet length.
+//
+// RFC 7518 requires x and y to be "the full size of a coordinate for the curve"
+// (https://datatracker.ietf.org/doc/html/rfc7518#section-6.2.1.2), but [big.Int.Bytes] returns the
+// minimal encoding and drops leading zero bytes — which roughly one coordinate in 256 has. A short
+// value is rejected outright by spec-compliant consumers (WebCrypto importKey, jose), while
+// [DecodeEC] reconstructs through [big.Int.SetBytes] and accepts any length, so the defect never
+// surfaces from Go: the package round-trips its own malformed output perfectly.
+//
+// FillBytes panics on a value too large for the buffer; callers pass coordinates read off a parsed
+// key, which are on the curve and therefore fit by construction.
+func encodeCoordinate(curve elliptic.Curve, coordinate *big.Int) string {
+	buf := make([]byte, (curve.Params().BitSize+7)/8)
+	coordinate.FillBytes(buf)
+
+	return base64.RawURLEncoding.EncodeToString(buf)
+}
+
 // EncodeEC builds the ECPayload representation of an ECDSA public or private key.
 func EncodeEC[Key *ecdsa.PublicKey | *ecdsa.PrivateKey](key Key) (*ECPayload, error) {
 	payload := new(ECPayload)
@@ -154,8 +172,8 @@ func EncodeEC[Key *ecdsa.PublicKey | *ecdsa.PrivateKey](key Key) (*ECPayload, er
 		}
 
 		payload.Crv = crv.Params().Name
-		payload.X = base64.RawURLEncoding.EncodeToString(x.Bytes())
-		payload.Y = base64.RawURLEncoding.EncodeToString(y.Bytes())
+		payload.X = encodeCoordinate(crv, x)
+		payload.Y = encodeCoordinate(crv, y)
 
 		return payload, nil
 	}
@@ -176,8 +194,9 @@ func EncodeEC[Key *ecdsa.PublicKey | *ecdsa.PrivateKey](key Key) (*ECPayload, er
 	}
 
 	payload.Crv = crv.Params().Name
-	payload.X = base64.RawURLEncoding.EncodeToString(x.Bytes())
-	payload.Y = base64.RawURLEncoding.EncodeToString(y.Bytes())
+	payload.X = encodeCoordinate(crv, x)
+	payload.Y = encodeCoordinate(crv, y)
+	// privKey.Bytes is already fixed-length per SEC 1 §2.3.7, which is what RFC 7518 §6.2.2.1 wants.
 	payload.D = base64.RawURLEncoding.EncodeToString(privKeyBytes)
 
 	return payload, nil
