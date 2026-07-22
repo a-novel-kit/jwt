@@ -38,7 +38,7 @@ type ECPayload struct {
 // that ecdsa.ParseUncompressedPublicKey expects.
 func pointFromAffine(curve elliptic.Curve, x, y *big.Int) ([]byte, error) {
 	bitSize := curve.Params().BitSize
-	// Reject values that would not get correctly encoded.
+	// Reject values that do not encode correctly.
 	if x.Sign() < 0 || y.Sign() < 0 {
 		return nil, errors.New("negative coordinate")
 	}
