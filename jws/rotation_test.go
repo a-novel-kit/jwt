@@ -116,9 +116,8 @@ func TestSourcedVerifierSurfacesMalformedKey(t *testing.T) {
 }
 
 // TestSourcedRotationUnknownKeyID is the acceptance test for RefreshOnUnknownKeyID on the path a
-// recipient actually takes: verifyFromSource walks Source.List, so a refresh wired only into
-// Source.Get would leave it reading a stale set, skipping every key whose id misses the header, and
-// reporting an invalid signature for the whole of CacheDuration.
+// recipient actually takes. verifyFromSource walks Source.List. The refresh has to reach List for
+// a rotated key to be found inside CacheDuration.
 func TestSourcedRotationUnknownKeyID(t *testing.T) {
 	t.Parallel()
 

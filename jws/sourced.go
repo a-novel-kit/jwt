@@ -140,8 +140,8 @@ func signFromSource[K any](
 	for _, candidate := range keys {
 		key, decodeErr := decode(candidate)
 		if decodeErr != nil {
-			// Skip keys of another family. A malformed key of this family surfaces as an error, since
-			// keys are listed in priority order and falling through would sign with a lesser one.
+			// Skip keys of another family. Keys are listed in priority order, and the first match is the
+			// one to sign with. A malformed key of this family is an error.
 			if errors.Is(decodeErr, jwk.ErrJWKMismatch) {
 				continue
 			}

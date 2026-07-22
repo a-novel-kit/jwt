@@ -1,7 +1,6 @@
 // Package internal holds the low-level cryptographic primitives that the JWE key-management
 // algorithms compose: key derivation, key wrapping, and padding. They live here so several
-// algorithm implementations can share one vetted implementation of each primitive instead of
-// duplicating it.
+// algorithm implementations share one vetted implementation of each primitive.
 package internal
 
 import (
@@ -29,9 +28,8 @@ func ConcatKDF(
 	h := hash.New()
 	output := make([]byte, 0, keyDataLen)
 
-	// The 32-bit block counter (the buffer's first four bytes) increments each round. Left fixed,
-	// every hash block would be identical and any key longer than one hash output would repeat —
-	// for AES-CBC-HMAC that collapses the MAC and ENC key halves into the same value.
+	// The 32-bit block counter (the buffer's first four bytes) increments each round, so every hash
+	// block differs. For AES-CBC-HMAC the two halves become the MAC and ENC keys.
 	for round := uint32(1); len(output) < keyDataLen; round++ {
 		binary.BigEndian.PutUint32(buffer[:4], round)
 		h.Write(buffer)

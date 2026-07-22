@@ -52,10 +52,9 @@ func TestEC(t *testing.T) {
 // coordinate size.
 //
 // The fixture is a P-256 key whose x coordinate falls below 2^248, so its minimal encoding is 31
-// bytes instead of 32. Roughly one coordinate in 256 is like this, so a randomly generated key
-// almost never exercises it, and a round trip would not catch it either: DecodeEC reads through
-// big.Int.SetBytes, which accepts any length. Only a consumer in another runtime rejects the short
-// value.
+// bytes, one short of the fixed 32. Roughly one coordinate in 256 is like this, so a randomly
+// generated key almost never exercises it. DecodeEC reads through big.Int.SetBytes, which accepts
+// any length, so only a consumer in another runtime rejects the short value.
 func TestECCoordinateWidth(t *testing.T) {
 	t.Parallel()
 

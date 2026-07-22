@@ -51,8 +51,8 @@ func NewRecipient(config RecipientConfig) *Recipient {
 		config.MaxTokenBytes = DefaultMaxTokenBytes
 	}
 
-	// A Recipient is built once and shared across goroutines, so the default is resolved here; a
-	// lazy write from Consume would race.
+	// A Recipient is built once and shared across goroutines, so defaults are resolved at
+	// construction and never written afterwards.
 	if config.Deserializer == nil {
 		config.Deserializer = json.Unmarshal
 	}
