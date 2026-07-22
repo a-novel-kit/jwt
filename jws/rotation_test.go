@@ -2,7 +2,10 @@ package jws_test
 
 import (
 	"context"
+	"crypto/rsa"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -110,4 +113,105 @@ func TestSourcedVerifierSurfacesMalformedKey(t *testing.T) {
 	err = recipient.Consume(t.Context(), token, &got)
 	require.Error(t, err)
 	require.NotErrorIs(t, err, jws.ErrInvalidSignature)
+}
+
+// TestSourcedRotationUnknownKeyID is the acceptance test for RefreshOnUnknownKeyID, and it exercises
+// the path the defect actually lived on.
+//
+// verifyFromSource reads through Source.List, not Source.Get, so a source that only re-fetched on a
+// Get miss would have changed nothing here: the verifier would still walk a stale set, skip every key
+// whose id does not match the header, and report an invalid signature. That is the failure this
+// closes — a wall of 401s, after an ordinary key rotation, that a restart cures.
+func TestSourcedRotationUnknownKeyID(t *testing.T) {
+	t.Parallel()
+
+	oldPriv, oldPub, err := jwk.GenerateRSA(jwk.RS256)
+	require.NoError(t, err)
+
+	newPriv, newPub, err := jwk.GenerateRSA(jwk.RS256)
+	require.NoError(t, err)
+
+	claims := map[string]any{"foo": "bar"}
+
+	// The issuer signs with whichever key it currently holds, naming it in the header — which is what
+	// gives the consumer an id to miss on.
+	issue := func(t *testing.T, key *jwk.Key[*rsa.PrivateKey]) string {
+		t.Helper()
+
+		issuerSource := jwk.NewSource(jwk.SourceConfig{
+			Fetch: func(_ context.Context) ([]*jwa.JWK, error) { return []*jwa.JWK{key.JWK}, nil },
+		})
+
+		token, issueErr := jwt.NewProducer(jwt.ProducerConfig{
+			Plugins: []jwt.ProducerPlugin{jws.NewSourcedRSASigner(issuerSource, jws.RS256)},
+		}).Issue(t.Context(), claims, nil)
+		require.NoError(t, issueErr)
+
+		return token
+	}
+
+	oldToken := issue(t, oldPriv)
+	newToken := issue(t, newPriv)
+
+	// A consumer whose cache is an hour long. Rotation is invisible to it until the cache expires,
+	// unless an unknown key id can force the issue.
+	newConsumer := func(t *testing.T, rotated *atomic.Bool, refreshOnUnknown bool) *jwt.Recipient {
+		t.Helper()
+
+		source := jwk.NewSource(jwk.SourceConfig{
+			CacheDuration:         time.Hour,
+			RefreshOnUnknownKeyID: refreshOnUnknown,
+			UnknownKeyIDInterval:  time.Nanosecond,
+			Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+				if rotated.Load() {
+					return []*jwa.JWK{newPub.JWK}, nil
+				}
+
+				return []*jwa.JWK{oldPub.JWK}, nil
+			},
+		})
+
+		return jwt.NewRecipient(jwt.RecipientConfig{
+			Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, jws.RS256)},
+		})
+	}
+
+	t.Run("Disabled", func(t *testing.T) {
+		t.Parallel()
+
+		var rotated atomic.Bool
+
+		recipient := newConsumer(t, &rotated, false)
+
+		var got map[string]any
+
+		// Warm the cache on the pre-rotation key set.
+		require.NoError(t, recipient.Consume(t.Context(), oldToken, &got))
+
+		rotated.Store(true)
+
+		// The default is unchanged: the rotated key stays unverifiable until CacheDuration elapses.
+		require.Error(t, recipient.Consume(t.Context(), newToken, &got))
+	})
+
+	t.Run("Enabled", func(t *testing.T) {
+		t.Parallel()
+
+		var rotated atomic.Bool
+
+		recipient := newConsumer(t, &rotated, true)
+
+		var got map[string]any
+
+		require.NoError(t, recipient.Consume(t.Context(), oldToken, &got))
+
+		rotated.Store(true)
+
+		got = nil
+
+		// The header names a key id the cached set does not hold, so the source is asked for it
+		// directly and re-fetches — inside the same request, without waiting out the cache.
+		require.NoError(t, recipient.Consume(t.Context(), newToken, &got))
+		require.Equal(t, claims, got)
+	})
 }
