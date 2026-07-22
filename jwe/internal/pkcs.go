@@ -16,8 +16,8 @@ func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
 }
 
 // PKCS7UnPadding strips the PKCS#7 padding that PKCS7Padding added, returning the original
-// plaintext. It validates the padding rather than trusting the last byte: an out-of-range or
-// inconsistent pad length would otherwise slice out of bounds and panic.
+// plaintext. It validates the pad length and every pad byte, so an out-of-range or inconsistent
+// length fails instead of slicing out of bounds.
 func PKCS7UnPadding(plaintText []byte) ([]byte, error) {
 	length := len(plaintText)
 	if length == 0 {

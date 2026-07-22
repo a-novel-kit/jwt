@@ -15,6 +15,9 @@ import (
 // An RSAPreset describes how to generate or match an RSA JSON Web Key: the algorithm it is bound
 // to, whether the key is used for signatures or key management, the operations allowed on each
 // half of the pair, and the modulus size in bits.
+//
+// A modulus of n bits signs into ⌈n/8⌉ bytes, which is what pairs the 2048-, 3072-, and 4096-bit
+// signature presets with the SHA-256, SHA-384, and SHA-512 variants.
 type RSAPreset struct {
 	Alg           jwa.Alg
 	Use           jwa.Use
@@ -30,39 +33,21 @@ var (
 		Use:           jwa.UseSig,
 		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
-		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
-		// to the next integer.
-		//
-		// ⌈2048/8⌉=256 bytes.
-		//
-		// https://crypto.stackexchange.com/a/95882
-		KeySize: 2048,
+		KeySize:       2048,
 	}
 	RS384 = RSAPreset{
 		Alg:           jwa.RS384,
 		Use:           jwa.UseSig,
 		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
-		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
-		// to the next integer.
-		//
-		// ⌈3072/8⌉=384 bytes.
-		//
-		// https://crypto.stackexchange.com/a/95882
-		KeySize: 3072,
+		KeySize:       3072,
 	}
 	RS512 = RSAPreset{
 		Alg:           jwa.RS512,
 		Use:           jwa.UseSig,
 		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
-		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
-		// to the next integer.
-		//
-		// ⌈4096/8⌉=512 bytes.
-		//
-		// https://crypto.stackexchange.com/a/95882
-		KeySize: 4096,
+		KeySize:       4096,
 	}
 
 	PS256 = RSAPreset{
@@ -70,39 +55,21 @@ var (
 		Use:           jwa.UseSig,
 		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
-		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
-		// to the next integer.
-		//
-		// ⌈2048/8⌉=256 bytes.
-		//
-		// https://crypto.stackexchange.com/a/95882
-		KeySize: 2048,
+		KeySize:       2048,
 	}
 	PS384 = RSAPreset{
 		Alg:           jwa.PS384,
 		Use:           jwa.UseSig,
 		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
-		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
-		// to the next integer.
-		//
-		// ⌈3072/8⌉=384 bytes.
-		//
-		// https://crypto.stackexchange.com/a/95882
-		KeySize: 3072,
+		KeySize:       3072,
 	}
 	PS512 = RSAPreset{
 		Alg:           jwa.PS512,
 		Use:           jwa.UseSig,
 		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
-		// The signature size (in bytes, before re-encoding as text) is the key size (in bit), divided by 8 and rounded up
-		// to the next integer.
-		//
-		// ⌈4096/8⌉=512 bytes.
-		//
-		// https://crypto.stackexchange.com/a/95882
-		KeySize: 4096,
+		KeySize:       4096,
 	}
 )
 

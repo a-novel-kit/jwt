@@ -11,9 +11,8 @@ import (
 )
 
 // DefaultMaxTokenBytes bounds the size of an untrusted token Consume will parse when the
-// RecipientConfig does not set a limit. It is deliberately generous — even a JWE carrying an
-// embedded certificate chain stays well under it — while capping the work an attacker can force
-// with an oversized input.
+// RecipientConfig does not set a limit. It caps the work an oversized input can force while staying
+// well clear of a legitimate token, down to a JWE carrying an embedded certificate chain.
 const DefaultMaxTokenBytes = 1 << 18 // 256 KiB.
 
 // ErrTokenTooLarge is returned by Consume when a token exceeds the configured size limit.
@@ -52,8 +51,8 @@ func NewRecipient(config RecipientConfig) *Recipient {
 		config.MaxTokenBytes = DefaultMaxTokenBytes
 	}
 
-	// Resolve the default here rather than lazily in Consume: a Recipient is built once and shared
-	// across goroutines, so writing config on first use would be a data race.
+	// A Recipient is built once and shared across goroutines, so the default is resolved here; a
+	// lazy write from Consume would race.
 	if config.Deserializer == nil {
 		config.Deserializer = json.Unmarshal
 	}
@@ -67,7 +66,7 @@ func NewRecipient(config RecipientConfig) *Recipient {
 // the first that recognizes the token, and fails if none do.
 func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst any) error {
 	if len(rawToken) > recipient.config.MaxTokenBytes {
-		// Only lengths in the message — never the token itself (a bearer credential).
+		// The token is a bearer credential; the message carries lengths only.
 		return fmt.Errorf(
 			"(Recipient.Consume) %w: %d bytes exceeds limit %d",
 			ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes,
@@ -92,7 +91,7 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 	}
 
 	// A header segment of JSON "null" unmarshals into a nil pointer without error; reject it before
-	// dereferencing rather than panicking on untrusted input.
+	// anything dereferences it.
 	if header == nil {
 		return fmt.Errorf("(Recipient.Consume) %w: null header", ErrUnsupportedTokenFormat)
 	}
@@ -129,17 +128,16 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 	return fmt.Errorf("(Recipient.Consume) %w: no compatible plugin found", ErrMismatchRecipientPlugin)
 }
 
-// DecodeUnverified decodes rawToken's claims into dst WITHOUT verifying its signature. The result is
-// therefore untrusted — anyone can forge such a token — so never base a trust decision on it. Use it
-// only to read a token whose authenticity is already established by other means: one just minted
-// locally, or one a separate step has already verified. To verify and decode, use
-// [Recipient.Consume].
+// DecodeUnverified decodes rawToken's claims into dst without verifying its signature. The result is
+// untrusted and must never carry a trust decision. Use it only on a token whose authenticity is
+// already established — one just minted locally, or one a separate step has verified. To verify and
+// decode, use [Recipient.Consume].
 //
 // It reads the payload of a signed (JWS) token; it does not decrypt JWE. The size limit still
 // applies, but no plugin runs and the header's crit list is not enforced.
 func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 	if len(rawToken) > recipient.config.MaxTokenBytes {
-		// Only lengths in the message — never the token itself (a bearer credential).
+		// The token is a bearer credential; the message carries lengths only.
 		return fmt.Errorf(
 			"(Recipient.DecodeUnverified) %w: %d bytes exceeds limit %d",
 			ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes,
@@ -151,9 +149,8 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 		return fmt.Errorf("(Recipient.DecodeUnverified) decode token: %w", err)
 	}
 
-	// Confirm the input is a structurally valid JWS: the header must be base64url-encoded JSON, not
-	// null or garbage. Signature and crit are deliberately not checked — that is what "unverified"
-	// means — but a non-JWT input should not silently yield claims.
+	// Confirm the input is a structurally valid JWS — the header must be base64url-encoded, non-null
+	// JSON — so a non-JWT input cannot silently yield claims.
 	decodedHeader, err := base64.RawURLEncoding.DecodeString(token.Header)
 	if err != nil {
 		return fmt.Errorf("(Recipient.DecodeUnverified) decode header: %w", err)

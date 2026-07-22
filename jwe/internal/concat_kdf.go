@@ -17,7 +17,6 @@ func ConcatKDF(
 ) []byte {
 	buffer := make([]byte, 4+len(z)+len(algID)+len(pUInfo)+len(pVInfo)+len(supPubInfo)+len(supPrivInfo))
 
-	// Concatenate all inputs.
 	n := 0
 	n += copy(buffer[n:], []byte{0, 0, 0, 1})
 	n += copy(buffer[n:], z)
@@ -30,9 +29,9 @@ func ConcatKDF(
 	h := hash.New()
 	output := make([]byte, 0, keyDataLen)
 
-	// The 32-bit block counter (the buffer's first four bytes) MUST increment each round. Left
-	// fixed, every hash block would be identical and any key longer than one hash output would
-	// repeat — for AES-CBC-HMAC that collapses the MAC and ENC key halves into the same value.
+	// The 32-bit block counter (the buffer's first four bytes) increments each round. Left fixed,
+	// every hash block would be identical and any key longer than one hash output would repeat —
+	// for AES-CBC-HMAC that collapses the MAC and ENC key halves into the same value.
 	for round := uint32(1); len(output) < keyDataLen; round++ {
 		binary.BigEndian.PutUint32(buffer[:4], round)
 		h.Write(buffer)

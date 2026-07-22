@@ -162,7 +162,6 @@ func TestRSASourcedSigner(t *testing.T) {
 			token, err := producer.Issue(t.Context(), producerClaims, nil)
 			require.NoError(t, err)
 
-			// OK.
 			t.Run("TryFirstKey", func(t *testing.T) {
 				t.Parallel()
 
@@ -176,7 +175,6 @@ func TestRSASourcedSigner(t *testing.T) {
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
-			// KO.
 			t.Run("TrySecondKey", func(t *testing.T) {
 				t.Parallel()
 
@@ -248,7 +246,6 @@ func TestRSASourcedVerifier(t *testing.T) {
 			token, err := producer.Issue(t.Context(), producerClaims, nil)
 			require.NoError(t, err)
 
-			// OK.
 			t.Run("SigningKeyFirst", func(t *testing.T) {
 				t.Parallel()
 
@@ -262,7 +259,6 @@ func TestRSASourcedVerifier(t *testing.T) {
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
-			// OK.
 			t.Run("SigningKeySecond", func(t *testing.T) {
 				t.Parallel()
 
@@ -284,7 +280,6 @@ func TestRSASourcedVerifier(t *testing.T) {
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
-			// KO.
 			t.Run("KeyMissing", func(t *testing.T) {
 				t.Parallel()
 
@@ -336,8 +331,8 @@ func TestRSACrossSchemeRejected(t *testing.T) {
 
 	var dst map[string]any
 
-	// A PKCS1v15 (RS*) token must not verify with a PSS (PS*) verifier, and vice versa — each verifier
-	// is pinned to its preset's alg, so the two schemes never cross.
+	// Each verifier is pinned to its preset's alg, so a PKCS1v15 (RS*) token and a PSS (PS*) verifier
+	// never match.
 	require.Error(t, psVerifier.Consume(t.Context(), rsToken, &dst))
 	require.Error(t, rsVerifier.Consume(t.Context(), psToken, &dst))
 
@@ -352,8 +347,7 @@ func TestRSAUnknownAlgorithmRejected(t *testing.T) {
 	privateKey, _, err := jwk.GenerateRSA(jwk.RS256)
 	require.NoError(t, err)
 
-	// A hand-built preset whose algorithm is neither RS* nor PS* must fail loudly at signing, not
-	// silently sign under PKCS1v15 with a bogus header alg.
+	// A hand-built preset whose algorithm is neither RS* nor PS* fails at signing.
 	signer := jws.NewRSASigner(privateKey.Key(), jws.RSAPreset{Hash: crypto.SHA256, Alg: jwa.Alg("RS999")})
 	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{signer}})
 

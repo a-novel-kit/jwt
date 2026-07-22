@@ -15,9 +15,8 @@ import (
 )
 
 // ECDHKeyAgrPreset binds a content-encryption algorithm to its derived-key length
-// for ECDH-ES key agreement. Each preset targets one specific encryption and is
-// not interchangeable. Use one of the predefined presets rather than building one
-// by hand.
+// for ECDH-ES key agreement. Use one of the predefined presets, each of which
+// targets one specific encryption.
 type ECDHKeyAgrPreset struct {
 	Enc    jwa.Enc
 	Alg    jwa.Alg
@@ -66,7 +65,7 @@ type ECDHKeyAgrManagerConfig struct {
 }
 
 // ECDHKeyAgrManager implements jwe.CEKManager for ECDH-ES key agreement: it derives
-// the content encryption key from a shared secret instead of wrapping one into the
+// the content encryption key from a shared secret, so nothing is wrapped into the
 // token. See RFC 7518 section 4.6.
 type ECDHKeyAgrManager struct {
 	config ECDHKeyAgrManagerConfig
@@ -80,9 +79,8 @@ type ECDHKeyAgrManager struct {
 // content-encryption algorithm and derived-key length; use one of the
 // ECDHKeyAgrPreset values (for example ECDHESA128CBC).
 //
-// The preset is bound to a specific jwe encryption and is not interchangeable:
-// pick the encryption whose name matches the preset (for example ECDHESA128CBC
-// pairs with jwe.A128CBCHS256).
+// Pick the encryption whose name matches the preset: ECDHESA128CBC pairs with
+// jwe.A128CBCHS256.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
 func NewECDHKeyAgrManager(config *ECDHKeyAgrManagerConfig, preset ECDHKeyAgrPreset) *ECDHKeyAgrManager {
@@ -159,9 +157,8 @@ type ECDHKeyAgrDecoder struct {
 // used to encrypt the token; use one of the ECDHKeyAgrPreset values (for example
 // ECDHESA128CBC).
 //
-// The preset is bound to a specific jwe encryption and is not interchangeable:
-// pick the encryption whose name matches the preset (for example ECDHESA128CBC
-// pairs with jwe.A128CBCHS256).
+// Pick the encryption whose name matches the preset: ECDHESA128CBC pairs with
+// jwe.A128CBCHS256.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.6
 func NewECDHKeyAgrDecoder(config *ECDHKeyAgrDecoderConfig, preset ECDHKeyAgrPreset) *ECDHKeyAgrDecoder {

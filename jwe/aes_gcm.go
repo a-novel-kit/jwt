@@ -13,7 +13,7 @@ import (
 )
 
 // AESGCMPreset holds the parameters of one AES-GCM variant: the enc identifier and
-// the key length. Use one of the package presets rather than assembling this by hand.
+// the key length. Use one of the package presets.
 type AESGCMPreset struct {
 	Enc    jwa.Enc
 	KeyLen int
@@ -77,7 +77,7 @@ func (enc *AESGCMEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 		return nil, fmt.Errorf("(AESGCMEncryption.Header) set key derivation header: %w", err)
 	}
 
-	// A CEKManager may pin the token to a specific enc; honor that pin rather than override it.
+	// A CEKManager may pin the token to a specific enc; honor that pin.
 	if header.Enc != "" && header.Enc != enc.enc {
 		return nil, fmt.Errorf(
 			"(AESGCMEncryption.Header) %w: cek manager is incompatible with the current encryption algorithm: "+
@@ -272,8 +272,8 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 
 	plainText, err := aesgcm.Open(nil, iv, append(cipherText, tag...), aad(token.Header, dec.additionalData))
 	if err != nil {
-		// An authenticated-decryption failure is the GCM analogue of a bad HMAC tag; surface the
-		// same sentinel the CBC path uses so callers can treat auth failures uniformly.
+		// An authenticated-decryption failure is the GCM analogue of a bad HMAC tag, so it surfaces
+		// the same sentinel as the CBC path.
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: %w", ErrInvalidSecret, err)
 	}
 

@@ -3,8 +3,7 @@ package jwek
 import "github.com/a-novel-kit/jwt/v2/jwe"
 
 // Compile-time checks that every key manager and decoder satisfies the jwe.CEKManager /
-// jwe.CEKDecoder contract. This is exactly the guard that would have caught DirectKeyManager's
-// signature drift before it shipped.
+// jwe.CEKDecoder contract, so a drifting method signature fails the build.
 var (
 	_ jwe.CEKManager = (*AESGCMKWManager)(nil)
 	_ jwe.CEKManager = (*RSAOAEPKeyEncManager)(nil)

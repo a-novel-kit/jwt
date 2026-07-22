@@ -145,11 +145,10 @@ func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 // encodeCoordinate renders an affine coordinate at the curve's full octet length.
 //
 // RFC 7518 requires x and y to be "the full size of a coordinate for the curve"
-// (https://datatracker.ietf.org/doc/html/rfc7518#section-6.2.1.2), but [big.Int.Bytes] returns the
-// minimal encoding and drops leading zero bytes — which roughly one coordinate in 256 has. A short
-// value is rejected outright by spec-compliant consumers (WebCrypto importKey, jose), while
-// [DecodeEC] reconstructs through [big.Int.SetBytes] and accepts any length, so the defect never
-// surfaces from Go: the package round-trips its own malformed output perfectly.
+// (https://datatracker.ietf.org/doc/html/rfc7518#section-6.2.1.2), while [big.Int.Bytes] drops
+// leading zero bytes — which roughly one coordinate in 256 has. Spec-compliant consumers such as
+// WebCrypto importKey reject the short value, and only they do: [DecodeEC] reads through
+// [big.Int.SetBytes], which accepts any length.
 //
 // FillBytes panics on a value too large for the buffer; callers pass coordinates read off a parsed
 // key, which are on the curve and therefore fit by construction.

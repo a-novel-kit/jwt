@@ -3,8 +3,7 @@ package jws
 import "github.com/a-novel-kit/jwt/v2"
 
 // Compile-time checks that every signer and verifier satisfies the plugin contract it is wired in
-// as. A signature drift is then caught at build time rather than at a call site (or, worse, only
-// once a caller tries to use it — as happened for a CEK manager before these guards existed).
+// as, so a drifting method signature fails the build instead of a call site.
 var (
 	_ jwt.ProducerPlugin = (*HMACSigner)(nil)
 	_ jwt.ProducerPlugin = (*SourcedHMACSigner)(nil)

@@ -154,7 +154,6 @@ func TestECDSASourcedSigner(t *testing.T) {
 			token, err := producer.Issue(t.Context(), producerClaims, nil)
 			require.NoError(t, err)
 
-			// OK.
 			t.Run("TryFirstKey", func(t *testing.T) {
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
 					Plugins: []jwt.RecipientPlugin{jws.NewECDSAVerifier(publicKeys[0].Key(), testCase.preset)},
@@ -166,7 +165,6 @@ func TestECDSASourcedSigner(t *testing.T) {
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
-			// KO.
 			t.Run("TrySecondKey", func(t *testing.T) {
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
 					Plugins: []jwt.RecipientPlugin{jws.NewECDSAVerifier(publicKeys[1].Key(), testCase.preset)},
@@ -236,7 +234,6 @@ func TestECDSASourcedVerifier(t *testing.T) {
 			token, err := producer.Issue(t.Context(), producerClaims, nil)
 			require.NoError(t, err)
 
-			// OK.
 			t.Run("SigningKeyFirst", func(t *testing.T) {
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
 					Plugins: []jwt.RecipientPlugin{jws.NewSourcedECDSAVerifier(source, testCase.preset)},
@@ -248,7 +245,6 @@ func TestECDSASourcedVerifier(t *testing.T) {
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
-			// OK.
 			t.Run("SigningKeySecond", func(t *testing.T) {
 				_, newPublicKey, err := jwk.GenerateECDSA(testCase.keyPreset)
 				require.NoError(t, err)
@@ -268,7 +264,6 @@ func TestECDSASourcedVerifier(t *testing.T) {
 				require.Equal(t, producerClaims, recipientClaims)
 			})
 
-			// KO.
 			t.Run("KeyMissing", func(t *testing.T) {
 				_, newPublicKey, err := jwk.GenerateECDSA(testCase.keyPreset)
 				require.NoError(t, err)

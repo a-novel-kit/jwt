@@ -13,7 +13,7 @@ import (
 )
 
 // An HMACPreset bundles the hash and algorithm identifier for one HMAC signing scheme. Pass one of
-// the exported presets to the HMAC constructors rather than assembling the fields by hand.
+// the exported presets to the HMAC constructors.
 type HMACPreset struct {
 	Hash crypto.Hash
 	Alg  jwa.Alg
@@ -76,8 +76,8 @@ func (signer *HMACSigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, 
 }
 
 func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw string) (string, error) {
-	// Re-check on the signing path too: a sourced signer re-resolves its key here without going
-	// back through Header, so this is the only guard that actually gates every signature.
+	// A sourced signer re-resolves its key here without going back through Header, so this is the
+	// guard that gates every signature.
 	if len(signer.secretKey) < signer.hash.Size() {
 		return "", fmt.Errorf(
 			"(HMACSigner.Transform) %w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
@@ -182,8 +182,7 @@ func sourcedHMACKey(alg jwa.Alg) keyDecoder[[]byte] {
 }
 
 // A SourcedHMACSigner signs like an [HMACSigner] but resolves its secret from a [jwk.Source] at each
-// call, so the plugin follows key rotation instead of pinning one secret. Build one with
-// [NewSourcedHMACSigner].
+// call, so the plugin follows key rotation. Build one with [NewSourcedHMACSigner].
 type SourcedHMACSigner struct {
 	source *jwk.Source
 	preset HMACPreset

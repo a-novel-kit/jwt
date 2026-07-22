@@ -15,9 +15,8 @@ import (
 )
 
 // An RSAPreset bundles the hash and algorithm identifier for one RSA signing scheme. Pass one of the
-// exported presets to the RSA constructors rather than assembling the fields by hand: the RS* presets
-// use RSASSA-PKCS1-v1_5, the PS* presets use RSASSA-PSS. The algorithm alone determines the scheme,
-// so there is no separate field to keep consistent. Both run on the same RSA keys.
+// exported presets to the RSA constructors: the RS* presets use RSASSA-PKCS1-v1_5, the PS* presets
+// use RSASSA-PSS, and both run on the same RSA keys.
 type RSAPreset struct {
 	Hash crypto.Hash
 	Alg  jwa.Alg
@@ -38,9 +37,8 @@ var (
 	PS512 = RSAPreset{Hash: crypto.SHA512, Alg: jwa.PS512}
 )
 
-// algIsPSS reports whether alg denotes RSASSA-PSS rather than RSASSA-PKCS1-v1_5. It errors for any
-// algorithm that is not an RSA signing algorithm, so a preset assembled by hand with an alg that
-// names no real RSA scheme fails loudly instead of signing under a mismatched one.
+// algIsPSS reports whether alg selects RSASSA-PSS. It returns [ErrUnsupportedAlgorithm] for anything
+// that is not an RS* or PS* algorithm, so a hand-assembled preset fails before it signs.
 func algIsPSS(alg jwa.Alg) (bool, error) {
 	switch alg {
 	case jwa.RS256, jwa.RS384, jwa.RS512:
@@ -90,8 +88,8 @@ func (signer *RSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, e
 }
 
 func (signer *RSASigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw string) (string, error) {
-	// Re-check on the signing path too: a sourced signer re-resolves its key here without going
-	// back through Header, so this is the only guard that actually gates every signature.
+	// A sourced signer re-resolves its key here without going back through Header, so this is the
+	// guard that gates every signature.
 	err := checkRSAPrivateKey(signer.secretKey)
 	if err != nil {
 		return "", fmt.Errorf("(RSASigner.Transform) %w", err)
@@ -221,8 +219,7 @@ func (verifier *RSAVerifier) verify(digest, sig []byte) error {
 }
 
 // sourcedRSAPublic decodes a raw JSON Web Key into an RSA public key for verification, matching only
-// signature keys bound to alg and skipping any that carry private material (signing keys, which a
-// verifier does not use). It backs the sourced RSA verifiers for every RS*/PS* alg.
+// signature keys bound to alg and skipping any that carry private material.
 func sourcedRSAPublic(alg jwa.Alg) keyDecoder[*rsa.PublicKey] {
 	preset := jwk.RSAPreset{
 		Alg:           alg,
@@ -274,8 +271,7 @@ func sourcedRSAPrivate(alg jwa.Alg) keyDecoder[*rsa.PrivateKey] {
 }
 
 // A SourcedRSASigner signs like an [RSASigner] but resolves its key from a [jwk.Source] at each
-// call, so the plugin follows key rotation instead of pinning one key. Build one with
-// [NewSourcedRSASigner].
+// call, so the plugin follows key rotation. Build one with [NewSourcedRSASigner].
 type SourcedRSASigner struct {
 	source *jwk.Source
 	preset RSAPreset

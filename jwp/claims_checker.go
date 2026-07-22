@@ -44,7 +44,7 @@ func NewClaimsCheckTarget(target jwt.TargetConfig) *ClaimsCheckTarget {
 func (claimsCheck *ClaimsCheckTarget) CheckClaims(claims *jwa.Claims) error {
 	// RFC 7519 §4.1.3: the recipient identifies with a value in the token's audience. The check
 	// passes when any configured audience appears in the token's aud; an empty target audience opts
-	// out of the check (matching go-jose / golang-jwt).
+	// out of the check.
 	if len(claimsCheck.target.Audience) > 0 && !audienceContainsAny(claims.Aud, claimsCheck.target.Audience) {
 		return fmt.Errorf(
 			"invalid audience %v, expected one of %v",
@@ -195,8 +195,8 @@ func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 		}
 	}
 
-	// Fall back to json.Unmarshal via a local variable, never by writing config: a first-call write
-	// to a shared checker would be a data race, and a zero-value checker must still work.
+	// Resolve the fallback into a local, so a zero-value checker works and concurrent callers never
+	// write the shared config.
 	deserialize := checker.config.Deserializer
 	if deserialize == nil {
 		deserialize = json.Unmarshal

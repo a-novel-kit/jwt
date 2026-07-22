@@ -339,8 +339,8 @@ func TestAESGCMHeaderBound(t *testing.T) {
 	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
 	require.NoError(t, err)
 
-	// The protected header is bound as AAD now. Swapping it for a different (still enc-valid) header
-	// must fail decryption.
+	// The protected header is bound as AAD, so swapping it for a different but still enc-valid header
+	// fails decryption.
 	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
 	require.NoError(t, err)
 
@@ -353,6 +353,6 @@ func TestAESGCMHeaderBound(t *testing.T) {
 
 	var claims map[string]any
 
-	// The tamper fails as an authenticated-decryption error, not an unrelated parse failure.
+	// The tamper surfaces as an authenticated-decryption error.
 	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidSecret)
 }

@@ -16,8 +16,7 @@ import (
 )
 
 // PBES2KeyEncKWPreset pairs a JWA algorithm identifier with the hash and key size
-// used to derive the wrap key from the password. Use one of the predefined presets
-// rather than building one by hand.
+// used to derive the wrap key from the password. Use one of the predefined presets.
 type PBES2KeyEncKWPreset struct {
 	Alg     jwa.Alg
 	Hash    crypto.Hash
@@ -91,8 +90,8 @@ func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JW
 		return nil, fmt.Errorf("(PBES2KeyEncKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
-	// A fresh salt per token widens the key space so the same password never
-	// derives the same wrap key twice. It travels in the header for the recipient.
+	// A fresh salt per token widens the key space, so one password never derives the
+	// same wrap key twice. It travels in the header for the recipient.
 	salt := make([]byte, manager.config.SaltSize)
 
 	_, err := rand.Read(salt)
@@ -137,7 +136,7 @@ func (manager *PBES2KeyEncKWManager) EncryptCEK(_ context.Context, header *jwa.J
 
 // DefaultMaxPBES2Iterations caps the PBKDF2 iteration count (p2c) a decoder will run when the
 // config leaves MaxIterations unset. p2c is attacker-controlled in the token header, so an
-// unbounded value is a CPU-exhaustion DoS; this matches the 1,000,000 ceiling go-jose uses.
+// unbounded value is a CPU-exhaustion vector.
 const DefaultMaxPBES2Iterations = 1_000_000
 
 // PBES2KeyEncKWDecoderConfig holds the password used to re-derive the wrap key and
@@ -198,8 +197,8 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 		)
 	}
 
-	// p2c is attacker-controlled; run PBKDF2 only within a sane bound, or a single small token can
-	// pin a core for billions of iterations.
+	// Bound the attacker-controlled p2c before PBKDF2 runs; a small token could otherwise pin a core
+	// for billions of iterations.
 	if header.P2C <= 0 || header.P2C > decoder.maxIterations {
 		return nil, fmt.Errorf(
 			"(PBES2KeyEncKWDecoder.ComputeCEK) %w: p2c %d out of range (1..%d)",
