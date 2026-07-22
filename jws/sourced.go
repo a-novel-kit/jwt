@@ -27,24 +27,16 @@ func verifyFromSource[K any](
 	decode keyDecoder[K],
 	newVerifier func(key K) jwt.RecipientPlugin,
 ) ([]byte, error) {
-	keys, err := source.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("(verifyFromSource) list keys: %w", err)
-	}
-
-	for _, candidate := range keys {
-		// A token that names a KID can only match that key; skip the rest.
-		if header.KID != "" && candidate.KID != header.KID {
-			continue
-		}
-
+	// try reports whether candidate verified the token. A nil payload with a nil error means the
+	// candidate was not this verifier's to use, or did not verify — either way, keep looking.
+	try := func(candidate *jwa.JWK) ([]byte, error) {
 		key, decodeErr := decode(candidate)
 		if decodeErr != nil {
 			// A key of another algorithm family is not this verifier's to use — skip it. But a key of
 			// the right family that fails to decode (malformed material) is a real error to surface,
 			// not one to mask as an invalid signature.
 			if errors.Is(decodeErr, jwk.ErrJWKMismatch) {
-				continue
+				return nil, nil
 			}
 
 			return nil, fmt.Errorf("(verifyFromSource) decode key: %w", decodeErr)
@@ -58,6 +50,62 @@ func verifyFromSource[K any](
 		if !errors.Is(verifyErr, ErrInvalidSignature) {
 			return nil, fmt.Errorf("(verifyFromSource) %w", verifyErr)
 		}
+
+		return nil, nil
+	}
+
+	keys, err := source.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("(verifyFromSource) list keys: %w", err)
+	}
+
+	named := false
+
+	for _, candidate := range keys {
+		// A token that names a KID can only match that key; skip the rest.
+		if header.KID != "" && candidate.KID != header.KID {
+			continue
+		}
+
+		named = true
+
+		payload, tryErr := try(candidate)
+		if tryErr != nil {
+			return nil, tryErr
+		}
+
+		if payload != nil {
+			return payload, nil
+		}
+	}
+
+	// Every candidate the cached set offered has been tried.
+	if header.KID == "" || named {
+		return nil, fmt.Errorf("(verifyFromSource) %w", ErrInvalidSignature)
+	}
+
+	// The token names a key id the cached set does not hold. That is what a rotation looks like from
+	// here — the issuer has moved on and this set predates it — so ask the source for the id directly
+	// rather than concluding the signature is invalid. The source decides whether to go upstream;
+	// with RefreshOnUnknownKeyID unset this is a cache scan that changes nothing.
+	candidate, err := source.Get(ctx, header.KID)
+	if err != nil {
+		// Still unknown after the source has had its say: the signature is unverifiable, which is
+		// what the caller needs to hear.
+		if errors.Is(err, jwk.ErrKeyNotFound) {
+			return nil, fmt.Errorf("(verifyFromSource) %w", ErrInvalidSignature)
+		}
+
+		return nil, fmt.Errorf("(verifyFromSource) get key: %w", err)
+	}
+
+	payload, err := try(candidate)
+	if err != nil {
+		return nil, err
+	}
+
+	if payload != nil {
+		return payload, nil
 	}
 
 	return nil, fmt.Errorf("(verifyFromSource) %w", ErrInvalidSignature)
