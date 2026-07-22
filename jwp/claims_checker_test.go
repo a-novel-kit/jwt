@@ -247,6 +247,47 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwp.ErrInvalidClaims,
 		},
 		{
+			// A negative exp used to satisfy both gates at once: not zero, so it
+			// read as present, and not positive, so it was never compared against
+			// the clock. The token then never expired, requireExp included.
+			name: "Exp/Failure/Negative",
+
+			config: &jwp.ClaimsCheckerConfig{
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTimestamp(0, false),
+				},
+			},
+
+			raw: map[string]any{
+				"exp": -1,
+			},
+
+			dst: map[string]any{},
+
+			expect: map[string]any{},
+
+			expectErr: jwp.ErrInvalidClaims,
+		},
+		{
+			name: "Exp/Failure/NegativeRequired",
+
+			config: &jwp.ClaimsCheckerConfig{
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTimestamp(0, true),
+				},
+			},
+
+			raw: map[string]any{
+				"exp": -1,
+			},
+
+			dst: map[string]any{},
+
+			expect: map[string]any{},
+
+			expectErr: jwp.ErrInvalidClaims,
+		},
+		{
 			name: "CheckRaw/Success",
 
 			config: &jwp.ClaimsCheckerConfig{

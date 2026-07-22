@@ -101,15 +101,19 @@ func NewClaimsCheckTimestamp(leeway time.Duration, requireExp bool) *ClaimsCheck
 }
 
 func (claimsCheck *ClaimsCheckTimestamp) CheckClaims(claims *jwa.Claims) error {
+	// Absence of an expiry is Exp == 0, and any other value is a bound to check.
+	// Gating the check on Exp > 0 and the requirement on Exp == 0 left a
+	// negative Exp satisfying both: it is not zero, so it reads as present, and
+	// it is not positive, so it is never compared against the clock.
 	exp := time.Unix(claims.Exp, 0)
-	if claims.Exp > 0 && exp.Before(time.Now().Add(-claimsCheck.leeway)) {
+	if claims.Exp != 0 && exp.Before(time.Now().Add(-claimsCheck.leeway)) {
 		return fmt.Errorf(
 			"token expired at %s",
 			exp.String(),
 		)
 	}
 
-	if claimsCheck.requireExp && claims.Exp == 0 {
+	if claimsCheck.requireExp && claims.Exp <= 0 {
 		return errors.New("missing expiration date")
 	}
 
