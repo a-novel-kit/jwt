@@ -142,6 +142,52 @@ func TestMarshalPartialReservesUnsetMembers(t *testing.T) {
 	})
 }
 
+// An embedded field is reserved on the same terms encoding/json encodes it on,
+// which differ by what is embedded. The encoding is asserted first in each case,
+// so the rule is pinned against the encoder rather than against a reading of it.
+func TestMarshalPartialReservesEmbeddedMembers(t *testing.T) {
+	t.Parallel()
+
+	type Promoted struct {
+		Kid string `json:"kid,omitempty"`
+	}
+
+	type Named string
+
+	type hidden string
+
+	type Empty struct{}
+
+	type common struct {
+		Promoted // a struct: promotes kid
+		Named    // not a struct: encodes under its type name
+		hidden   // not a struct and unexported: encodes nothing
+		Empty    // a struct with nothing to promote
+	}
+
+	require.JSONEq(t, `{"Named":""}`, string(mustMarshal(t, common{hidden: "set"})),
+		"the encoder names an embedded non-struct after its type and drops an unexported one")
+
+	for _, name := range []string{"kid", "Named"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := internal.MarshalPartial(common{}, json.RawMessage(`{"`+name+`":"injected"}`))
+			require.ErrorIs(t, err, internal.ErrReservedMember)
+		})
+	}
+
+	t.Run("an embedded type that encodes nothing reserves nothing", func(t *testing.T) {
+		t.Parallel()
+
+		// Empty promotes no member and hidden encodes none, so neither type name
+		// is taken.
+		out, err := internal.MarshalPartial(common{}, json.RawMessage(`{"Empty":1,"hidden":2}`))
+		require.NoError(t, err)
+		require.JSONEq(t, `{"Named":"","Empty":1,"hidden":2}`, string(out))
+	})
+}
+
 func mustMarshal(t *testing.T, v any) []byte {
 	t.Helper()
 
