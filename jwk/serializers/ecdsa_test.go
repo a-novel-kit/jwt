@@ -49,13 +49,12 @@ func TestEC(t *testing.T) {
 }
 
 // TestECCoordinateWidth pins the RFC 7518 requirement that x and y are encoded at the curve's full
-// coordinate size rather than big.Int's minimal encoding.
+// coordinate size.
 //
-// The fixture is a P-256 key whose x coordinate happens to be below 2^248, so its minimal encoding
-// is 31 bytes instead of 32. Roughly one coordinate in 256 is like this, which is why a randomly
-// generated key — as the round-trip tests above use — almost never exercises the case, and why the
-// round trip could not catch it anyway: DecodeEC reads through big.Int.SetBytes, which accepts any
-// length. Only a consumer in another runtime rejects the short value.
+// The fixture is a P-256 key whose x coordinate falls below 2^248, so its minimal encoding is 31
+// bytes, one short of the fixed 32. Roughly one coordinate in 256 is like this, so a randomly
+// generated key almost never exercises it. DecodeEC reads through big.Int.SetBytes, which accepts
+// any length, so only a consumer in another runtime rejects the short value.
 func TestECCoordinateWidth(t *testing.T) {
 	t.Parallel()
 
@@ -70,10 +69,9 @@ func TestECCoordinateWidth(t *testing.T) {
 	privateKey, err := ecdsa.ParseRawPrivateKey(elliptic.P256(), rawKey)
 	require.NoError(t, err)
 
-	// Guard the fixture itself: if this ever stops holding, the test below silently stops testing
-	// anything and must be re-seeded with another short-coordinate key. Read through the
-	// uncompressed point (0x04 || X || Y, fixed width) rather than the deprecated PublicKey.X — a
-	// leading zero byte there is exactly what makes big.Int's minimal encoding come out short.
+	// Guard the fixture: once this stops holding, the test below tests nothing and must be re-seeded
+	// with another short-coordinate key. The check reads the uncompressed point (0x04 || X || Y,
+	// fixed width), whose leading zero byte is what makes big.Int's minimal encoding come out short.
 	rawPoint, err := privateKey.PublicKey.Bytes()
 	require.NoError(t, err)
 	require.Zero(t, rawPoint[1], "fixture no longer has a short x coordinate")

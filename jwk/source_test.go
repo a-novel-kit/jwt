@@ -156,7 +156,7 @@ func TestSourceRefresh(t *testing.T) {
 	}
 
 	fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-		// Copy the slice to prevent side effects.
+		// Copy the slice so a caller cannot mutate the fixture.
 		copied := make([]*jwa.JWK, len(keys))
 		copy(copied, keys)
 
@@ -216,8 +216,7 @@ func TestSourceNegativeCache(t *testing.T) {
 
 	source := jwk.NewSource(config)
 
-	// Two failing List calls: Fetch must run only once — the second is served from the negative
-	// cache instead of hammering the upstream.
+	// Two failing List calls: the second is served from the negative cache, so Fetch runs once.
 	_, err := source.List(t.Context())
 	require.ErrorIs(t, err, errFoo)
 
@@ -253,8 +252,8 @@ func TestSourceCaches(t *testing.T) {
 	require.Equal(t, 1, fetchCount)
 }
 
-// Tests for RefreshOnUnknownKeyID: a key id absent from the cache forcing a bounded fetch, so a
-// verifier finds a key the issuer has just rotated to instead of waiting out CacheDuration.
+// Tests for RefreshOnUnknownKeyID: a key id absent from the cache forces a bounded fetch, so a
+// verifier finds a key the issuer has just rotated to without waiting out CacheDuration.
 
 func TestSourceGetUnknownKeyIDDisabled(t *testing.T) {
 	t.Parallel()
@@ -273,8 +272,7 @@ func TestSourceGetUnknownKeyIDDisabled(t *testing.T) {
 	_, err := source.Get(t.Context(), "kid-1")
 	require.NoError(t, err)
 
-	// The default must be untouched: an unknown id reports the miss against the cached set without
-	// going upstream, however old that set is.
+	// By default an unknown id reports the miss against the cached set, however old that set is.
 	_, err = source.Get(t.Context(), "rotated-kid")
 	require.ErrorIs(t, err, jwk.ErrKeyNotFound)
 	require.EqualValues(t, 1, fetches.Load())
@@ -309,8 +307,7 @@ func TestSourceGetUnknownKeyIDRefreshes(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, fetches.Load())
 
-	// The issuer rotates. CacheDuration has not elapsed, so without this feature the new key stays
-	// invisible for an hour.
+	// The issuer rotates. CacheDuration has not elapsed, so only a forced fetch reveals the new key.
 	rotated.Store(true)
 
 	key, err := source.Get(t.Context(), "kid-2")
@@ -339,13 +336,9 @@ func TestSourceGetUnknownKeyIDRateLimited(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, fetches.Load())
 
-	// The trigger is attacker-controlled: whoever presents a token picks the key id. A flood of
-	// distinct forged ids must not amplify into a flood of upstream calls.
-	//
-	// Nothing at all goes upstream here, because the bound is the cache's age rather than a count:
-	// the set was just fetched, so no id is old enough to justify re-fetching. The amplification
-	// factor is zero for as long as the interval holds, and one fetch per interval after that —
-	// independent of how many distinct ids arrive.
+	// The trigger is attacker-controlled: whoever presents a token picks the key id. The bound is the
+	// cache's age, so a flood of distinct forged ids costs at most one upstream call per interval —
+	// and none at all here, where the set was just fetched.
 	for i := range 500 {
 		_, err = source.Get(t.Context(), "forged-"+strconv.Itoa(i))
 		require.ErrorIs(t, err, jwk.ErrKeyNotFound)
@@ -373,8 +366,8 @@ func TestSourceGetUnknownKeyIDConcurrent(t *testing.T) {
 	_, err := source.Get(t.Context(), "kid-1")
 	require.NoError(t, err)
 
-	// Same bound under contention: the age is re-checked under the write lock, so goroutines that
-	// queue behind one another find the cache young rather than each fetching in turn.
+	// Same bound under contention: the age is re-checked under the write lock, so goroutines queued
+	// behind one another find the cache young.
 	var wg sync.WaitGroup
 
 	for i := range 50 {
@@ -421,8 +414,8 @@ func TestSourceGetUnknownKeyIDHonoursBackoff(t *testing.T) {
 	require.ErrorIs(t, err, errUpstream)
 	require.EqualValues(t, 2, fetches.Load())
 
-	// An unknown key id must not be a way around the retry backoff — otherwise the negative caching
-	// that protects a broken upstream is bypassed by the one input an attacker controls.
+	// An unknown key id stays subject to the retry backoff, so the one attacker-controlled input
+	// cannot bypass the negative caching that protects a broken upstream.
 	_, err = source.Get(t.Context(), "forged-2")
 	require.ErrorIs(t, err, errUpstream)
 	require.EqualValues(t, 2, fetches.Load(), "the backoff must hold on the unknown-key-id path")

@@ -22,11 +22,11 @@ type HeaderDecoder struct{}
 
 // Decode implements [TokenDecoder].
 func (decoder *HeaderDecoder) Decode(source string) (string, error) {
-	// SplitN caps the slice regardless of how many separators the input carries, so a token made of
-	// many dots cannot force an unbounded allocation. We only need the first segment, so two suffices.
+	// SplitN caps the slice however many separators the input carries, so a dot-heavy token cannot
+	// force an unbounded allocation. Only the first segment is needed, so two suffices.
 	parts := strings.SplitN(source, ".", 2)
 	if len(parts) < 2 {
-		// The token is an untrusted bearer credential — never embed it in the error, only the shape.
+		// The token is an untrusted bearer credential; the error names the shape only.
 		return "", fmt.Errorf("(HeaderDecoder.Decode) %w: expected at least 2 segments", ErrUnsupportedTokenFormat)
 	}
 
@@ -54,8 +54,8 @@ type RawTokenDecoder struct{}
 
 // Decode implements [TokenDecoder].
 func (decoder *RawTokenDecoder) Decode(source string) (*RawToken, error) {
-	// Limit is segments+1: an over-segmented token still trips the length check below, while the cap
-	// stops a malicious dot-heavy input from allocating an unbounded slice.
+	// Limit is segments+1, so an over-segmented token still trips the length check below while the cap
+	// bounds the allocation a dot-heavy input can force.
 	parts := strings.SplitN(source, ".", 3)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("(RawTokenDecoder.Decode) %w: expected 2 segments", ErrUnsupportedTokenFormat)
@@ -140,8 +140,8 @@ func (decoder *EncryptedTokenDecoder) Decode(source string) (*EncryptedToken, er
 	}, nil
 }
 
-// DecodeToken runs decoder over source and returns the typed segments. It lets a caller decode a
-// token by passing the matching decoder rather than naming its segment type.
+// DecodeToken runs decoder over source and returns the typed segments, inferring the segment type
+// from the decoder passed in.
 func DecodeToken[R any](source string, decoder TokenDecoder[R]) (R, error) {
 	return decoder.Decode(source)
 }

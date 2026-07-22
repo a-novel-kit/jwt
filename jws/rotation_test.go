@@ -17,10 +17,10 @@ import (
 
 // TestSourcedMixedRotation is the acceptance test for the raw source: one Source serves keys of two
 // families, and a single recipient — configured with a verifier per accepted algorithm — verifies
-// tokens of both through the same code, routing on the header's alg. This is the shape an algorithm
-// rotation takes: keep verifiers for the old and new algorithms while both keys live, and the same
-// endpoint accepts either. A token whose algorithm has no configured verifier is rejected, so the
-// header can only route among the verifiers the operator pinned — never introduce a new algorithm.
+// tokens of both, routing on the header's alg. That is the shape of an algorithm rotation: keep
+// verifiers for the old and new algorithms while both keys live. A token whose algorithm has no
+// configured verifier is rejected, so the header routes only among the verifiers the operator
+// pinned.
 func TestSourcedMixedRotation(t *testing.T) {
 	t.Parallel()
 
@@ -115,13 +115,9 @@ func TestSourcedVerifierSurfacesMalformedKey(t *testing.T) {
 	require.NotErrorIs(t, err, jws.ErrInvalidSignature)
 }
 
-// TestSourcedRotationUnknownKeyID is the acceptance test for RefreshOnUnknownKeyID, and it exercises
-// the path the defect actually lived on.
-//
-// verifyFromSource reads through Source.List, not Source.Get, so a source that only re-fetched on a
-// Get miss would have changed nothing here: the verifier would still walk a stale set, skip every key
-// whose id does not match the header, and report an invalid signature. That is the failure this
-// closes — a wall of 401s, after an ordinary key rotation, that a restart cures.
+// TestSourcedRotationUnknownKeyID is the acceptance test for RefreshOnUnknownKeyID on the path a
+// recipient actually takes. verifyFromSource walks Source.List. The refresh has to reach List for
+// a rotated key to be found inside CacheDuration.
 func TestSourcedRotationUnknownKeyID(t *testing.T) {
 	t.Parallel()
 
@@ -133,7 +129,7 @@ func TestSourcedRotationUnknownKeyID(t *testing.T) {
 
 	claims := map[string]any{"foo": "bar"}
 
-	// The issuer signs with whichever key it currently holds, naming it in the header — which is what
+	// The issuer signs with whichever key it currently holds, naming it in the header, which is what
 	// gives the consumer an id to miss on.
 	issue := func(t *testing.T, key *jwk.Key[*rsa.PrivateKey]) string {
 		t.Helper()

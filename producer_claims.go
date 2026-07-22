@@ -24,7 +24,7 @@ type TargetConfig struct {
 	Subject string
 }
 
-// ClaimsProducerConfig is a configuration struct used to issue standardized claims.
+// ClaimsProducerConfig scopes and time-bounds the claims a producer stamps on every token.
 type ClaimsProducerConfig struct {
 	TargetConfig
 

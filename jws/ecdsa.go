@@ -16,8 +16,7 @@ import (
 )
 
 // An ECDSAPreset bundles the curve, hash, and algorithm identifier for one ECDSA signing scheme.
-// Pass one of the exported presets to the ECDSA constructors rather than assembling the fields by
-// hand.
+// Pass one of the exported presets to the ECDSA constructors.
 type ECDSAPreset struct {
 	Hash crypto.Hash
 	Alg  jwa.Alg
@@ -187,8 +186,7 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 }
 
 // sourcedECDSAPublic decodes a raw JSON Web Key into an ECDSA public key for verification, matching
-// only signature keys on the preset's algorithm and curve, skipping any that carry private material
-// (signing keys, which a verifier does not use).
+// only signature keys on the preset's algorithm and curve, skipping any that carry private material.
 func sourcedECDSAPublic(preset ECDSAPreset) keyDecoder[*ecdsa.PublicKey] {
 	jwkPreset := jwk.ECDSAPreset{Alg: preset.Alg, Curve: preset.Crv}
 
@@ -229,8 +227,7 @@ func sourcedECDSAPrivate(preset ECDSAPreset) keyDecoder[*ecdsa.PrivateKey] {
 }
 
 // A SourcedECDSASigner signs like an [ECDSASigner] but resolves its key from a [jwk.Source] at each
-// call, so the plugin follows key rotation instead of pinning one key. Build one with
-// [NewSourcedECDSASigner].
+// call, so the plugin follows key rotation. Build one with [NewSourcedECDSASigner].
 type SourcedECDSASigner struct {
 	source *jwk.Source
 	preset ECDSAPreset

@@ -22,9 +22,8 @@ var ErrUnsupportedAlgorithm = errors.New("unsupported algorithm")
 const minRSAKeyBits = 2048
 
 // checkRSAPublicKey fails closed unless key is a usable RSA public key: non-nil, with a positive
-// modulus of at least minRSAKeyBits. It rejects nil, non-positive (BitLen reads the absolute value,
-// so a negative modulus would otherwise pass), and sub-floor moduli, so no invalid key reaches
-// crypto/rsa where the failure would be later and less clear.
+// modulus of at least minRSAKeyBits. BitLen reads the absolute value, so the sign is checked
+// separately. A negative modulus clears the bit-length floor.
 func checkRSAPublicKey(key *rsa.PublicKey) error {
 	if key == nil || key.N == nil || key.N.Sign() <= 0 {
 		return fmt.Errorf("%w: RSA key has no valid modulus", jwt.ErrInvalidSecretKey)

@@ -14,7 +14,7 @@ import (
 )
 
 // RSAOAEPKeyEncPreset pairs a JWA algorithm identifier with the hash used by
-// RSAES-OAEP. Use one of the predefined presets rather than building one by hand.
+// RSAES-OAEP. Use one of the predefined presets.
 type RSAOAEPKeyEncPreset struct {
 	Alg  jwa.Alg
 	Hash hash.Hash

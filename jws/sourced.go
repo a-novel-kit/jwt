@@ -16,9 +16,8 @@ import (
 type keyDecoder[K any] func(key *jwa.JWK) (K, error)
 
 // verifyFromSource tries each key the source lists, honoring a KID hint, until one verifies the
-// token or every candidate fails. decode turns a raw key into this verifier's native type (erroring
-// on keys from another family, which are skipped); newVerifier builds a single-key verifier. It
-// centralizes the loop the Sourced*Verifier types all share.
+// token or every candidate fails. decode turns a raw key into this verifier's native type, erroring
+// on keys from another family, which are skipped; newVerifier builds a single-key verifier.
 func verifyFromSource[K any](
 	ctx context.Context,
 	source *jwk.Source,
@@ -27,14 +26,13 @@ func verifyFromSource[K any](
 	decode keyDecoder[K],
 	newVerifier func(key K) jwt.RecipientPlugin,
 ) ([]byte, error) {
-	// try reports whether candidate verified the token. A nil payload with a nil error means the
-	// candidate was not this verifier's to use, or did not verify — either way, keep looking.
+	// try verifies the token with candidate. A nil payload and a nil error means the candidate was
+	// not this verifier's to use, or did not verify — either way, keep looking.
 	try := func(candidate *jwa.JWK) ([]byte, error) {
 		key, decodeErr := decode(candidate)
 		if decodeErr != nil {
-			// A key of another algorithm family is not this verifier's to use — skip it. But a key of
-			// the right family that fails to decode (malformed material) is a real error to surface,
-			// not one to mask as an invalid signature.
+			// Skip a key of another algorithm family. A key of this family that fails to decode is
+			// malformed material, and surfaces as an error of its own.
 			if errors.Is(decodeErr, jwk.ErrJWKMismatch) {
 				return nil, nil
 			}
@@ -79,19 +77,16 @@ func verifyFromSource[K any](
 		}
 	}
 
-	// Every candidate the cached set offered has been tried.
 	if header.KID == "" || named {
 		return nil, fmt.Errorf("(verifyFromSource) %w", ErrInvalidSignature)
 	}
 
-	// The token names a key id the cached set does not hold. That is what a rotation looks like from
-	// here — the issuer has moved on and this set predates it — so ask the source for the id directly
-	// rather than concluding the signature is invalid. The source decides whether to go upstream;
-	// with RefreshOnUnknownKeyID unset this is a cache scan that changes nothing.
+	// The token names a key id the cached set does not hold, which is how a rotation looks from here,
+	// so ask the source for the id directly. The source decides whether to go upstream; with
+	// RefreshOnUnknownKeyID unset this is a cache scan that changes nothing.
 	candidate, err := source.Get(ctx, header.KID)
 	if err != nil {
-		// Still unknown after the source has had its say: the signature is unverifiable, which is
-		// what the caller needs to hear.
+		// Still unknown after the source has had its say, so the signature is unverifiable.
 		if errors.Is(err, jwk.ErrKeyNotFound) {
 			return nil, fmt.Errorf("(verifyFromSource) %w", ErrInvalidSignature)
 		}
@@ -112,10 +107,9 @@ func verifyFromSource[K any](
 }
 
 // signFromSource resolves the key a sourced signer should use: the one matching kid, or — when kid
-// is empty — the first key that decodes to this signer's family (skipping other families a mixed
-// source holds). It returns the decoded key and the resolved key's ID so the signer can stamp the
-// header. Selection never consults anything the token header carries beyond an explicit kid, so the
-// signer stays pinned to its own algorithm.
+// is empty — the first key that decodes to this signer's family. It returns the decoded key and the
+// resolved key's ID so the signer can stamp the header. Selection consults nothing in the token
+// header beyond an explicit kid, so the signer stays pinned to its own algorithm.
 func signFromSource[K any](
 	ctx context.Context,
 	source *jwk.Source,
@@ -146,8 +140,8 @@ func signFromSource[K any](
 	for _, candidate := range keys {
 		key, decodeErr := decode(candidate)
 		if decodeErr != nil {
-			// Skip keys of another family, but surface a malformed key of this family rather than
-			// silently falling back to a lower-priority one — keys are listed in priority order.
+			// Skip keys of another family. Keys are listed in priority order, and the first match is the
+			// one to sign with. A malformed key of this family is an error.
 			if errors.Is(decodeErr, jwk.ErrJWKMismatch) {
 				continue
 			}

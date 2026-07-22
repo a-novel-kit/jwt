@@ -82,15 +82,13 @@ func TestRecipient(t *testing.T) {
 
 			config: jwt.RecipientConfig{
 				Plugins: []jwt.RecipientPlugin{
-					// First plugin will return a mismatch error.
 					&fakeRecipientPlugin{payloadErr: jwt.ErrMismatchRecipientPlugin},
-					// Second plugin success!
 					&fakeRecipientPlugin{
 						payload: func(_ *jwa.JWH, _ string) []byte {
 							return []byte(`{"ping":"pong"}`)
 						},
 					},
-					// Third plugin fails, but because previous is successful, it won't be called.
+					// Never reached: the plugin above already consumed the token.
 					&fakeRecipientPlugin{payloadErr: errFoo},
 				},
 			},
@@ -105,9 +103,7 @@ func TestRecipient(t *testing.T) {
 
 			config: jwt.RecipientConfig{
 				Plugins: []jwt.RecipientPlugin{
-					// First plugin will return a mismatch error.
 					&fakeRecipientPlugin{payloadErr: jwt.ErrMismatchRecipientPlugin},
-					// Second plugin fails!
 					&fakeRecipientPlugin{payloadErr: errFoo},
 				},
 			},
@@ -123,10 +119,7 @@ func TestRecipient(t *testing.T) {
 
 			config: jwt.RecipientConfig{
 				Plugins: []jwt.RecipientPlugin{
-					// First plugin will return a mismatch error.
 					&fakeRecipientPlugin{payloadErr: jwt.ErrMismatchRecipientPlugin},
-					// Second plugin also mismatch.
-					// Third plugin fails, but because previous is successful, it won't be called.
 					&fakeRecipientPlugin{payloadErr: jwt.ErrMismatchRecipientPlugin},
 				},
 			},
@@ -169,8 +162,8 @@ func TestRecipientConcurrentConsume(t *testing.T) {
 	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
 	require.NoError(t, err)
 
-	// A Recipient with a defaulted deserializer is shared across goroutines. The default must be
-	// resolved at construction, not written on first Consume — the latter races under -race.
+	// A Recipient with a defaulted deserializer is shared across goroutines; the default is resolved
+	// at construction, so nothing writes config here.
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{})
 
 	var wg sync.WaitGroup

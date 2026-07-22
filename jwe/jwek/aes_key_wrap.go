@@ -13,7 +13,7 @@ import (
 // KeyWrapPreset pairs a JWA algorithm identifier with its wrap-key length. It is shared by the
 // AES-KW, AES-GCM-KW, and ECDH-ES+AES-KW key managers, which carry the same two fields; for ECDH-ES
 // the length is that of the key-wrapping key derived from the shared secret. Use one of the
-// predefined presets rather than building one by hand.
+// predefined presets.
 type KeyWrapPreset struct {
 	Alg    jwa.Alg
 	KeyLen int

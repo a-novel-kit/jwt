@@ -104,7 +104,6 @@ func TestED25519SourcedSigner(t *testing.T) {
 	token, err := producer.Issue(t.Context(), producerClaims, nil)
 	require.NoError(t, err)
 
-	// OK.
 	t.Run("TryFirstKey", func(t *testing.T) {
 		t.Parallel()
 
@@ -118,7 +117,6 @@ func TestED25519SourcedSigner(t *testing.T) {
 		require.Equal(t, producerClaims, recipientClaims)
 	})
 
-	// KO.
 	t.Run("TrySecondKey", func(t *testing.T) {
 		t.Parallel()
 
@@ -161,7 +159,6 @@ func TestED25519SourcedVerifier(t *testing.T) {
 	token, err := producer.Issue(t.Context(), producerClaims, nil)
 	require.NoError(t, err)
 
-	// OK.
 	t.Run("SigningKeyFirst", func(t *testing.T) {
 		t.Parallel()
 
@@ -175,7 +172,6 @@ func TestED25519SourcedVerifier(t *testing.T) {
 		require.Equal(t, producerClaims, recipientClaims)
 	})
 
-	// OK.
 	t.Run("SigningKeySecond", func(t *testing.T) {
 		t.Parallel()
 
@@ -197,7 +193,6 @@ func TestED25519SourcedVerifier(t *testing.T) {
 		require.Equal(t, producerClaims, recipientClaims)
 	})
 
-	// KO.
 	t.Run("KeyMissing", func(t *testing.T) {
 		t.Parallel()
 

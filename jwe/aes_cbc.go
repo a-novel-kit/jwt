@@ -18,7 +18,7 @@ import (
 
 // AESCBCPreset holds the parameters of one AES_CBC_HMAC_SHA2 variant: the enc
 // identifier, the HMAC hash, and the key and tag lengths. Use one of the package
-// presets rather than assembling this by hand.
+// presets.
 type AESCBCPreset struct {
 	Enc       jwa.Enc
 	Hash      crypto.Hash
@@ -107,7 +107,7 @@ func (enc *AESCBCEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 		return nil, fmt.Errorf("(AESCBCEncryption.Header) set key derivation header: %w", err)
 	}
 
-	// A CEKManager may pin the token to a specific enc; honor that pin rather than override it.
+	// A CEKManager may pin the token to a specific enc; honor that pin.
 	if header.Enc != "" && header.Enc != enc.enc {
 		return nil, fmt.Errorf(
 			"(AESCBCEncryption.Header) %w: cek manager is incompatible with the current encryption algorithm: "+
@@ -173,8 +173,8 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	al := make([]byte, 8)
 	binary.BigEndian.PutUint64(al, uint64(len(aadBytes)*8))
 
-	// The tag is HMAC over AAD, IV, ciphertext, and AL in that order, truncated to tagLength
-	// octets. The order is fixed by the spec.
+	// The tag is HMAC over AAD, IV, ciphertext, and AL in the order the spec fixes, truncated to
+	// tagLength octets.
 	authenticationTag := hmac.New(enc.hash.New, macKey)
 	authenticationTag.Write(aadBytes)
 	authenticationTag.Write(iv)

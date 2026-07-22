@@ -15,8 +15,8 @@ var ErrMissingCritHeader = errors.New("missing crit header value")
 var ErrUnsupportedCritHeader = errors.New("unsupported crit header")
 
 // reservedHeaderParams are the header parameters defined by the JWS/JWE/JWA/JWT specifications. A
-// producer MUST NOT mark any of them critical (RFC 7515 §4.1.11), so a recipient rejects a crit
-// list that names one — otherwise "crit" could be used to smuggle contradictory processing rules.
+// producer must not mark any of them critical (RFC 7515 §4.1.11), so a recipient rejects a crit list
+// that names one; otherwise "crit" could smuggle contradictory processing rules.
 var reservedHeaderParams = map[string]bool{
 	"alg": true, "jku": true, "jwk": true, "kid": true,
 	"x5u": true, "x5c": true, "x5t": true, "x5t#S256": true,
@@ -57,14 +57,14 @@ func CheckCrit(data json.RawMessage, crit []string) error {
 }
 
 // CheckCritUnderstood enforces the recipient's "crit" obligation (RFC 7515 §4.1.11): the token is
-// invalid unless every listed critical extension is understood by the recipient AND present in the
-// header. understood is the set of extension names the recipient is configured to process; any crit
-// entry outside it — or one naming a registered JOSE parameter — is rejected. data is the decoded
-// header (the same JSON object CheckCrit inspects for presence). A present but empty crit list is
-// itself invalid, so callers pass crit only when the member is present.
+// invalid unless every listed critical extension is both understood by the recipient and present in
+// the header. understood is the set of extension names the recipient is configured to process; any
+// crit entry outside it, or one naming a registered JOSE parameter, is rejected. data is the decoded
+// header. A present but empty crit list is itself invalid, so callers pass crit only when the member
+// is present.
 func CheckCritUnderstood(data json.RawMessage, crit, understood []string) error {
-	// A present "crit" list must not be empty (RFC 7515 §4.1.11); the caller invokes this only when
-	// the member is present, so an empty slice here is the forbidden "crit":[] case.
+	// The caller invokes this only when the member is present, so an empty slice is the "crit":[]
+	// form RFC 7515 §4.1.11 forbids.
 	if len(crit) == 0 {
 		return fmt.Errorf("%w: crit list must not be empty", ErrUnsupportedCritHeader)
 	}
@@ -84,6 +84,6 @@ func CheckCritUnderstood(data json.RawMessage, crit, understood []string) error 
 		}
 	}
 
-	// Every understood critical extension must also actually be present in the header.
+	// Every understood critical extension must also be present in the header.
 	return CheckCrit(data, crit)
 }

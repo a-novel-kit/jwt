@@ -99,7 +99,7 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 }
 
 // sourcedED25519Public decodes a raw JSON Web Key into an Ed25519 public key for verification,
-// skipping any that carry private material (signing keys, which a verifier does not use).
+// skipping any that carry private material.
 func sourcedED25519Public() keyDecoder[ed25519.PublicKey] {
 	return func(key *jwa.JWK) (ed25519.PublicKey, error) {
 		privateKey, publicKey, err := jwk.ConsumeED25519(key)
@@ -136,8 +136,7 @@ func sourcedED25519Private() keyDecoder[ed25519.PrivateKey] {
 }
 
 // A SourcedED25519Signer signs like an [ED25519Signer] but resolves its key from a [jwk.Source] at
-// each call, so the plugin follows key rotation instead of pinning one key. Build one with
-// [NewSourcedED25519Signer].
+// each call, so the plugin follows key rotation. Build one with [NewSourcedED25519Signer].
 type SourcedED25519Signer struct {
 	source *jwk.Source
 }
