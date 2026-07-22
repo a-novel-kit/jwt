@@ -42,13 +42,22 @@ var (
 	}
 )
 
+// DefaultPBES2Iterations is the PBKDF2 iteration count used when the config leaves Iterations
+// unset. RFC 7518 §4.8.1.2 recommends a minimum of 1000; this is well above it.
+const DefaultPBES2Iterations = 310_000
+
+// DefaultPBES2SaltSize is the salt length in bytes used when the config leaves SaltSize unset. RFC
+// 7518 §4.8.1.1 recommends 128 bits or more.
+const DefaultPBES2SaltSize = 16
+
 // PBES2KeyEncKWManagerConfig holds the inputs for NewPBES2KeyEncKWManager.
 type PBES2KeyEncKWManagerConfig struct {
 	// Iterations is the PBKDF2 iteration count. A higher count raises the cost of
 	// a brute-force attack on the password; a minimum of 1000 is recommended.
+	// Non-positive selects DefaultPBES2Iterations.
 	Iterations int
 	// SaltSize is the salt length in bytes. A salt of 128 bits or more is
-	// recommended.
+	// recommended. Non-positive selects DefaultPBES2SaltSize.
 	SaltSize int
 
 	// CEK is the content encryption key, encrypted under the wrap key derived from
@@ -65,9 +74,11 @@ type PBES2KeyEncKWManagerConfig struct {
 type PBES2KeyEncKWManager struct {
 	config PBES2KeyEncKWManagerConfig
 
-	alg     jwa.Alg
-	hash    crypto.Hash
-	keySize int
+	alg        jwa.Alg
+	hash       crypto.Hash
+	keySize    int
+	iterations int
+	saltSize   int
 }
 
 // NewPBES2KeyEncKWManager creates a jwe.CEKManager that derives a wrap key from a
@@ -77,12 +88,45 @@ type PBES2KeyEncKWManager struct {
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.8
 func NewPBES2KeyEncKWManager(config *PBES2KeyEncKWManagerConfig, preset PBES2KeyEncKWPreset) *PBES2KeyEncKWManager {
-	return &PBES2KeyEncKWManager{
-		config:  *config,
-		alg:     preset.Alg,
-		hash:    preset.Hash,
-		keySize: preset.KeySize,
+	iterations := config.Iterations
+	if iterations <= 0 {
+		iterations = DefaultPBES2Iterations
 	}
+
+	saltSize := config.SaltSize
+	if saltSize <= 0 {
+		saltSize = DefaultPBES2SaltSize
+	}
+
+	return &PBES2KeyEncKWManager{
+		config:     *config,
+		alg:        preset.Alg,
+		hash:       preset.Hash,
+		keySize:    preset.KeySize,
+		iterations: iterations,
+		saltSize:   saltSize,
+	}
+}
+
+// pbes2Salt builds the PBKDF2 salt RFC 7518 §4.8.1.1 mandates: UTF8(Alg), a zero octet, then the
+// Salt Input — the base64url-DECODED p2s, not the text that travels in the header.
+//
+// Binding the algorithm into the salt is what keeps one password reused across two PBES2 algorithms
+// from deriving related wrap keys.
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-4.8.1.1
+func pbes2Salt(alg jwa.Alg, p2s string) ([]byte, error) {
+	saltInput, err := base64.RawURLEncoding.DecodeString(p2s)
+	if err != nil {
+		return nil, fmt.Errorf("decode p2s: %w", err)
+	}
+
+	salt := make([]byte, 0, len(alg)+1+len(saltInput))
+	salt = append(salt, alg...)
+	salt = append(salt, 0)
+	salt = append(salt, saltInput...)
+
+	return salt, nil
 }
 
 func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
@@ -92,7 +136,7 @@ func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JW
 
 	// A fresh salt per token widens the key space, so one password never derives the
 	// same wrap key twice. It travels in the header for the recipient.
-	salt := make([]byte, manager.config.SaltSize)
+	salt := make([]byte, manager.saltSize)
 
 	_, err := rand.Read(salt)
 	if err != nil {
@@ -101,7 +145,7 @@ func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JW
 
 	header.JWHPBES2 = jwa.JWHPBES2{
 		P2S: base64.RawURLEncoding.EncodeToString(salt),
-		P2C: manager.config.Iterations,
+		P2C: manager.iterations,
 	}
 	header.Alg = manager.alg
 
@@ -113,9 +157,14 @@ func (manager *PBES2KeyEncKWManager) ComputeCEK(_ context.Context, _ *jwa.JWH) (
 }
 
 func (manager *PBES2KeyEncKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
+	salt, err := pbes2Salt(header.Alg, header.P2S)
+	if err != nil {
+		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) build salt: %w", err)
+	}
+
 	wrapKey := pbkdf2.Key(
 		[]byte(manager.config.Secret),
-		[]byte(header.P2S),
+		salt,
 		header.P2C,
 		manager.keySize,
 		manager.hash.New,
@@ -206,9 +255,14 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 		)
 	}
 
+	salt, err := pbes2Salt(header.Alg, header.P2S)
+	if err != nil {
+		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) build salt: %w", err)
+	}
+
 	wrapKey := pbkdf2.Key(
 		[]byte(decoder.config.Secret),
-		[]byte(header.P2S),
+		salt,
 		header.P2C,
 		decoder.keySize,
 		decoder.hash.New,

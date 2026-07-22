@@ -14,9 +14,12 @@ var ErrDataTooLarge = errors.New("data is too large")
 // Derive computes a key of keySize bytes from the ECDH shared secret z, following the ECDH-ES key
 // agreement of RFC 7518. alg is the algorithm identifier bound into the derivation: the "enc" value
 // for Direct Key Agreement, or the "alg" value when the derived key wraps the content key. apu and
-// apv are the already base64url-decoded PartyUInfo and PartyVInfo agreement parameters, either of
-// which may be empty.
-func Derive(z []byte, alg string, keySize int, apu, apv string) ([]byte, error) {
+// apv are the decoded PartyUInfo and PartyVInfo agreement parameters, either of which may be empty.
+//
+// They are []byte because the header carries them base64url-encoded. Passing the header field
+// straight through derives a different key from every compliant implementation, and both ends being
+// wrong together hides it.
+func Derive(z []byte, alg string, keySize int, apu, apv []byte) ([]byte, error) {
 	// AlgorithmID, PartyUInfo, and PartyVInfo make up the ConcatKDF OtherInfo, each carried as a
 	// length-prefixed block.
 	algID, err := prefixBlock([]byte(alg))
@@ -24,12 +27,12 @@ func Derive(z []byte, alg string, keySize int, apu, apv string) ([]byte, error) 
 		return nil, fmt.Errorf("prefix algID: %w", err)
 	}
 
-	ptyUInfo, err := prefixBlock([]byte(apu))
+	ptyUInfo, err := prefixBlock(apu)
 	if err != nil {
 		return nil, fmt.Errorf("prefix ptyUInfo: %w", err)
 	}
 
-	ptyVInfo, err := prefixBlock([]byte(apv))
+	ptyVInfo, err := prefixBlock(apv)
 	if err != nil {
 		return nil, fmt.Errorf("prefix ptyVInfo: %w", err)
 	}

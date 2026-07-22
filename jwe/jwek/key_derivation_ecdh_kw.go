@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/ecdh"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -89,8 +90,8 @@ func (manager *ECDHKeyAgrKWManager) SetHeader(_ context.Context, header *jwa.JWH
 
 	header.JWHKeyAgreement = jwa.JWHKeyAgreement{
 		EPK: &jwa.JWK{Payload: publicKeySerialized},
-		APU: manager.config.ProducerInfo,
-		APV: manager.config.RecipientInfo,
+		APU: base64.RawURLEncoding.EncodeToString([]byte(manager.config.ProducerInfo)),
+		APV: base64.RawURLEncoding.EncodeToString([]byte(manager.config.RecipientInfo)),
 	}
 	header.Alg = manager.alg
 
@@ -107,7 +108,12 @@ func (manager *ECDHKeyAgrKWManager) EncryptCEK(_ context.Context, header *jwa.JW
 		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) derive shared secret: %w", err)
 	}
 
-	wrapKey, err := internal.Derive(z, string(manager.alg), manager.keyLen, header.APU, header.APV)
+	apu, apv, err := agreementInfo(header)
+	if err != nil {
+		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.ComputeCEK) %w", err)
+	}
+
+	wrapKey, err := internal.Derive(z, string(manager.alg), manager.keyLen, apu, apv)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) derive key: %w", err)
 	}
@@ -193,7 +199,12 @@ func (decoder *ECDHKeyAgrKWDecoder) ComputeCEK(_ context.Context, header *jwa.JW
 		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) derive shared secret: %w", err)
 	}
 
-	kek, err := internal.Derive(z, string(decoder.alg), decoder.keyLen, header.APU, header.APV)
+	apu, apv, err := agreementInfo(header)
+	if err != nil {
+		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) %w", err)
+	}
+
+	kek, err := internal.Derive(z, string(decoder.alg), decoder.keyLen, apu, apv)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) derive key: %w", err)
 	}
