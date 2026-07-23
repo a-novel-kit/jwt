@@ -60,13 +60,3 @@ jobs:
           codecov_token: ${{ secrets.CODECOV_TOKEN }}
           coverage_files: coverage.txt
           coverage_artifact_ids: ${{ needs.test.outputs.artifact-id }}
-
-  report-grc:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' && success()
-    needs: [test-go, lint-go]
-    permissions:
-      contents: read
-    steps:
-      - uses: a-novel-kit/workflows/go-actions/go-report-card@v1.23.0
-        if: github.ref == 'refs/heads/master' && success()
