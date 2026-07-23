@@ -49,6 +49,14 @@ jobs:
           app_private_key: ${{ secrets.DEPENDENCY_BOT_PRIVATE_KEY }}
           client_id: ${{ vars.DEPENDENCY_BOT_CLIENT_ID }}
 
+  lint-shell:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: a-novel-kit/workflows/generic-actions/lint-shell@v1.25.0
+
   report-codecov:
     runs-on: ubuntu-latest
     needs: [test-go, lint-go]
