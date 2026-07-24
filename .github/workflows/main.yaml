@@ -114,8 +114,6 @@ jobs:
 
   report-codecov:
     runs-on: ubuntu-latest
-    # test-go alone: it is the job that produces the artifact named below. lint-go was in this
-    # list without contributing anything to the upload.
     needs: [test-go]
     permissions:
       contents: read
@@ -124,8 +122,4 @@ jobs:
         with:
           codecov_token: ${{ secrets.CODECOV_TOKEN }}
           coverage_files: coverage.txt
-          # `needs.test` named no job in this workflow, so this resolved to the empty string and
-          # download-artifact fell through to its download-everything branch, which nests each
-          # artifact under its own directory. codecov then missed coverage.txt at the root and
-          # only found it by globbing. The upload worked by accident; this makes it deliberate.
           coverage_artifact_ids: ${{ needs.test-go.outputs.artifact-id }}
