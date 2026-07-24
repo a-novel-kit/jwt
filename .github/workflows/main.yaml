@@ -12,8 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      artifact-id: ${{ steps.test.outputs.artifact-id }}
     steps:
       - uses: a-novel-kit/workflows/go-actions/test-go@v1.26.1
+        id: test
         with:
           modfile: gotestsum.mod
 
@@ -111,7 +114,7 @@ jobs:
 
   report-codecov:
     runs-on: ubuntu-latest
-    needs: [test-go, lint-go]
+    needs: [test-go]
     permissions:
       contents: read
     steps:
@@ -119,4 +122,4 @@ jobs:
         with:
           codecov_token: ${{ secrets.CODECOV_TOKEN }}
           coverage_files: coverage.txt
-          coverage_artifact_ids: ${{ needs.test.outputs.artifact-id }}
+          coverage_artifact_ids: ${{ needs.test-go.outputs.artifact-id }}
