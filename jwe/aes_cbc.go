@@ -267,22 +267,22 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) decode enc key: %w", err)
+		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: decode enc key: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	iv, err := base64.RawURLEncoding.DecodeString(token.IV)
 	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) decode iv: %w", err)
+		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: decode iv: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	tag, err := base64.RawURLEncoding.DecodeString(token.Tag)
 	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) decode tag: %w", err)
+		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: decode tag: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	cipherText, err := base64.RawURLEncoding.DecodeString(token.CipherText)
 	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) decode cipher text: %w", err)
+		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: decode cipher text: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	cek, err := dec.cekDecoder.ComputeCEK(ctx, header, encryptedKey)

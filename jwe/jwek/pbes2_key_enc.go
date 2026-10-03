@@ -257,7 +257,7 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 
 	salt, err := pbes2Salt(header.Alg, header.P2S)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) build salt: %w", err)
+		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) %w: build salt: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	wrapKey := pbkdf2.Key(

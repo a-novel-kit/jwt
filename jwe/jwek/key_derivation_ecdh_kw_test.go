@@ -93,6 +93,37 @@ func TestECDHKeyAgrKW(t *testing.T) {
 				require.Error(t, err)
 			})
 
+			t.Run("MalformedAgreementInfo", func(t *testing.T) {
+				t.Parallel()
+
+				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
+					RecipientKey: recipientPrivateKey.Key(),
+				}, testCase.preset)
+
+				common := header.JWHCommon
+				common.APU = "!!!"
+
+				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+			})
+
+			t.Run("MalformedEPK", func(t *testing.T) {
+				t.Parallel()
+
+				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
+					RecipientKey: recipientPrivateKey.Key(),
+				}, testCase.preset)
+
+				epk := *header.EPK
+				epk.Payload = []byte("not json")
+
+				common := header.JWHCommon
+				common.EPK = &epk
+
+				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+			})
+
 			t.Run("WrongProducerInfo", func(t *testing.T) {
 				t.Parallel()
 

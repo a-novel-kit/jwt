@@ -181,7 +181,7 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {
-		return nil, fmt.Errorf("(RSAVerifier.Transform) decode signature: %w", err)
+		return nil, fmt.Errorf("(RSAVerifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	err = verifier.verify(hasher.Sum(nil), sigBytes)
@@ -195,7 +195,7 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 
 	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("(RSAVerifier.Transform) decode payload: %w", err)
+		return nil, fmt.Errorf("(RSAVerifier.Transform) %w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	return decoded, nil

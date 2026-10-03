@@ -80,14 +80,14 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 
 	decodedHeader, err := base64.RawURLEncoding.DecodeString(rawHeader)
 	if err != nil {
-		return fmt.Errorf("(Recipient.Consume) decode header: %w", err)
+		return fmt.Errorf("(Recipient.Consume) %w: decode header: %w", ErrUnsupportedTokenFormat, err)
 	}
 
 	var header *jwa.JWH
 
 	err = json.Unmarshal(decodedHeader, &header)
 	if err != nil {
-		return fmt.Errorf("(Recipient.Consume) unmarshal header: %w", err)
+		return fmt.Errorf("(Recipient.Consume) %w: unmarshal header: %w", ErrUnsupportedTokenFormat, err)
 	}
 
 	// A header segment of JSON "null" unmarshals into a nil pointer without error; reject it before
@@ -153,14 +153,14 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 	// JSON — so a non-JWT input cannot silently yield claims.
 	decodedHeader, err := base64.RawURLEncoding.DecodeString(token.Header)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) decode header: %w", err)
+		return fmt.Errorf("(Recipient.DecodeUnverified) %w: decode header: %w", ErrUnsupportedTokenFormat, err)
 	}
 
 	var header *jwa.JWH
 
 	err = json.Unmarshal(decodedHeader, &header)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) unmarshal header: %w", err)
+		return fmt.Errorf("(Recipient.DecodeUnverified) %w: unmarshal header: %w", ErrUnsupportedTokenFormat, err)
 	}
 
 	if header == nil {
@@ -169,7 +169,7 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 
 	rawClaims, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) decode payload: %w", err)
+		return fmt.Errorf("(Recipient.DecodeUnverified) %w: decode payload: %w", ErrUnsupportedTokenFormat, err)
 	}
 
 	err = recipient.config.Deserializer(rawClaims, dst)
