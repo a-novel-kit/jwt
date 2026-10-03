@@ -4,11 +4,10 @@ import (
 	"context"
 	"crypto"
 	"crypto/aes"
+	"crypto/pbkdf2"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-
-	"golang.org/x/crypto/pbkdf2"
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
@@ -162,13 +161,10 @@ func (manager *PBES2KeyEncKWManager) EncryptCEK(_ context.Context, header *jwa.J
 		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) build salt: %w", err)
 	}
 
-	wrapKey := pbkdf2.Key(
-		[]byte(manager.config.Secret),
-		salt,
-		header.P2C,
-		manager.keySize,
-		manager.hash.New,
-	)
+	wrapKey, err := pbkdf2.Key(manager.hash.New, manager.config.Secret, salt, header.P2C, manager.keySize)
+	if err != nil {
+		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) derive wrap key: %w", err)
+	}
 
 	block, err := aes.NewCipher(wrapKey)
 	if err != nil {
@@ -260,13 +256,10 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) build salt: %w", err)
 	}
 
-	wrapKey := pbkdf2.Key(
-		[]byte(decoder.config.Secret),
-		salt,
-		header.P2C,
-		decoder.keySize,
-		decoder.hash.New,
-	)
+	wrapKey, err := pbkdf2.Key(decoder.hash.New, decoder.config.Secret, salt, header.P2C, decoder.keySize)
+	if err != nil {
+		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) derive wrap key: %w", err)
+	}
 
 	block, err := aes.NewCipher(wrapKey)
 	if err != nil {

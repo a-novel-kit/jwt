@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"golang.org/x/crypto/curve25519"
-
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe/internal"
@@ -103,7 +101,7 @@ func (manager *ECDHKeyAgrKWManager) ComputeCEK(_ context.Context, _ *jwa.JWH) ([
 }
 
 func (manager *ECDHKeyAgrKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
-	z, err := curve25519.X25519(manager.config.ProducerKey.Bytes(), manager.config.RecipientKey.Bytes())
+	z, err := manager.config.ProducerKey.ECDH(manager.config.RecipientKey)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) derive shared secret: %w", err)
 	}
@@ -194,7 +192,7 @@ func (decoder *ECDHKeyAgrKWDecoder) ComputeCEK(_ context.Context, header *jwa.JW
 		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) consume producer public key: %w", err)
 	}
 
-	z, err := curve25519.X25519(decoder.config.RecipientKey.Bytes(), producerPublicKey.Bytes())
+	z, err := decoder.config.RecipientKey.ECDH(producerPublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) derive shared secret: %w", err)
 	}
