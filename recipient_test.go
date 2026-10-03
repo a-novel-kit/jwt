@@ -131,6 +131,28 @@ func TestRecipient(t *testing.T) {
 			expect:    map[string]any{},
 		},
 		{
+			name: "MalformedHeader/NotBase64",
+
+			config: jwt.RecipientConfig{},
+
+			token: "!!!." + tokenNotJSON.Payload,
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnsupportedTokenFormat,
+			expect:    map[string]any{},
+		},
+		{
+			name: "MalformedHeader/NotJSON",
+
+			config: jwt.RecipientConfig{},
+
+			token: base64.RawURLEncoding.EncodeToString([]byte("not json")) + "." + tokenNotJSON.Payload,
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnsupportedTokenFormat,
+			expect:    map[string]any{},
+		},
+		{
 			name: "TokenTooLarge",
 
 			config: jwt.RecipientConfig{MaxTokenBytes: 8},
@@ -222,13 +244,16 @@ func TestRecipientDecodeUnverifiedRejects(t *testing.T) {
 	testCases := []struct {
 		name  string
 		token string
+
+		// expectErr is nil where the token parses and only its claims are rejected.
+		expectErr error
 	}{
-		{"NotThreeSegments", goodHeader + "." + goodPayload},
-		{"HeaderNotBase64", "!!!." + goodPayload + ".sig"},
-		{"HeaderNotJSON", b64("not json") + "." + goodPayload + ".sig"},
-		{"NullHeader", b64("null") + "." + goodPayload + ".sig"},
-		{"PayloadNotBase64", goodHeader + ".!!!.sig"},
-		{"PayloadNotJSON", goodHeader + "." + b64("not json") + ".sig"},
+		{"NotThreeSegments", goodHeader + "." + goodPayload, jwt.ErrUnsupportedTokenFormat},
+		{"HeaderNotBase64", "!!!." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
+		{"HeaderNotJSON", b64("not json") + "." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
+		{"NullHeader", b64("null") + "." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
+		{"PayloadNotBase64", goodHeader + ".!!!.sig", jwt.ErrUnsupportedTokenFormat},
+		{"PayloadNotJSON", goodHeader + "." + b64("not json") + ".sig", nil},
 	}
 
 	for _, testCase := range testCases {
@@ -239,7 +264,12 @@ func TestRecipientDecodeUnverifiedRejects(t *testing.T) {
 
 			var claims map[string]any
 
-			require.Error(t, recipient.DecodeUnverified(testCase.token, &claims))
+			err := recipient.DecodeUnverified(testCase.token, &claims)
+			require.Error(t, err)
+
+			if testCase.expectErr != nil {
+				require.ErrorIs(t, err, testCase.expectErr)
+			}
 		})
 	}
 }

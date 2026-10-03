@@ -85,6 +85,18 @@ func TestRSAPSS(t *testing.T) {
 				require.ErrorIs(t, err, jwt.ErrMismatchRecipientPlugin)
 			})
 
+			t.Run("MalformedSignature", func(t *testing.T) {
+				t.Parallel()
+
+				var recipientClaims map[string]any
+
+				parts := strings.Split(token, ".")
+				newToken := strings.Join(append(parts[:2:2], "!!!"), ".")
+
+				err := recipient.Consume(t.Context(), newToken, &recipientClaims)
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+			})
+
 			t.Run("InvalidSignature", func(t *testing.T) {
 				t.Parallel()
 

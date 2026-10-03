@@ -171,7 +171,7 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDSAVerifier.Transform) decode signature: %w", err)
+		return nil, fmt.Errorf("(ECDSAVerifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	keyBytes := inferECDSAKeySize(verifier.publicKey.Params())
@@ -191,7 +191,7 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 
 	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDSAVerifier.Transform) decode payload: %w", err)
+		return nil, fmt.Errorf("(ECDSAVerifier.Transform) %w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	return decoded, nil
