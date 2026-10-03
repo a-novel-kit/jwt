@@ -3,6 +3,7 @@ package jwek
 import (
 	"context"
 	"crypto/ecdh"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -51,11 +52,12 @@ var (
 	}
 )
 
-// ECDHKeyAgrManagerConfig holds the inputs for NewECDHKeyAgrManager. ProducerKey
-// and RecipientKey are the two halves of the Diffie-Hellman exchange; ProducerInfo
-// and RecipientInfo are the optional agreement party details mixed into the key
-// derivation.
+// ECDHKeyAgrManagerConfig holds the inputs for NewECDHKeyAgrManager. RecipientKey
+// is the static half of the Diffie-Hellman exchange; ProducerInfo and RecipientInfo
+// are the optional agreement party details mixed into the key derivation.
 type ECDHKeyAgrManagerConfig struct {
+	// Deprecated: ignored. Each token agrees on its key with a fresh ephemeral key pair, as
+	// ECDH-ES requires.
 	ProducerKey  *ecdh.PrivateKey
 	RecipientKey *ecdh.PublicKey
 
@@ -65,7 +67,8 @@ type ECDHKeyAgrManagerConfig struct {
 
 // ECDHKeyAgrManager implements jwe.CEKManager for ECDH-ES key agreement: it derives
 // the content encryption key from a shared secret, so nothing is wrapped into the
-// token. See RFC 7518 section 4.6.
+// token. Each token draws a fresh ephemeral key pair and publishes its public half
+// in the "epk" header. See RFC 7518 section 4.6.
 type ECDHKeyAgrManager struct {
 	config ECDHKeyAgrManagerConfig
 
@@ -95,20 +98,7 @@ func (manager *ECDHKeyAgrManager) SetHeader(_ context.Context, header *jwa.JWH) 
 		return nil, fmt.Errorf("(ECDHKeyAgrManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
-	// Publish the producer public key in the header: the recipient needs it to
-	// derive the same shared secret from its own private key.
-	publicKeyEncoded, err := serializers.EncodeECDH(manager.config.ProducerKey.PublicKey())
-	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrManager.SetHeader) encode public key: %w", err)
-	}
-
-	publicKeySerialized, err := json.Marshal(publicKeyEncoded)
-	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrManager.SetHeader) serialize shared public key: %w", err)
-	}
-
 	header.JWHKeyAgreement = jwa.JWHKeyAgreement{
-		EPK: &jwa.JWK{Payload: publicKeySerialized},
 		APU: base64.RawURLEncoding.EncodeToString([]byte(manager.config.ProducerInfo)),
 		APV: base64.RawURLEncoding.EncodeToString([]byte(manager.config.RecipientInfo)),
 	}
@@ -119,9 +109,9 @@ func (manager *ECDHKeyAgrManager) SetHeader(_ context.Context, header *jwa.JWH) 
 }
 
 func (manager *ECDHKeyAgrManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
-	z, err := manager.config.ProducerKey.ECDH(manager.config.RecipientKey)
+	z, err := ephemeralAgreement(header, manager.config.RecipientKey)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrManager.ComputeCEK) derive shared secret: %w", err)
+		return nil, fmt.Errorf("(ECDHKeyAgrManager.ComputeCEK) %w", err)
 	}
 
 	apu, apv, err := agreementInfo(header)
@@ -230,6 +220,39 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 	}
 
 	return cek, nil
+}
+
+// ephemeralAgreement generates a key pair on the recipient's curve, publishes its public half as the
+// header's "epk", and returns the shared secret Z. A fresh pair per token keeps every token's key
+// independent of every other's.
+func ephemeralAgreement(header *jwa.JWH, recipientKey *ecdh.PublicKey) ([]byte, error) {
+	if recipientKey == nil || recipientKey.Curve() != ecdh.X25519() {
+		return nil, fmt.Errorf("%w: ECDH-ES needs an X25519 recipient key", serializers.ErrUnsupportedCurve)
+	}
+
+	ephemeralKey, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("generate ephemeral key: %w", err)
+	}
+
+	publicKeyEncoded, err := serializers.EncodeECDH(ephemeralKey.PublicKey())
+	if err != nil {
+		return nil, fmt.Errorf("encode ephemeral key: %w", err)
+	}
+
+	publicKeySerialized, err := json.Marshal(publicKeyEncoded)
+	if err != nil {
+		return nil, fmt.Errorf("serialize ephemeral key: %w", err)
+	}
+
+	header.EPK = &jwa.JWK{JWKCommon: jwa.JWKCommon{KTY: jwa.KTYOKP}, Payload: publicKeySerialized}
+
+	z, err := ephemeralKey.ECDH(recipientKey)
+	if err != nil {
+		return nil, fmt.Errorf("derive shared secret: %w", err)
+	}
+
+	return z, nil
 }
 
 // agreementInfo decodes the apu/apv agreement parameters a header carries. RFC 7518 §4.6.1.2 defines

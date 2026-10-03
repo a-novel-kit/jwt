@@ -142,6 +142,11 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return "", fmt.Errorf("(AESCBCEncryption.Transform) encrypt key: %w", err)
 	}
 
+	encodedHeader, err := encodeProtectedHeader(header)
+	if err != nil {
+		return "", fmt.Errorf("(AESCBCEncryption.Transform) %w", err)
+	}
+
 	// A fresh random 128-bit IV, unique per encryption.
 	iv := make([]byte, 16)
 
@@ -168,7 +173,7 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 
 	// AAD binds the encoded protected header (RFC 7516 §5.1) plus any application data. AL is its
 	// length in bits as a big-endian uint64, the last input to the tag.
-	aadBytes := aad(token.Header, enc.additionalData)
+	aadBytes := aad(encodedHeader, enc.additionalData)
 
 	al := make([]byte, 8)
 	binary.BigEndian.PutUint64(al, uint64(len(aadBytes)*8))
@@ -187,7 +192,7 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}
 
 	return jwt.EncryptedToken{
-		Header:     token.Header,
+		Header:     encodedHeader,
 		EncKey:     encodedSecret,
 		IV:         base64.RawURLEncoding.EncodeToString(iv),
 		CipherText: base64.RawURLEncoding.EncodeToString(cipherText),

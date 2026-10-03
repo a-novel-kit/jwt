@@ -112,6 +112,11 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return "", fmt.Errorf("(AESGCMEncryption.Transform) encrypt key: %w", err)
 	}
 
+	encodedHeader, err := encodeProtectedHeader(header)
+	if err != nil {
+		return "", fmt.Errorf("(AESGCMEncryption.Transform) %w", err)
+	}
+
 	// A fresh random 96-bit nonce, the length NewGCM expects by default.
 	iv := make([]byte, 12)
 
@@ -132,7 +137,7 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 
 	// Seal appends the authentication tag to the ciphertext; JWE carries them in
 	// separate fields, so split off the trailing Overhead() bytes.
-	ciphertextAndTag := aesgcm.Seal(nil, iv, plainText, aad(token.Header, enc.additionalData))
+	ciphertextAndTag := aesgcm.Seal(nil, iv, plainText, aad(encodedHeader, enc.additionalData))
 	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
 	cipherText := ciphertextAndTag[:cipherLen]
 	tag := ciphertextAndTag[cipherLen:]
@@ -142,7 +147,7 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}
 
 	return jwt.EncryptedToken{
-		Header:     token.Header,
+		Header:     encodedHeader,
 		EncKey:     base64.RawURLEncoding.EncodeToString(encryptedSecret),
 		IV:         base64.RawURLEncoding.EncodeToString(iv),
 		CipherText: base64.RawURLEncoding.EncodeToString(cipherText),

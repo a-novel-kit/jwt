@@ -29,9 +29,11 @@ var (
 	}
 )
 
-// AESGCMKWManagerConfig holds the inputs for NewAESGCMKWManager: the content
-// encryption key to protect and the key that wraps it.
+// AESGCMKWManagerConfig holds the inputs for NewAESGCMKWManager: the key that wraps
+// each token's content encryption key.
 type AESGCMKWManagerConfig struct {
+	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
+	// RFC 7516 requires.
 	CEK     []byte
 	WrapKey []byte
 }
@@ -39,7 +41,6 @@ type AESGCMKWManagerConfig struct {
 // AESGCMKWManager implements jwe.CEKManager, wrapping the content encryption key
 // with AES GCM. See RFC 7518 section 4.7.
 type AESGCMKWManager struct {
-	cek     []byte
 	wrapKey []byte
 
 	alg    jwa.Alg
@@ -55,7 +56,6 @@ func NewAESGCMKWManager(
 	config *AESGCMKWManagerConfig, preset KeyWrapPreset,
 ) *AESGCMKWManager {
 	return &AESGCMKWManager{
-		cek:     config.CEK,
 		wrapKey: config.WrapKey,
 		alg:     preset.Alg,
 		keyLen:  preset.KeyLen,
@@ -72,8 +72,13 @@ func (manager *AESGCMKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*
 	return header, nil
 }
 
-func (manager *AESGCMKWManager) ComputeCEK(_ context.Context, _ *jwa.JWH) ([]byte, error) {
-	return manager.cek, nil
+func (manager *AESGCMKWManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
+	cek, err := newCEK(header)
+	if err != nil {
+		return nil, fmt.Errorf("(AESGCMKWManager.ComputeCEK) %w", err)
+	}
+
+	return cek, nil
 }
 
 func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {

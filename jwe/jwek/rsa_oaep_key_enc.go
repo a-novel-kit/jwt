@@ -30,9 +30,11 @@ var (
 	}
 )
 
-// RSAOAEPKeyEncManagerConfig holds the content encryption key to protect and the
-// recipient RSA public key that encrypts it.
+// RSAOAEPKeyEncManagerConfig holds the recipient RSA public key that encrypts each
+// token's content encryption key.
 type RSAOAEPKeyEncManagerConfig struct {
+	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
+	// RFC 7516 requires.
 	CEK    []byte
 	EncKey *rsa.PublicKey
 }
@@ -40,7 +42,6 @@ type RSAOAEPKeyEncManagerConfig struct {
 // RSAOAEPKeyEncManager implements jwe.CEKManager, encrypting the content encryption
 // key to the recipient with RSAES-OAEP. See RFC 7518 section 4.3.
 type RSAOAEPKeyEncManager struct {
-	cek    []byte
 	encKey *rsa.PublicKey
 
 	alg  jwa.Alg
@@ -56,7 +57,6 @@ func NewRSAOAEPKeyEncManager(
 	config *RSAOAEPKeyEncManagerConfig, preset RSAOAEPKeyEncPreset,
 ) *RSAOAEPKeyEncManager {
 	return &RSAOAEPKeyEncManager{
-		cek:    config.CEK,
 		encKey: config.EncKey,
 		alg:    preset.Alg,
 		hash:   preset.Hash,
@@ -76,8 +76,13 @@ func (manager *RSAOAEPKeyEncManager) SetHeader(_ context.Context, header *jwa.JW
 	return header, nil
 }
 
-func (manager *RSAOAEPKeyEncManager) ComputeCEK(_ context.Context, _ *jwa.JWH) ([]byte, error) {
-	return manager.cek, nil
+func (manager *RSAOAEPKeyEncManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
+	cek, err := newCEK(header)
+	if err != nil {
+		return nil, fmt.Errorf("(RSAOAEPKeyEncManager.ComputeCEK) %w", err)
+	}
+
+	return cek, nil
 }
 
 func (manager *RSAOAEPKeyEncManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byte) ([]byte, error) {

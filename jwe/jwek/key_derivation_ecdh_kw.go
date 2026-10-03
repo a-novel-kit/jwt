@@ -31,13 +31,17 @@ var (
 )
 
 // ECDHKeyAgrKWManagerConfig holds the inputs for NewECDHKeyAgrKWManager.
-// ProducerKey and RecipientKey are the two halves of the Diffie-Hellman exchange,
-// CEK is the content encryption key to wrap, and ProducerInfo and RecipientInfo
-// are the optional agreement party details mixed into the key derivation.
+// RecipientKey is the static half of the Diffie-Hellman exchange; ProducerInfo and
+// RecipientInfo are the optional agreement party details mixed into the key
+// derivation.
 type ECDHKeyAgrKWManagerConfig struct {
+	// Deprecated: ignored. Each token agrees on its key with a fresh ephemeral key pair, as
+	// ECDH-ES requires.
 	ProducerKey  *ecdh.PrivateKey
 	RecipientKey *ecdh.PublicKey
 
+	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
+	// RFC 7516 requires.
 	CEK []byte
 
 	ProducerInfo  string
@@ -45,7 +49,9 @@ type ECDHKeyAgrKWManagerConfig struct {
 }
 
 // ECDHKeyAgrKWManager implements jwe.CEKManager: it derives a key-wrapping key with
-// ECDH-ES and then wraps the content encryption key with AES Key Wrap.
+// ECDH-ES and then wraps the content encryption key with AES Key Wrap. Each token
+// draws a fresh content encryption key and a fresh ephemeral key pair, whose public
+// half it publishes in the "epk" header.
 type ECDHKeyAgrKWManager struct {
 	config ECDHKeyAgrKWManagerConfig
 
@@ -74,20 +80,7 @@ func (manager *ECDHKeyAgrKWManager) SetHeader(_ context.Context, header *jwa.JWH
 		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
-	// Publish the producer public key in the header: the recipient needs it to
-	// derive the same shared secret from its own private key.
-	publicKeyEncoded, err := serializers.EncodeECDH(manager.config.ProducerKey.PublicKey())
-	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.SetHeader) encode public key: %w", err)
-	}
-
-	publicKeySerialized, err := json.Marshal(publicKeyEncoded)
-	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.SetHeader) serialize shared public key: %w", err)
-	}
-
 	header.JWHKeyAgreement = jwa.JWHKeyAgreement{
-		EPK: &jwa.JWK{Payload: publicKeySerialized},
 		APU: base64.RawURLEncoding.EncodeToString([]byte(manager.config.ProducerInfo)),
 		APV: base64.RawURLEncoding.EncodeToString([]byte(manager.config.RecipientInfo)),
 	}
@@ -96,19 +89,24 @@ func (manager *ECDHKeyAgrKWManager) SetHeader(_ context.Context, header *jwa.JWH
 	return header, nil
 }
 
-func (manager *ECDHKeyAgrKWManager) ComputeCEK(_ context.Context, _ *jwa.JWH) ([]byte, error) {
-	return manager.config.CEK, nil
+func (manager *ECDHKeyAgrKWManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
+	cek, err := newCEK(header)
+	if err != nil {
+		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.ComputeCEK) %w", err)
+	}
+
+	return cek, nil
 }
 
 func (manager *ECDHKeyAgrKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
-	z, err := manager.config.ProducerKey.ECDH(manager.config.RecipientKey)
+	z, err := ephemeralAgreement(header, manager.config.RecipientKey)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) derive shared secret: %w", err)
+		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) %w", err)
 	}
 
 	apu, apv, err := agreementInfo(header)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.ComputeCEK) %w", err)
+		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) %w", err)
 	}
 
 	wrapKey, err := internal.Derive(z, string(manager.alg), manager.keyLen, apu, apv)
