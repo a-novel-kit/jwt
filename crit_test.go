@@ -95,7 +95,10 @@ func TestRecipientCrit(t *testing.T) {
 	t.Run("AcceptedWhenUnderstood", func(t *testing.T) {
 		t.Parallel()
 
-		recipient := jwt.NewRecipient(jwt.RecipientConfig{CriticalHeaders: []string{"foo"}})
+		recipient := jwt.NewRecipient(jwt.RecipientConfig{
+			Plugins:         []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()},
+			CriticalHeaders: []string{"foo"},
+		})
 
 		var claims map[string]any
 		require.NoError(t, recipient.Consume(t.Context(), token, &claims))

@@ -42,6 +42,8 @@ func TestRecipient(t *testing.T) {
 
 	tokenNotJSON.Payload = base64.RawURLEncoding.EncodeToString([]byte("qux"))
 
+	unsecured := []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()}
+
 	testCases := []struct {
 		name string
 
@@ -56,7 +58,7 @@ func TestRecipient(t *testing.T) {
 		{
 			name: "Minimalistic",
 
-			config: jwt.RecipientConfig{},
+			config: jwt.RecipientConfig{Plugins: unsecured},
 
 			token: token,
 			dst:   map[string]any{},
@@ -64,9 +66,34 @@ func TestRecipient(t *testing.T) {
 			expect: map[string]any{"foo": "bar"},
 		},
 		{
+			// RFC 7518 §3.6: an unsecured token is accepted only by a recipient configured for it.
+			name: "NoPlugins",
+
+			config: jwt.RecipientConfig{},
+
+			token: token,
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrMismatchRecipientPlugin,
+			expect:    map[string]any{},
+		},
+		{
+			name: "IllegalCharacter",
+
+			config: jwt.RecipientConfig{Plugins: unsecured},
+
+			// The base64 decoder skips line breaks, so only the alphabet check rejects this one.
+			token: token[:4] + "\n" + token[4:],
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnsupportedTokenFormat,
+			expect:    map[string]any{},
+		},
+		{
 			name: "CustomDeserializer",
 
 			config: jwt.RecipientConfig{
+				Plugins: unsecured,
 				Deserializer: func(raw []byte, dst any) error {
 					return json.Unmarshal([]byte(fmt.Sprintf(`{"foo":"%s"}`, string(raw))), dst)
 				},
@@ -148,7 +175,7 @@ func TestRecipient(t *testing.T) {
 			t.Parallel()
 
 			recipient := jwt.NewRecipient(testCase.config)
-			err = recipient.Consume(t.Context(), testCase.token, &testCase.dst)
+			err := recipient.Consume(t.Context(), testCase.token, &testCase.dst)
 			require.ErrorIs(t, err, testCase.expectErr)
 			require.Equal(t, testCase.expect, testCase.dst)
 		})
@@ -164,7 +191,9 @@ func TestRecipientConcurrentConsume(t *testing.T) {
 
 	// A Recipient with a defaulted deserializer is shared across goroutines; the default is resolved
 	// at construction, so nothing writes config here.
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{})
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()},
+	})
 
 	var wg sync.WaitGroup
 
