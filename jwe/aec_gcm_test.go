@@ -10,6 +10,7 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe"
 	"github.com/a-novel-kit/jwt/v2/jwk"
+	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
 func TestAESGCM(t *testing.T) {
@@ -392,10 +393,10 @@ func TestAESGCMMalformedSegment(t *testing.T) {
 		name    string
 		malform func(token *jwt.EncryptedToken)
 	}{
-		{name: "EncKey", malform: func(token *jwt.EncryptedToken) { token.EncKey = "!!!" }},
-		{name: "IV", malform: func(token *jwt.EncryptedToken) { token.IV = "!!!" }},
-		{name: "Tag", malform: func(token *jwt.EncryptedToken) { token.Tag = "!!!" }},
-		{name: "CipherText", malform: func(token *jwt.EncryptedToken) { token.CipherText = "!!!" }},
+		{name: "EncKey", malform: func(token *jwt.EncryptedToken) { token.EncKey = testutils.UndecodableSegment }},
+		{name: "IV", malform: func(token *jwt.EncryptedToken) { token.IV = testutils.UndecodableSegment }},
+		{name: "Tag", malform: func(token *jwt.EncryptedToken) { token.Tag = testutils.UndecodableSegment }},
+		{name: "CipherText", malform: func(token *jwt.EncryptedToken) { token.CipherText = testutils.UndecodableSegment }},
 	}
 
 	for _, testCase := range testCases {

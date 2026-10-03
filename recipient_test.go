@@ -13,6 +13,7 @@ import (
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
 type fakeRecipientPlugin struct {
@@ -226,7 +227,7 @@ func TestRecipient(t *testing.T) {
 
 			config: jwt.RecipientConfig{},
 
-			token: "!!!." + tokenNotJSON.Payload,
+			token: testutils.UndecodableSegment + "." + tokenNotJSON.Payload,
 			dst:   map[string]any{},
 
 			expectErr: jwt.ErrUnsupportedTokenFormat,
@@ -246,9 +247,10 @@ func TestRecipient(t *testing.T) {
 		{
 			name: "MalformedPayload",
 
-			config: jwt.RecipientConfig{},
+			// The payload is the plugin's to decode, so the unsecured plugin has to be listed.
+			config: jwt.RecipientConfig{Plugins: unsecured},
 
-			token: tokenNotJSON.Header + ".!!!",
+			token: tokenNotJSON.Header + "." + testutils.UndecodableSegment,
 			dst:   map[string]any{},
 
 			expectErr: jwt.ErrUnsupportedTokenFormat,
@@ -353,10 +355,10 @@ func TestRecipientDecodeUnverifiedRejects(t *testing.T) {
 		expectErr error
 	}{
 		{"NotThreeSegments", goodHeader + "." + goodPayload, jwt.ErrUnsupportedTokenFormat},
-		{"HeaderNotBase64", "!!!." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
+		{"HeaderNotBase64", testutils.UndecodableSegment + "." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
 		{"HeaderNotJSON", b64("not json") + "." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
 		{"NullHeader", b64("null") + "." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
-		{"PayloadNotBase64", goodHeader + ".!!!.sig", jwt.ErrUnsupportedTokenFormat},
+		{"PayloadNotBase64", goodHeader + "." + testutils.UndecodableSegment + ".sig", jwt.ErrUnsupportedTokenFormat},
 		{"PayloadNotJSON", goodHeader + "." + b64("not json") + ".sig", nil},
 	}
 
