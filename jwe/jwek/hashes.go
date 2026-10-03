@@ -9,8 +9,9 @@ package jwek
 // consumer that imports only jwt and this package panics on its first operation, at run time,
 // having built cleanly.
 //
-// crypto/sha512 registers SHA-384 and SHA-512 both.
+// crypto/sha512 registers SHA-384 and SHA-512 both. SHA-1 backs the deprecated RSAOAEP preset.
 import (
+	_ "crypto/sha1" //nolint:gosec // RSA-OAEP is registered with SHA-1.
 	_ "crypto/sha256"
 	_ "crypto/sha512"
 )
