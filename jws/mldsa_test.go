@@ -4,6 +4,7 @@ import (
 	"crypto/mldsa"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -63,6 +64,18 @@ func TestMLDSA(t *testing.T) {
 				header, err := jws.NewMLDSASigner(privateKey.Key()).Header(t.Context(), &jwa.JWH{})
 				require.NoError(t, err)
 				require.Equal(t, testCase.preset.Alg, header.Alg)
+			})
+
+			t.Run("MalformedSignature", func(t *testing.T) {
+				t.Parallel()
+
+				var recipientClaims map[string]any
+
+				parts := strings.Split(token, ".")
+				newToken := strings.Join(append(parts[:2:2], testutils.UndecodableSegment), ".")
+
+				err := recipient.Consume(t.Context(), newToken, &recipientClaims)
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 			})
 
 			t.Run("InvalidSignature", func(t *testing.T) {

@@ -113,7 +113,7 @@ func (verifier *MLDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {
-		return nil, fmt.Errorf("(MLDSAVerifier.Transform) decode signature: %w", err)
+		return nil, fmt.Errorf("(MLDSAVerifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	err = mldsa.Verify(verifier.publicKey, unsignedToken.Bytes(), sigBytes, nil)
@@ -123,7 +123,7 @@ func (verifier *MLDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 
 	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("(MLDSAVerifier.Transform) decode payload: %w", err)
+		return nil, fmt.Errorf("(MLDSAVerifier.Transform) %w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	return decoded, nil
