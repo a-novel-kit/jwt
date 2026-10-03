@@ -42,6 +42,10 @@ func TestRecipient(t *testing.T) {
 
 	tokenNotJSON.Payload = base64.RawURLEncoding.EncodeToString([]byte("qux"))
 
+	typedToken, err := jwt.NewProducer(jwt.ProducerConfig{Header: jwt.HeaderProducerConfig{Typ: "at+jwt"}}).
+		Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.NoError(t, err)
+
 	unsecured := []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()}
 
 	testCases := []struct {
@@ -87,6 +91,27 @@ func TestRecipient(t *testing.T) {
 			dst:   map[string]any{},
 
 			expectErr: jwt.ErrUnsupportedTokenFormat,
+			expect:    map[string]any{},
+		},
+		{
+			name: "Typ",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: "application/AT+JWT"},
+
+			token: typedToken,
+			dst:   map[string]any{},
+
+			expect: map[string]any{"foo": "bar"},
+		},
+		{
+			name: "UnexpectedTyp",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: "at+jwt"},
+
+			token: token,
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnexpectedTyp,
 			expect:    map[string]any{},
 		},
 		{

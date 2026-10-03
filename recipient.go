@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
@@ -17,6 +18,10 @@ const DefaultMaxTokenBytes = 1 << 18 // 256 KiB.
 
 // ErrTokenTooLarge is returned by Consume when a token exceeds the configured size limit.
 var ErrTokenTooLarge = errors.New("token exceeds maximum size")
+
+// ErrUnexpectedTyp is returned by Consume when a token's "typ" header does not declare the media type
+// the recipient expects.
+var ErrUnexpectedTyp = errors.New("unexpected token type")
 
 // RecipientConfig configures a Recipient: the ordered plugins that verify or decrypt a token and
 // an optional deserializer for its claims.
@@ -34,6 +39,12 @@ type RecipientConfig struct {
 	// CriticalHeaders names the "crit" extensions this recipient understands and will process. A
 	// token whose crit list names anything outside this set is rejected (RFC 7515 §4.1.11).
 	CriticalHeaders []string
+
+	// Typ is the media type a token's "typ" header must declare, such as "at+jwt" for OAuth access
+	// tokens. Distinct types keep one kind of token from being accepted as another. The comparison
+	// ignores case and treats a value without "/" as prefixed with "application/" (RFC 7515
+	// §4.1.9). Empty skips the check.
+	Typ jwa.Typ
 }
 
 // A Recipient verifies and decodes JWTs against a fixed set of plugins.
@@ -95,6 +106,10 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 	// anything dereferences it.
 	if header == nil {
 		return fmt.Errorf("(Recipient.Consume) %w: null header", ErrUnsupportedTokenFormat)
+	}
+
+	if recipient.config.Typ != "" && mediaType(header.Typ) != mediaType(recipient.config.Typ) {
+		return fmt.Errorf("(Recipient.Consume) %w: %q, expected %q", ErrUnexpectedTyp, header.Typ, recipient.config.Typ)
 	}
 
 	// A non-nil Crit means the "crit" member is present in the header. Whether it is well-formed —
@@ -201,4 +216,15 @@ func checkCompactAlphabet(rawToken string) error {
 	}
 
 	return nil
+}
+
+// mediaType normalizes a "typ" value for comparison: media types are case-insensitive, and a value
+// without "/" stands for one under "application/".
+func mediaType(typ jwa.Typ) string {
+	value := strings.ToLower(string(typ))
+	if !strings.Contains(value, "/") {
+		value = "application/" + value
+	}
+
+	return value
 }
