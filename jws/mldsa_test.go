@@ -170,6 +170,23 @@ func TestMLDSASourcedSigner(t *testing.T) {
 		require.Equal(t, producerClaims, recipientClaims)
 	})
 
+	// A private key labeled for verification decodes like any other, so only its key_ops keep a signer
+	// from using it.
+	t.Run("Error/VerifyOnlyPrivateKey", func(t *testing.T) {
+		t.Parallel()
+
+		verifyOnly := withKeyOps(t, firstPrivateKey, jwa.KeyOpVerify)
+		signer := jws.NewSourcedMLDSASigner(testutils.NewStaticKeysSource(t, []*jwk.Key[*mldsa.PrivateKey]{verifyOnly}))
+
+		_, err := signer.Header(t.Context(), &jwa.JWH{})
+		require.ErrorIs(t, err, jwk.ErrKeyNotFound)
+
+		_, err = signer.Header(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{
+			JWHEmbeddedKey: jwa.JWHEmbeddedKey{KID: verifyOnly.KID},
+		}})
+		require.ErrorIs(t, err, jwk.ErrJWKMismatch)
+	})
+
 	t.Run("TrySecondKey", func(t *testing.T) {
 		t.Parallel()
 
@@ -220,6 +237,11 @@ func TestMLDSASourcedVerifier(t *testing.T) {
 		// A key of another level sits in the source without stopping the search.
 		{name: "MixedLevels", keys: []*jwk.Key[*mldsa.PublicKey]{otherLevelKey, publicKey}},
 		{name: "KeyMissing", keys: []*jwk.Key[*mldsa.PublicKey]{otherLevelKey, otherKey}, expectErr: jws.ErrInvalidSignature},
+		{
+			name:      "SignOnlyKey",
+			keys:      []*jwk.Key[*mldsa.PublicKey]{withKeyOps(t, publicKey, jwa.KeyOpSign)},
+			expectErr: jws.ErrInvalidSignature,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -250,4 +272,14 @@ func TestMLDSASourcedVerifier(t *testing.T) {
 			Transform(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.Ed25519}}, token)
 		require.ErrorIs(t, err, jwt.ErrMismatchRecipientPlugin)
 	})
+}
+
+// withKeyOps returns a copy of key whose JWK lists only ops, leaving the key material untouched.
+func withKeyOps[K any](t *testing.T, key *jwk.Key[K], ops ...jwa.KeyOp) *jwk.Key[K] {
+	t.Helper()
+
+	relabeled := *key.JWK
+	relabeled.KeyOps = ops
+
+	return jwk.NewKey(&relabeled, key.Key())
 }
