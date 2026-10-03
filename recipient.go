@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"mime"
 	"strings"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
@@ -42,8 +44,9 @@ type RecipientConfig struct {
 
 	// Typ is the media type a token's "typ" header must declare, such as "at+jwt" for OAuth access
 	// tokens. Distinct types keep one kind of token from being accepted as another. The comparison
-	// ignores case and treats a value without "/" as prefixed with "application/" (RFC 7515
-	// §4.1.9). Empty skips the check.
+	// follows RFC 7515 §4.1.9: the type, subtype, and parameter names ignore case, parameter values
+	// keep it, and a value without any "/" stands for one under "application/". Empty skips the
+	// check.
 	Typ jwa.Typ
 }
 
@@ -108,7 +111,7 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		return fmt.Errorf("(Recipient.Consume) %w: null header", ErrUnsupportedTokenFormat)
 	}
 
-	if recipient.config.Typ != "" && mediaType(header.Typ) != mediaType(recipient.config.Typ) {
+	if recipient.config.Typ != "" && !sameMediaType(header.Typ, recipient.config.Typ) {
 		return fmt.Errorf("(Recipient.Consume) %w: %q, expected %q", ErrUnexpectedTyp, header.Typ, recipient.config.Typ)
 	}
 
@@ -218,13 +221,26 @@ func checkCompactAlphabet(rawToken string) error {
 	return nil
 }
 
-// mediaType normalizes a "typ" value for comparison: media types are case-insensitive, and a value
-// without "/" stands for one under "application/".
-func mediaType(typ jwa.Typ) string {
-	value := strings.ToLower(string(typ))
+// sameMediaType reports whether two "typ" values name the same media type under the RFC 7515 §4.1.9
+// rules RecipientConfig.Typ describes. A value that does not parse matches nothing.
+func sameMediaType(got, want jwa.Typ) bool {
+	gotType, gotParams, err := parseTyp(got)
+	if err != nil {
+		return false
+	}
+
+	wantType, wantParams, err := parseTyp(want)
+
+	return err == nil && gotType == wantType && maps.Equal(gotParams, wantParams)
+}
+
+// parseTyp splits a "typ" value into its lowercased media type and its parameters. The "application/"
+// prefix applies only to a value with no "/" anywhere, so `example;part="1/2"` keeps the bare type.
+func parseTyp(typ jwa.Typ) (string, map[string]string, error) {
+	value := string(typ)
 	if !strings.Contains(value, "/") {
 		value = "application/" + value
 	}
 
-	return value
+	return mime.ParseMediaType(value)
 }

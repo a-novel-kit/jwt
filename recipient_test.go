@@ -42,9 +42,13 @@ func TestRecipient(t *testing.T) {
 
 	tokenNotJSON.Payload = base64.RawURLEncoding.EncodeToString([]byte("qux"))
 
-	typedToken, err := jwt.NewProducer(jwt.ProducerConfig{Header: jwt.HeaderProducerConfig{Typ: "at+jwt"}}).
-		Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
-	require.NoError(t, err)
+	issueTyped := func(typ jwa.Typ) string {
+		typed, err := jwt.NewProducer(jwt.ProducerConfig{Header: jwt.HeaderProducerConfig{Typ: typ}}).
+			Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+		require.NoError(t, err)
+
+		return typed
+	}
 
 	unsecured := []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()}
 
@@ -98,10 +102,45 @@ func TestRecipient(t *testing.T) {
 
 			config: jwt.RecipientConfig{Plugins: unsecured, Typ: "application/AT+JWT"},
 
-			token: typedToken,
+			token: issueTyped("at+jwt"),
 			dst:   map[string]any{},
 
 			expect: map[string]any{"foo": "bar"},
+		},
+		{
+			// RFC 7515 §4.1.9: parameter names ignore case, like the type and subtype.
+			name: "TypParameterName",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: `application/example;Profile="admin"`},
+
+			token: issueTyped(`EXAMPLE;profile="admin"`),
+			dst:   map[string]any{},
+
+			expect: map[string]any{"foo": "bar"},
+		},
+		{
+			// RFC 7515 §4.1.9: parameter values keep their case.
+			name: "TypParameterValue",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: `application/example;profile="admin"`},
+
+			token: issueTyped(`example;profile="Admin"`),
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnexpectedTyp,
+			expect:    map[string]any{},
+		},
+		{
+			// RFC 7515 §4.1.9: a value holding any "/" does not take the "application/" prefix.
+			name: "TypSlashInParameter",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: `application/example;part="1/2"`},
+
+			token: issueTyped(`example;part="1/2"`),
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnexpectedTyp,
+			expect:    map[string]any{},
 		},
 		{
 			name: "UnexpectedTyp",
