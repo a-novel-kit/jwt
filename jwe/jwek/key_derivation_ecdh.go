@@ -196,7 +196,7 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 
 	err := json.Unmarshal(header.EPK.Payload, &ecdhPayload)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) unmarshal payload: %w", err)
+		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) %w: unmarshal payload: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	_, producerPublicKey, err := serializers.DecodeECDH(&ecdhPayload)
@@ -211,7 +211,7 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 
 	apu, apv, err := agreementInfo(header)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) %w", err)
+		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) %w: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	cek, err := internal.Derive(z, string(decoder.enc), decoder.keyLen, apu, apv)

@@ -180,12 +180,12 @@ func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, e
 
 	iv, err := base64.RawURLEncoding.DecodeString(header.IV)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) decode IV: %w", err)
+		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) %w: decode IV: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	tag, err := base64.RawURLEncoding.DecodeString(header.Tag)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) decode tag: %w", err)
+		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) %w: decode tag: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	if len(iv) != 12 {

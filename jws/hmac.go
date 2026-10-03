@@ -148,7 +148,7 @@ func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawT
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {
-		return nil, fmt.Errorf("(HMACVerifier.Transform) decode signature: %w", err)
+		return nil, fmt.Errorf("(HMACVerifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	hasher := hmac.New(verifier.hash.New, verifier.secretKey)
@@ -160,7 +160,7 @@ func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawT
 
 	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("(HMACVerifier.Transform) decode payload: %w", err)
+		return nil, fmt.Errorf("(HMACVerifier.Transform) %w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	return decoded, nil

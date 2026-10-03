@@ -49,7 +49,7 @@ func (plugin *DefaultRecipientPlugin) Transform(_ context.Context, header *jwa.J
 
 	decodedPayload, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("(DefaultRecipientPlugin.Transform) decode payload: %w", err)
+		return nil, fmt.Errorf("(DefaultRecipientPlugin.Transform) %w: decode payload: %w", ErrUnsupportedTokenFormat, err)
 	}
 
 	return decodedPayload, nil

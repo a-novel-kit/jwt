@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
@@ -71,6 +72,26 @@ func TestAESGCMKW(t *testing.T) {
 				decodedCEK, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
 				require.NoError(t, err)
 				require.Equal(t, computedCEK, decodedCEK)
+			})
+
+			t.Run("MalformedHeader", func(t *testing.T) {
+				t.Parallel()
+
+				decoder := jwek.NewAESGCMKWDecoder(
+					&jwek.AESGCMKWDecoderConfig{WrapKey: wrapKey.Key()},
+					testCase.preset,
+				)
+
+				for _, malform := range []func(*jwa.JWHCommon){
+					func(common *jwa.JWHCommon) { common.IV = "!!!" },
+					func(common *jwa.JWHCommon) { common.Tag = "!!!" },
+				} {
+					common := header.JWHCommon
+					malform(&common)
+
+					_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
+					require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+				}
 			})
 
 			t.Run("WrongKEK", func(t *testing.T) {

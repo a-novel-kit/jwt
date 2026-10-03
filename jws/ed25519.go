@@ -100,7 +100,7 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {
-		return nil, fmt.Errorf("(ED25519Verifier.Transform) decode signature: %w", err)
+		return nil, fmt.Errorf("(ED25519Verifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	if !ed25519.Verify(verifier.publicKey, unsignedToken.Bytes(), sigBytes) {
@@ -109,7 +109,7 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 
 	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("(ED25519Verifier.Transform) decode payload: %w", err)
+		return nil, fmt.Errorf("(ED25519Verifier.Transform) %w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	return decoded, nil
