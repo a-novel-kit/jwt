@@ -91,7 +91,7 @@ func TestED25519(t *testing.T) {
 	t.Run("LegacyEdDSALabel", func(t *testing.T) {
 		t.Parallel()
 
-		legacySigner := jws.NewEdDSASigner(privateKey.Key()) //nolint:staticcheck // The legacy path is under test.
+		legacySigner := jws.NewEdDSASigner(privateKey.Key())
 
 		header, err := legacySigner.Header(t.Context(), &jwa.JWH{})
 		require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestED25519SourcedSigner(t *testing.T) {
 	t.Run("LegacyEdDSALabel", func(t *testing.T) {
 		t.Parallel()
 
-		legacySigner := jws.NewSourcedEdDSASigner(source) //nolint:staticcheck // The legacy path is under test.
+		legacySigner := jws.NewSourcedEdDSASigner(source)
 
 		header, err := legacySigner.Header(t.Context(), &jwa.JWH{})
 		require.NoError(t, err)

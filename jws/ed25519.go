@@ -37,7 +37,7 @@ func NewED25519Signer(secretKey ed25519.PrivateKey) *ED25519Signer {
 func NewEdDSASigner(secretKey ed25519.PrivateKey) *ED25519Signer {
 	return &ED25519Signer{
 		secretKey: secretKey,
-		alg:       jwa.EdDSA, //nolint:staticcheck // This constructor exists to emit the deprecated label.
+		alg:       jwa.EdDSA,
 	}
 }
 
@@ -177,7 +177,7 @@ func NewSourcedED25519Signer(source *jwk.Source) *SourcedED25519Signer {
 func NewSourcedEdDSASigner(source *jwk.Source) *SourcedED25519Signer {
 	return &SourcedED25519Signer{
 		source: source,
-		alg:    jwa.EdDSA, //nolint:staticcheck // This constructor exists to emit the deprecated label.
+		alg:    jwa.EdDSA,
 	}
 }
 
