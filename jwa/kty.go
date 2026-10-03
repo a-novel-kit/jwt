@@ -21,4 +21,9 @@ const (
 	// such as Ed25519 and X25519.
 	// https://datatracker.ietf.org/doc/html/rfc8037#section-2
 	KTYOKP KTY = "OKP"
+
+	// KTYAKP is an Algorithm Key Pair, whose "alg" alone fixes the format of its
+	// public and private members. ML-DSA keys use it.
+	// https://datatracker.ietf.org/doc/html/rfc9964#section-3
+	KTYAKP KTY = "AKP"
 )
