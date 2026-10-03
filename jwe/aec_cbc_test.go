@@ -265,3 +265,47 @@ func TestAESCBC(t *testing.T) {
 		})
 	}
 }
+
+func TestAESCBCMalformedSegment(t *testing.T) {
+	t.Parallel()
+
+	key, err := jwk.GenerateAES(jwk.A256CBC)
+	require.NoError(t, err)
+
+	encrypter := jwe.NewAESCBCEncryption(&jwe.AESCBCEncryptionConfig{
+		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
+	}, jwe.A256CBCHS512)
+	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
+
+	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.NoError(t, err)
+
+	decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{
+		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},
+	}, jwe.A256CBCHS512)
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
+
+	testCases := []struct {
+		name    string
+		malform func(token *jwt.EncryptedToken)
+	}{
+		{name: "EncKey", malform: func(token *jwt.EncryptedToken) { token.EncKey = "!!!" }},
+		{name: "IV", malform: func(token *jwt.EncryptedToken) { token.IV = "!!!" }},
+		{name: "Tag", malform: func(token *jwt.EncryptedToken) { token.Tag = "!!!" }},
+		{name: "CipherText", malform: func(token *jwt.EncryptedToken) { token.CipherText = "!!!" }},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+			require.NoError(t, err)
+
+			testCase.malform(parts)
+
+			var claims map[string]any
+			require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwt.ErrUnsupportedTokenFormat)
+		})
+	}
+}

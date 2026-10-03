@@ -74,6 +74,21 @@ func TestPBES2KeyEncKW(t *testing.T) {
 				require.Equal(t, computedCEK, decodedCEK)
 			})
 
+			t.Run("MalformedSalt", func(t *testing.T) {
+				t.Parallel()
+
+				decoder := jwek.NewPBES2KeyEncKWDecoder(
+					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
+					testCase.preset,
+				)
+
+				common := header.JWHCommon
+				common.P2S = "!!!"
+
+				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+			})
+
 			t.Run("WrongSecret", func(t *testing.T) {
 				t.Parallel()
 

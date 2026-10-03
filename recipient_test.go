@@ -153,6 +153,17 @@ func TestRecipient(t *testing.T) {
 			expect:    map[string]any{},
 		},
 		{
+			name: "MalformedPayload",
+
+			config: jwt.RecipientConfig{},
+
+			token: tokenNotJSON.Header + ".!!!",
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnsupportedTokenFormat,
+			expect:    map[string]any{},
+		},
+		{
 			name: "TokenTooLarge",
 
 			config: jwt.RecipientConfig{MaxTokenBytes: 8},
