@@ -87,6 +87,26 @@ func TestED25519(t *testing.T) {
 		require.Equal(t, jwa.Ed25519, header.Alg)
 	})
 
+	// A peer that verifies only "EdDSA" keeps working while this service signs with the legacy label.
+	t.Run("LegacyEdDSALabel", func(t *testing.T) {
+		t.Parallel()
+
+		legacySigner := jws.NewEdDSASigner(privateKey.Key()) //nolint:staticcheck // The legacy path is under test.
+
+		header, err := legacySigner.Header(t.Context(), &jwa.JWH{})
+		require.NoError(t, err)
+		require.Equal(t, jwa.EdDSA, header.Alg) //nolint:staticcheck // The legacy label is the expected output.
+
+		legacyToken, err := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{legacySigner}}).
+			Issue(t.Context(), producerClaims, nil)
+		require.NoError(t, err)
+
+		var recipientClaims map[string]any
+
+		require.NoError(t, recipient.Consume(t.Context(), legacyToken, &recipientClaims))
+		require.Equal(t, producerClaims, recipientClaims)
+	})
+
 	// RFC 8037 Appendix A.4 signs under the "EdDSA" label RFC 9864 deprecates. Verifying it pins both
 	// interoperability and the acceptance of tokens issued before the fully-specified identifier.
 	t.Run("RFC8037Vector", func(t *testing.T) {
@@ -142,6 +162,16 @@ func TestED25519SourcedSigner(t *testing.T) {
 
 		require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
 		require.Equal(t, producerClaims, recipientClaims)
+	})
+
+	t.Run("LegacyEdDSALabel", func(t *testing.T) {
+		t.Parallel()
+
+		legacySigner := jws.NewSourcedEdDSASigner(source) //nolint:staticcheck // The legacy path is under test.
+
+		header, err := legacySigner.Header(t.Context(), &jwa.JWH{})
+		require.NoError(t, err)
+		require.Equal(t, jwa.EdDSA, header.Alg) //nolint:staticcheck // The legacy label is the expected output.
 	})
 
 	t.Run("TrySecondKey", func(t *testing.T) {
