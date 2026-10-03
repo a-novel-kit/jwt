@@ -11,13 +11,13 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-// An ED25519Signer signs tokens with the Ed25519 EdDSA scheme as a [jwt.ProducerPlugin]. Build one
-// with [NewED25519Signer].
+// An ED25519Signer signs tokens with the Ed25519 EdDSA scheme as a [jwt.ProducerPlugin], under the
+// fully-specified "Ed25519" algorithm of RFC 9864. Build one with [NewED25519Signer].
 type ED25519Signer struct {
 	secretKey ed25519.PrivateKey
 }
 
-// NewED25519Signer returns a [jwt.ProducerPlugin] that signs tokens with Ed25519 (EdDSA).
+// NewED25519Signer returns a [jwt.ProducerPlugin] that signs tokens with Ed25519.
 //
 // See RFC 8032, section 3.3: https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
 func NewED25519Signer(secretKey ed25519.PrivateKey) *ED25519Signer {
@@ -31,7 +31,7 @@ func (signer *ED25519Signer) Header(_ context.Context, header *jwa.JWH) (*jwa.JW
 		return nil, fmt.Errorf("(ED25519Signer.Header) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
-	header.Alg = jwa.EdDSA
+	header.Alg = jwa.Ed25519
 
 	return header, nil
 }
@@ -51,13 +51,15 @@ func (signer *ED25519Signer) Transform(_ context.Context, _ *jwa.JWH, rawToken s
 	}.String(), nil
 }
 
-// An ED25519Verifier verifies Ed25519-signed tokens as a [jwt.RecipientPlugin]. Build one with
-// [NewED25519Verifier]. It returns [ErrInvalidSignature] when the signature does not match.
+// An ED25519Verifier verifies Ed25519-signed tokens as a [jwt.RecipientPlugin]. It accepts the
+// "Ed25519" algorithm and the "EdDSA" one RFC 9864 deprecates, which names the same scheme for an
+// Ed25519 key. Build one with [NewED25519Verifier]. It returns [ErrInvalidSignature] when the
+// signature does not match.
 type ED25519Verifier struct {
 	publicKey ed25519.PublicKey
 }
 
-// NewED25519Verifier returns a [jwt.RecipientPlugin] that verifies Ed25519-signed (EdDSA) tokens.
+// NewED25519Verifier returns a [jwt.RecipientPlugin] that verifies Ed25519-signed tokens.
 //
 // See RFC 8032, section 3.3: https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
 func NewED25519Verifier(publicKey ed25519.PublicKey) *ED25519Verifier {
@@ -67,10 +69,10 @@ func NewED25519Verifier(publicKey ed25519.PublicKey) *ED25519Verifier {
 }
 
 func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	if header.Alg != jwa.EdDSA {
+	if header.Alg != jwa.Ed25519 && header.Alg != jwa.EdDSA { //nolint:staticcheck // Still accepted, per RFC 9864.
 		return nil, fmt.Errorf(
 			"(ED25519Verifier.Transform) %w: invalid algorithm %s, expected %s",
-			jwt.ErrMismatchRecipientPlugin, header.Alg, jwa.EdDSA,
+			jwt.ErrMismatchRecipientPlugin, header.Alg, jwa.Ed25519,
 		)
 	}
 
@@ -141,7 +143,7 @@ type SourcedED25519Signer struct {
 	source *jwk.Source
 }
 
-// NewSourcedED25519Signer returns a [jwt.ProducerPlugin] that signs tokens with Ed25519 (EdDSA),
+// NewSourcedED25519Signer returns a [jwt.ProducerPlugin] that signs tokens with Ed25519,
 // drawing the key from the source for the header's KID.
 //
 // See RFC 8032, section 3.3: https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
@@ -181,8 +183,8 @@ type SourcedED25519Verifier struct {
 	source *jwk.Source
 }
 
-// NewSourcedED25519Verifier returns a [jwt.RecipientPlugin] that verifies Ed25519-signed (EdDSA)
-// tokens against keys drawn from the source.
+// NewSourcedED25519Verifier returns a [jwt.RecipientPlugin] that verifies Ed25519-signed tokens
+// against keys drawn from the source.
 //
 // See RFC 8032, section 3.3: https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
 func NewSourcedED25519Verifier(source *jwk.Source) *SourcedED25519Verifier {

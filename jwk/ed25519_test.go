@@ -31,7 +31,7 @@ func TestGenerateED25519(t *testing.T) {
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
 		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
-		Alg:    jwa.EdDSA,
+		Alg:    jwa.Ed25519,
 	}))
 	require.NotEmpty(t, privateKey.KID)
 
@@ -39,7 +39,7 @@ func TestGenerateED25519(t *testing.T) {
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
 		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
-		Alg:    jwa.EdDSA,
+		Alg:    jwa.Ed25519,
 	}))
 	require.Equal(t, privateKey.KID, publicKey.KID)
 
@@ -82,6 +82,14 @@ func TestConsumeED25519(t *testing.T) {
 
 	private, public := mustED25519(t)
 
+	// RFC 9864 deprecates the EdDSA label without invalidating the keys that carry it.
+	deprecatedLabel := func(key *jwa.JWK) *jwa.JWK {
+		relabeled := *key
+		relabeled.Alg = jwa.EdDSA //nolint:staticcheck // The deprecated label is the input under test.
+
+		return &relabeled
+	}
+
 	testCases := []struct {
 		name      string
 		private   *jwk.Key[ed25519.PrivateKey]
@@ -92,6 +100,11 @@ func TestConsumeED25519(t *testing.T) {
 			name:    "Success",
 			private: private,
 			public:  public,
+		},
+		{
+			name:    "Success/DeprecatedEdDSA",
+			private: jwk.NewKey(deprecatedLabel(private.JWK), private.Key()),
+			public:  jwk.NewKey(deprecatedLabel(public.JWK), public.Key()),
 		},
 		{
 			name:      "Mismatch",
