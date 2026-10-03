@@ -261,6 +261,13 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
+	// Decompression is not implemented, so a compressed payload is refused instead of returned as is.
+	if header.Zip != "" {
+		return nil, fmt.Errorf(
+			"(AESCBCDecryption.Transform) %w: unsupported zip %s", jwt.ErrUnsupportedTokenFormat, header.Zip,
+		)
+	}
+
 	token, err := jwt.DecodeToken(rawToken, &jwt.EncryptedTokenDecoder{})
 	if err != nil {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) split token: %w", err)

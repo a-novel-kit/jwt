@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe"
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
@@ -264,4 +265,15 @@ func TestAESCBC(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestAESCBCRejectsCompression(t *testing.T) {
+	t.Parallel()
+
+	decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{CEKDecoder: &fakeCEKDecoder{}}, jwe.A256CBCHS512)
+
+	header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwe.A256CBCHS512.Enc, Zip: jwa.ZipDeflate}}
+
+	_, err := decrypter.Transform(t.Context(), header, "a.b.c.d.e")
+	require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 }

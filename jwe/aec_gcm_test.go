@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe"
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
@@ -355,4 +356,15 @@ func TestAESGCMHeaderBound(t *testing.T) {
 
 	// The tamper surfaces as an authenticated-decryption error.
 	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidSecret)
+}
+
+func TestAESGCMRejectsCompression(t *testing.T) {
+	t.Parallel()
+
+	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{CEKDecoder: &fakeCEKDecoder{}}, jwe.A256GCM)
+
+	header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwe.A256GCM.Enc, Zip: jwa.ZipDeflate}}
+
+	_, err := decrypter.Transform(t.Context(), header, "a.b.c.d.e")
+	require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 }
