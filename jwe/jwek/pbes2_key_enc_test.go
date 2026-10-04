@@ -8,7 +8,6 @@ import (
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
-	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
 func TestPBES2KeyEncKW(t *testing.T) {
@@ -37,29 +36,25 @@ func TestPBES2KeyEncKW(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			cek, err := jwk.GenerateAES(jwk.A256GCM)
-			require.NoError(t, err)
-
 			secret := "my-strong-password"
 
 			manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
-				CEK:        cek.Key(),
 				Secret:     secret,
 				Iterations: 1000,
 				SaltSize:   16,
 			}, testCase.preset)
 
-			header, err := manager.SetHeader(t.Context(), &jwa.JWH{})
+			header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
 			require.NoError(t, err)
 
 			computedCEK, err := manager.ComputeCEK(t.Context(), header)
 			require.NoError(t, err)
-			require.Equal(t, cek.Key(), computedCEK)
+			require.Len(t, computedCEK, 32)
 
 			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, computedCEK)
 			require.NoError(t, err)
 			require.NotNil(t, encryptedCEK)
-			require.NotEqual(t, cek.Key(), encryptedCEK)
+			require.NotEqual(t, computedCEK, encryptedCEK)
 
 			t.Run("OK", func(t *testing.T) {
 				t.Parallel()
@@ -97,7 +92,7 @@ func TestPBES2KeyEncKW(t *testing.T) {
 					testCase.preset,
 				)
 
-				_, err = decoder.ComputeCEK(t.Context(), header, encryptedCEK)
+				_, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
 				require.Error(t, err)
 			})
 
@@ -139,7 +134,6 @@ func TestPBES2KeyEncKWSetHeaderConflict(t *testing.T) {
 	manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
 		Iterations: 1000,
 		SaltSize:   16,
-		CEK:        make([]byte, 32),
 		Secret:     "password",
 	}, jwek.PBES2A256KW)
 

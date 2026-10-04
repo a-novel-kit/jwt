@@ -30,14 +30,14 @@ func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
 		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
-		Alg:    jwa.EdDSA,
+		Alg:    jwa.Ed25519,
 		KID:    kid,
 	}
 	publicHeader := jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
 		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
-		Alg:    jwa.EdDSA,
+		Alg:    jwa.Ed25519,
 		KID:    kid,
 	}
 
@@ -66,21 +66,27 @@ func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error
 }
 
 // ConsumeED25519 parses a JSON Web Key into an Ed25519 signature key pair. When the key holds only
-// a public key, the returned private key is nil.
+// a public key, the returned private key is nil. A key labeled with the deprecated "EdDSA" algorithm
+// is accepted as well.
 //
 // It returns ErrJWKMismatch when the key does not represent an Ed25519 key.
 func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error) {
-	matchPrivate := source.MatchPreset(jwa.JWKCommon{
+	common := source.JWKCommon
+	if common.Alg == jwa.EdDSA { //nolint:staticcheck // RFC 9864 keeps EdDSA keys valid as Ed25519 ones.
+		common.Alg = jwa.Ed25519
+	}
+
+	matchPrivate := common.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
 		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
-		Alg:    jwa.EdDSA,
+		Alg:    jwa.Ed25519,
 	})
-	matchPublic := source.MatchPreset(jwa.JWKCommon{
+	matchPublic := common.MatchPreset(jwa.JWKCommon{
 		KTY:    jwa.KTYOKP,
 		Use:    jwa.UseSig,
 		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
-		Alg:    jwa.EdDSA,
+		Alg:    jwa.Ed25519,
 	})
 
 	if !matchPrivate && !matchPublic {

@@ -6,8 +6,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe"
 	"github.com/a-novel-kit/jwt/v2/jwk"
+	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
 func TestAESCBC(t *testing.T) {
@@ -266,6 +268,17 @@ func TestAESCBC(t *testing.T) {
 	}
 }
 
+func TestAESCBCRejectsCompression(t *testing.T) {
+	t.Parallel()
+
+	decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{CEKDecoder: &fakeCEKDecoder{}}, jwe.A256CBCHS512)
+
+	header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwe.A256CBCHS512.Enc, Zip: jwa.ZipDeflate}}
+
+	_, err := decrypter.Transform(t.Context(), header, "a.b.c.d.e")
+	require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+}
+
 func TestAESCBCMalformedSegment(t *testing.T) {
 	t.Parallel()
 
@@ -289,10 +302,10 @@ func TestAESCBCMalformedSegment(t *testing.T) {
 		name    string
 		malform func(token *jwt.EncryptedToken)
 	}{
-		{name: "EncKey", malform: func(token *jwt.EncryptedToken) { token.EncKey = "!!!" }},
-		{name: "IV", malform: func(token *jwt.EncryptedToken) { token.IV = "!!!" }},
-		{name: "Tag", malform: func(token *jwt.EncryptedToken) { token.Tag = "!!!" }},
-		{name: "CipherText", malform: func(token *jwt.EncryptedToken) { token.CipherText = "!!!" }},
+		{name: "EncKey", malform: func(token *jwt.EncryptedToken) { token.EncKey = testutils.UndecodableSegment }},
+		{name: "IV", malform: func(token *jwt.EncryptedToken) { token.IV = testutils.UndecodableSegment }},
+		{name: "Tag", malform: func(token *jwt.EncryptedToken) { token.Tag = testutils.UndecodableSegment }},
+		{name: "CipherText", malform: func(token *jwt.EncryptedToken) { token.CipherText = testutils.UndecodableSegment }},
 	}
 
 	for _, testCase := range testCases {

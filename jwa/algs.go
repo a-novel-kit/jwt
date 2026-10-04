@@ -1,6 +1,7 @@
 // Package jwa defines the JOSE data types shared across the jwt toolkit: the
 // algorithm, key, header, and claim structures of the JSON Web Signature,
-// Encryption, Key, and Token specifications (RFC 7515-7519, RFC 8037).
+// Encryption, Key, and Token specifications (RFC 7515-7519, RFC 8037, RFC 9864,
+// RFC 9964).
 //
 // The package holds only the wire types and their registered constant values.
 // It carries no cryptographic logic; the serialization and signing packages
@@ -55,8 +56,32 @@ const (
 	// PS512 signs with RSASSA-PSS using SHA-512 and MGF1 with SHA-512.
 	PS512 Alg = "PS512"
 
-	// EdDSA signs with the Edwards-curve Digital Signature Algorithm.
+	// EdDSA signs with the Edwards-curve Digital Signature Algorithm, on the curve
+	// the key names.
+	//
+	// Deprecated: RFC 9864 replaces this polymorphic identifier with the
+	// fully-specified [Ed25519]. Recipients still accept it, so tokens and keys
+	// that carry it keep verifying.
 	EdDSA Alg = "EdDSA"
+)
+
+// JWS signing algorithms registered by RFC 9864, each bound to one curve.
+// https://datatracker.ietf.org/doc/html/rfc9864#section-2.2
+const (
+	// Ed25519 signs with EdDSA on the Ed25519 curve.
+	Ed25519 Alg = "Ed25519"
+)
+
+// JWS signing algorithms registered by RFC 9964: the post-quantum ML-DSA scheme of
+// FIPS 204, at three security levels.
+// https://datatracker.ietf.org/doc/html/rfc9964#section-5
+const (
+	// MLDSA44 signs with ML-DSA-44, NIST security category 2.
+	MLDSA44 Alg = "ML-DSA-44"
+	// MLDSA65 signs with ML-DSA-65, NIST security category 3.
+	MLDSA65 Alg = "ML-DSA-65"
+	// MLDSA87 signs with ML-DSA-87, NIST security category 5.
+	MLDSA87 Alg = "ML-DSA-87"
 )
 
 // JWE key management algorithms registered by RFC 7518.

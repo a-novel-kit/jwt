@@ -87,7 +87,7 @@ func TestECDSA(t *testing.T) {
 				var recipientClaims map[string]any
 
 				parts := strings.Split(token, ".")
-				newToken := strings.Join(append(parts[:2:2], "!!!"), ".")
+				newToken := strings.Join(append(parts[:2:2], testutils.UndecodableSegment), ".")
 
 				err := recipient.Consume(t.Context(), newToken, &recipientClaims)
 				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)

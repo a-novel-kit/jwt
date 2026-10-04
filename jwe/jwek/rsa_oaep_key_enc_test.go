@@ -35,28 +35,24 @@ func TestRSAOAEPKeyEnc(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			cek, err := jwk.GenerateAES(jwk.A256GCM)
-			require.NoError(t, err)
-
 			recipientPrivateKey, recipientPublicKey, err := jwk.GenerateRSA(testCase.keyPreset)
 			require.NoError(t, err)
 
 			manager := jwek.NewRSAOAEPKeyEncManager(&jwek.RSAOAEPKeyEncManagerConfig{
-				CEK:    cek.Key(),
 				EncKey: recipientPublicKey.Key(),
 			}, testCase.preset)
 
-			header, err := manager.SetHeader(t.Context(), &jwa.JWH{})
+			header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
 			require.NoError(t, err)
 
 			computedCEK, err := manager.ComputeCEK(t.Context(), header)
 			require.NoError(t, err)
-			require.Equal(t, cek.Key(), computedCEK)
+			require.Len(t, computedCEK, 32)
 
 			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, computedCEK)
 			require.NoError(t, err)
 			require.NotNil(t, encryptedCEK)
-			require.NotEqual(t, cek.Key(), encryptedCEK)
+			require.NotEqual(t, computedCEK, encryptedCEK)
 
 			t.Run("OK", func(t *testing.T) {
 				t.Parallel()
@@ -68,7 +64,7 @@ func TestRSAOAEPKeyEnc(t *testing.T) {
 
 				decryptedCEK, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
 				require.NoError(t, err)
-				require.Equal(t, cek.Key(), decryptedCEK)
+				require.Equal(t, computedCEK, decryptedCEK)
 			})
 
 			t.Run("WrongRecipientKey", func(t *testing.T) {

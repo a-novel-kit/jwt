@@ -44,25 +44,21 @@ func TestAESKW(t *testing.T) {
 			wrapKey, err := jwk.GenerateAES(testCase.keyPreset)
 			require.NoError(t, err)
 
-			cek, err := jwk.GenerateAES(jwk.A128GCM)
-			require.NoError(t, err)
-
 			manager := jwek.NewAESKWManager(&jwek.AESKWManagerConfig{
-				CEK:     cek.Key(),
 				WrapKey: wrapKey.Key(),
 			}, testCase.preset)
 
-			header, err := manager.SetHeader(t.Context(), &jwa.JWH{})
+			header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
 			require.NoError(t, err)
 
 			computedCEK, err := manager.ComputeCEK(t.Context(), header)
 			require.NoError(t, err)
-			require.Equal(t, cek.Key(), computedCEK)
+			require.Len(t, computedCEK, 32)
 
-			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, cek.Key())
+			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, computedCEK)
 			require.NoError(t, err)
 			require.NotEmpty(t, encryptedCEK)
-			require.NotEqual(t, cek.Key(), encryptedCEK)
+			require.NotEqual(t, computedCEK, encryptedCEK)
 
 			t.Run("OK", func(t *testing.T) {
 				t.Parallel()
@@ -74,7 +70,7 @@ func TestAESKW(t *testing.T) {
 
 				decodedCEK, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
 				require.NoError(t, err)
-				require.Equal(t, cek.Key(), decodedCEK)
+				require.Equal(t, computedCEK, decodedCEK)
 			})
 
 			t.Run("WrongKEK", func(t *testing.T) {

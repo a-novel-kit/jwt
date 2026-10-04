@@ -50,14 +50,10 @@ func TestECDHKeyAgr(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			producerPrivateKey, _, err := jwk.GenerateECDH()
-			require.NoError(t, err)
-
 			recipientPrivateKey, recipientPublicKey, err := jwk.GenerateECDH()
 			require.NoError(t, err)
 
 			manager := jwek.NewECDHKeyAgrManager(&jwek.ECDHKeyAgrManagerConfig{
-				ProducerKey:   producerPrivateKey.Key(),
 				RecipientKey:  recipientPublicKey.Key(),
 				ProducerInfo:  "producer",
 				RecipientInfo: "recipient",
@@ -171,7 +167,7 @@ func TestECDHKeyAgr(t *testing.T) {
 				common := header.JWHCommon
 				common.EPK = nil
 
-				_, err = decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, nil)
+				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, nil)
 				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 			})
 
@@ -182,7 +178,7 @@ func TestECDHKeyAgr(t *testing.T) {
 					RecipientKey: recipientPrivateKey.Key(),
 				}, testCase.preset)
 
-				_, err = decoder.ComputeCEK(t.Context(), header, []byte("fake-enc-key"))
+				_, err := decoder.ComputeCEK(t.Context(), header, []byte("fake-enc-key"))
 				require.Error(t, err)
 			})
 		})

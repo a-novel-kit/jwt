@@ -13,6 +13,8 @@ var (
 	_ jwt.ProducerPlugin = (*SourcedECDSASigner)(nil)
 	_ jwt.ProducerPlugin = (*ED25519Signer)(nil)
 	_ jwt.ProducerPlugin = (*SourcedED25519Signer)(nil)
+	_ jwt.ProducerPlugin = (*MLDSASigner)(nil)
+	_ jwt.ProducerPlugin = (*SourcedMLDSASigner)(nil)
 
 	_ jwt.RecipientPlugin = (*HMACVerifier)(nil)
 	_ jwt.RecipientPlugin = (*SourcedHMACVerifier)(nil)
@@ -22,4 +24,6 @@ var (
 	_ jwt.RecipientPlugin = (*SourcedECDSAVerifier)(nil)
 	_ jwt.RecipientPlugin = (*ED25519Verifier)(nil)
 	_ jwt.RecipientPlugin = (*SourcedED25519Verifier)(nil)
+	_ jwt.RecipientPlugin = (*MLDSAVerifier)(nil)
+	_ jwt.RecipientPlugin = (*SourcedMLDSAVerifier)(nil)
 )

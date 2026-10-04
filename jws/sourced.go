@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
@@ -14,6 +15,22 @@ import (
 // error when the key belongs to a different algorithm family; verifyFromSource and signFromSource
 // use that error to skip the keys a mixed source holds for other algorithms.
 type keyDecoder[K any] func(key *jwa.JWK) (K, error)
+
+// permitting wraps decode so it refuses, as a key of another family, any key whose "key_ops" lack op.
+// The Consume functions accept a key labeled for either half of a pair and return whatever material it
+// carries, so a private key labeled for verification still decodes; the operation is checked here,
+// where it is performed.
+func permitting[K any](op jwa.KeyOp, decode keyDecoder[K]) keyDecoder[K] {
+	return func(key *jwa.JWK) (K, error) {
+		if !slices.Contains(key.KeyOps, op) {
+			var zero K
+
+			return zero, fmt.Errorf("%w: key_ops do not permit %s", jwk.ErrJWKMismatch, op)
+		}
+
+		return decode(key)
+	}
+}
 
 // verifyFromSource tries each key the source lists, honoring a KID hint, until one verifies the
 // token or every candidate fails. decode turns a raw key into this verifier's native type, erroring
@@ -26,6 +43,8 @@ func verifyFromSource[K any](
 	decode keyDecoder[K],
 	newVerifier func(key K) jwt.RecipientPlugin,
 ) ([]byte, error) {
+	decode = permitting(jwa.KeyOpVerify, decode)
+
 	// try verifies the token with candidate. A nil payload and a nil error means the candidate was
 	// not this verifier's to use, or did not verify — either way, keep looking.
 	try := func(candidate *jwa.JWK) ([]byte, error) {
@@ -117,6 +136,8 @@ func signFromSource[K any](
 	decode keyDecoder[K],
 ) (K, string, error) {
 	var zero K
+
+	decode = permitting(jwa.KeyOpSign, decode)
 
 	if kid != "" {
 		candidate, err := source.Get(ctx, kid)

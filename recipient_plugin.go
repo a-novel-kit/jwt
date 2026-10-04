@@ -21,7 +21,8 @@ type RecipientPlugin interface {
 }
 
 // DefaultRecipientPlugin consumes unsecured tokens: those whose header carries no algorithm or the
-// "none" algorithm. It runs no cryptographic check and returns the payload as it is.
+// "none" algorithm. It runs no cryptographic check and returns the payload as it is, so a
+// [Recipient] uses it only when its configuration lists it (RFC 7518 §3.6).
 type DefaultRecipientPlugin struct{}
 
 var _ RecipientPlugin = (*DefaultRecipientPlugin)(nil)

@@ -10,26 +10,28 @@ import (
 
 // ErrPrivateKeyMaterial reports a key carrying members that must not leave the
 // signer: the RSA private exponent and its CRT factors, the EC and OKP private
-// scalar, or the octet sequence a symmetric key consists of.
+// scalar, the AKP private key, or the octet sequence a symmetric key consists of.
 var ErrPrivateKeyMaterial = errors.New("key carries private material")
 
-// privateMembers are the JWK members RFC 7518 §6 defines as private, across
-// every key type. RSA carries the most; EC and OKP carry only "d"; a symmetric
-// key is nothing but its secret, which is why Public refuses one outright.
+// privateMembers are the JWK members RFC 7518 §6 and RFC 9964 §3 define as
+// private, across every key type. RSA carries the most; EC and OKP carry only
+// "d", AKP only "priv"; a symmetric key is nothing but its secret, which is why
+// Public refuses one outright.
 //
-// The names are a closed set fixed by the RFC, so a new key type is the only
+// The names are a closed set fixed by the RFCs, so a new key type is the only
 // thing that can add to it.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-6
 var privateMembers = []string{
-	"d",   // RSA private exponent; EC and OKP private scalar
-	"p",   // RSA first prime factor
-	"q",   // RSA second prime factor
-	"dp",  // RSA first factor CRT exponent
-	"dq",  // RSA second factor CRT exponent
-	"qi",  // RSA first CRT coefficient
-	"oth", // RSA other primes, each with its own r, d and t
-	"k",   // symmetric key value
+	"d",    // RSA private exponent; EC and OKP private scalar
+	"p",    // RSA first prime factor
+	"q",    // RSA second prime factor
+	"dp",   // RSA first factor CRT exponent
+	"dq",   // RSA second factor CRT exponent
+	"qi",   // RSA first CRT coefficient
+	"oth",  // RSA other primes, each with its own r, d and t
+	"k",    // symmetric key value
+	"priv", // AKP private key, such as an ML-DSA seed
 }
 
 // HasPrivateMaterial reports whether key carries any member that must stay with

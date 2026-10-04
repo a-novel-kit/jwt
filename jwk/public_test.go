@@ -39,6 +39,9 @@ func TestHasPrivateMaterial(t *testing.T) {
 	ecdhPrivate, ecdhPublic, err := jwk.GenerateECDH()
 	require.NoError(t, err)
 
+	mldsaPrivate, mldsaPublic, err := jwk.GenerateMLDSA(jwk.MLDSA44)
+	require.NoError(t, err)
+
 	hmacKey, err := jwk.GenerateHMAC(jwk.HS256)
 	require.NoError(t, err)
 
@@ -60,6 +63,8 @@ func TestHasPrivateMaterial(t *testing.T) {
 		{name: "ED25519/Public", key: edPublic.JWK, expect: false},
 		{name: "ECDH/Private", key: ecdhPrivate.JWK, expect: true},
 		{name: "ECDH/Public", key: ecdhPublic.JWK, expect: false},
+		{name: "MLDSA/Private", key: mldsaPrivate.JWK, expect: true},
+		{name: "MLDSA/Public", key: mldsaPublic.JWK, expect: false},
 		// A symmetric key is its secret whatever its payload says.
 		{name: "HMAC", key: hmacKey.JWK, expect: true},
 		{name: "AES", key: aesKey.JWK, expect: true},

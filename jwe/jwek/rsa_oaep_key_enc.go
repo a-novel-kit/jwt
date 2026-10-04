@@ -2,39 +2,39 @@ package jwek
 
 import (
 	"context"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1" //nolint:gosec
-	"crypto/sha256"
 	"fmt"
-	"hash"
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // RSAOAEPKeyEncPreset pairs a JWA algorithm identifier with the hash used by
-// RSAES-OAEP. Use one of the predefined presets.
+// RSAES-OAEP, for both the label digest and MGF1. Use one of the predefined presets.
 type RSAOAEPKeyEncPreset struct {
 	Alg  jwa.Alg
-	Hash hash.Hash
+	Hash crypto.Hash
 }
 
 var (
 	// Deprecated: this preset uses the broken SHA-1 hash function. Use RSAOAEP256 instead.
 	RSAOAEP = RSAOAEPKeyEncPreset{
 		Alg:  jwa.RSAOAEP,
-		Hash: sha1.New(), //nolint:gosec
+		Hash: crypto.SHA1,
 	}
 	RSAOAEP256 = RSAOAEPKeyEncPreset{
 		Alg:  jwa.RSAOAEP256,
-		Hash: sha256.New(),
+		Hash: crypto.SHA256,
 	}
 )
 
-// RSAOAEPKeyEncManagerConfig holds the content encryption key to protect and the
-// recipient RSA public key that encrypts it.
+// RSAOAEPKeyEncManagerConfig holds the recipient RSA public key that encrypts each
+// token's content encryption key.
 type RSAOAEPKeyEncManagerConfig struct {
+	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
+	// RFC 7516 requires.
 	CEK    []byte
 	EncKey *rsa.PublicKey
 }
@@ -42,11 +42,10 @@ type RSAOAEPKeyEncManagerConfig struct {
 // RSAOAEPKeyEncManager implements jwe.CEKManager, encrypting the content encryption
 // key to the recipient with RSAES-OAEP. See RFC 7518 section 4.3.
 type RSAOAEPKeyEncManager struct {
-	cek    []byte
 	encKey *rsa.PublicKey
 
 	alg  jwa.Alg
-	hash hash.Hash
+	hash crypto.Hash
 }
 
 // NewRSAOAEPKeyEncManager creates a jwe.CEKManager that encrypts the content
@@ -58,7 +57,6 @@ func NewRSAOAEPKeyEncManager(
 	config *RSAOAEPKeyEncManagerConfig, preset RSAOAEPKeyEncPreset,
 ) *RSAOAEPKeyEncManager {
 	return &RSAOAEPKeyEncManager{
-		cek:    config.CEK,
 		encKey: config.EncKey,
 		alg:    preset.Alg,
 		hash:   preset.Hash,
@@ -78,12 +76,17 @@ func (manager *RSAOAEPKeyEncManager) SetHeader(_ context.Context, header *jwa.JW
 	return header, nil
 }
 
-func (manager *RSAOAEPKeyEncManager) ComputeCEK(_ context.Context, _ *jwa.JWH) ([]byte, error) {
-	return manager.cek, nil
+func (manager *RSAOAEPKeyEncManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
+	cek, err := newCEK(header)
+	if err != nil {
+		return nil, fmt.Errorf("(RSAOAEPKeyEncManager.ComputeCEK) %w", err)
+	}
+
+	return cek, nil
 }
 
 func (manager *RSAOAEPKeyEncManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byte) ([]byte, error) {
-	encoded, err := rsa.EncryptOAEP(manager.hash, rand.Reader, manager.encKey, cek, nil)
+	encoded, err := rsa.EncryptOAEPWithOptions(rand.Reader, manager.encKey, cek, &rsa.OAEPOptions{Hash: manager.hash})
 	if err != nil {
 		return nil, fmt.Errorf("(RSAOAEPKeyEncManager.EncryptCEK) encrypt: %w", err)
 	}
@@ -103,7 +106,7 @@ type RSAOAEPKeyEncDecoder struct {
 	encKey *rsa.PrivateKey
 
 	alg  jwa.Alg
-	hash hash.Hash
+	hash crypto.Hash
 }
 
 // NewRSAOAEPKeyEncDecoder creates a jwe.CEKDecoder that decrypts an RSAES-OAEP
@@ -136,7 +139,7 @@ func (decoder *RSAOAEPKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.J
 		)
 	}
 
-	cek, err := rsa.DecryptOAEP(decoder.hash, rand.Reader, decoder.encKey, encKey, nil)
+	cek, err := decoder.encKey.Decrypt(nil, encKey, &rsa.OAEPOptions{Hash: decoder.hash})
 	if err != nil {
 		return nil, fmt.Errorf("(RSAOAEPKeyEncDecoder.ComputeCEK) decrypt: %w", err)
 	}

@@ -6,7 +6,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/samber/lo v1.53.0
 	github.com/stretchr/testify v1.12.1
-	golang.org/x/crypto v0.57.0
 )
 
 require (

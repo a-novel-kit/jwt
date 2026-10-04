@@ -38,34 +38,26 @@ func TestECDHKeyAgrKW(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			cek, err := jwk.GenerateAES(jwk.A256GCM)
-			require.NoError(t, err)
-
-			producerPrivateKey, _, err := jwk.GenerateECDH()
-			require.NoError(t, err)
-
 			recipientPrivateKey, recipientPublicKey, err := jwk.GenerateECDH()
 			require.NoError(t, err)
 
 			manager := jwek.NewECDHKeyAgrKWManager(&jwek.ECDHKeyAgrKWManagerConfig{
-				CEK:           cek.Key(),
-				ProducerKey:   producerPrivateKey.Key(),
 				RecipientKey:  recipientPublicKey.Key(),
 				ProducerInfo:  "producer",
 				RecipientInfo: "recipient",
 			}, testCase.preset)
 
-			header, err := manager.SetHeader(t.Context(), &jwa.JWH{})
+			header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
 			require.NoError(t, err)
 
 			computedCEK, err := manager.ComputeCEK(t.Context(), header)
 			require.NoError(t, err)
-			require.Equal(t, cek.Key(), computedCEK)
+			require.Len(t, computedCEK, 32)
 
 			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, computedCEK)
 			require.NoError(t, err)
 			require.NotNil(t, encryptedCEK)
-			require.NotEqual(t, cek.Key(), encryptedCEK)
+			require.NotEqual(t, computedCEK, encryptedCEK)
 
 			t.Run("OK", func(t *testing.T) {
 				t.Parallel()

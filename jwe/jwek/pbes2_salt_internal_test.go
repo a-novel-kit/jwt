@@ -2,11 +2,11 @@ package jwek
 
 import (
 	"crypto"
+	"crypto/pbkdf2"
 	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/pbkdf2"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
@@ -59,7 +59,8 @@ func TestVectorPBES2DerivedKey(t *testing.T) {
 	salt, err := pbes2Salt(jwa.PBES2HS256A128KW, p2s)
 	require.NoError(t, err)
 
-	got := pbkdf2.Key([]byte(passphrase), salt, p2c, keySize, crypto.SHA256.New)
+	got, err := pbkdf2.Key(crypto.SHA256.New, passphrase, salt, p2c, keySize)
+	require.NoError(t, err)
 	require.Equal(t, expectedKey, got)
 }
 

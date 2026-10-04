@@ -13,6 +13,7 @@ import (
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
 type fakeRecipientPlugin struct {
@@ -42,6 +43,16 @@ func TestRecipient(t *testing.T) {
 
 	tokenNotJSON.Payload = base64.RawURLEncoding.EncodeToString([]byte("qux"))
 
+	issueTyped := func(typ jwa.Typ) string {
+		typed, err := jwt.NewProducer(jwt.ProducerConfig{Header: jwt.HeaderProducerConfig{Typ: typ}}).
+			Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+		require.NoError(t, err)
+
+		return typed
+	}
+
+	unsecured := []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()}
+
 	testCases := []struct {
 		name string
 
@@ -56,7 +67,7 @@ func TestRecipient(t *testing.T) {
 		{
 			name: "Minimalistic",
 
-			config: jwt.RecipientConfig{},
+			config: jwt.RecipientConfig{Plugins: unsecured},
 
 			token: token,
 			dst:   map[string]any{},
@@ -64,9 +75,90 @@ func TestRecipient(t *testing.T) {
 			expect: map[string]any{"foo": "bar"},
 		},
 		{
+			// RFC 7518 §3.6: an unsecured token is accepted only by a recipient configured for it.
+			name: "NoPlugins",
+
+			config: jwt.RecipientConfig{},
+
+			token: token,
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrMismatchRecipientPlugin,
+			expect:    map[string]any{},
+		},
+		{
+			name: "IllegalCharacter",
+
+			config: jwt.RecipientConfig{Plugins: unsecured},
+
+			// The base64 decoder skips line breaks, so only the alphabet check rejects this one.
+			token: token[:4] + "\n" + token[4:],
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnsupportedTokenFormat,
+			expect:    map[string]any{},
+		},
+		{
+			name: "Typ",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: "application/AT+JWT"},
+
+			token: issueTyped("at+jwt"),
+			dst:   map[string]any{},
+
+			expect: map[string]any{"foo": "bar"},
+		},
+		{
+			// RFC 7515 §4.1.9: parameter names ignore case, like the type and subtype.
+			name: "TypParameterName",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: `application/example;Profile="admin"`},
+
+			token: issueTyped(`EXAMPLE;profile="admin"`),
+			dst:   map[string]any{},
+
+			expect: map[string]any{"foo": "bar"},
+		},
+		{
+			// RFC 7515 §4.1.9: parameter values keep their case.
+			name: "TypParameterValue",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: `application/example;profile="admin"`},
+
+			token: issueTyped(`example;profile="Admin"`),
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnexpectedTyp,
+			expect:    map[string]any{},
+		},
+		{
+			// RFC 7515 §4.1.9: a value holding any "/" does not take the "application/" prefix.
+			name: "TypSlashInParameter",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: `application/example;part="1/2"`},
+
+			token: issueTyped(`example;part="1/2"`),
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnexpectedTyp,
+			expect:    map[string]any{},
+		},
+		{
+			name: "UnexpectedTyp",
+
+			config: jwt.RecipientConfig{Plugins: unsecured, Typ: "at+jwt"},
+
+			token: token,
+			dst:   map[string]any{},
+
+			expectErr: jwt.ErrUnexpectedTyp,
+			expect:    map[string]any{},
+		},
+		{
 			name: "CustomDeserializer",
 
 			config: jwt.RecipientConfig{
+				Plugins: unsecured,
 				Deserializer: func(raw []byte, dst any) error {
 					return json.Unmarshal([]byte(fmt.Sprintf(`{"foo":"%s"}`, string(raw))), dst)
 				},
@@ -135,7 +227,7 @@ func TestRecipient(t *testing.T) {
 
 			config: jwt.RecipientConfig{},
 
-			token: "!!!." + tokenNotJSON.Payload,
+			token: testutils.UndecodableSegment + "." + tokenNotJSON.Payload,
 			dst:   map[string]any{},
 
 			expectErr: jwt.ErrUnsupportedTokenFormat,
@@ -155,9 +247,10 @@ func TestRecipient(t *testing.T) {
 		{
 			name: "MalformedPayload",
 
-			config: jwt.RecipientConfig{},
+			// The payload is the plugin's to decode, so the unsecured plugin has to be listed.
+			config: jwt.RecipientConfig{Plugins: unsecured},
 
-			token: tokenNotJSON.Header + ".!!!",
+			token: tokenNotJSON.Header + "." + testutils.UndecodableSegment,
 			dst:   map[string]any{},
 
 			expectErr: jwt.ErrUnsupportedTokenFormat,
@@ -181,7 +274,7 @@ func TestRecipient(t *testing.T) {
 			t.Parallel()
 
 			recipient := jwt.NewRecipient(testCase.config)
-			err = recipient.Consume(t.Context(), testCase.token, &testCase.dst)
+			err := recipient.Consume(t.Context(), testCase.token, &testCase.dst)
 			require.ErrorIs(t, err, testCase.expectErr)
 			require.Equal(t, testCase.expect, testCase.dst)
 		})
@@ -197,7 +290,9 @@ func TestRecipientConcurrentConsume(t *testing.T) {
 
 	// A Recipient with a defaulted deserializer is shared across goroutines; the default is resolved
 	// at construction, so nothing writes config here.
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{})
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()},
+	})
 
 	var wg sync.WaitGroup
 
@@ -260,10 +355,10 @@ func TestRecipientDecodeUnverifiedRejects(t *testing.T) {
 		expectErr error
 	}{
 		{"NotThreeSegments", goodHeader + "." + goodPayload, jwt.ErrUnsupportedTokenFormat},
-		{"HeaderNotBase64", "!!!." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
+		{"HeaderNotBase64", testutils.UndecodableSegment + "." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
 		{"HeaderNotJSON", b64("not json") + "." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
 		{"NullHeader", b64("null") + "." + goodPayload + ".sig", jwt.ErrUnsupportedTokenFormat},
-		{"PayloadNotBase64", goodHeader + ".!!!.sig", jwt.ErrUnsupportedTokenFormat},
+		{"PayloadNotBase64", goodHeader + "." + testutils.UndecodableSegment + ".sig", jwt.ErrUnsupportedTokenFormat},
 		{"PayloadNotJSON", goodHeader + "." + b64("not json") + ".sig", nil},
 	}
 
