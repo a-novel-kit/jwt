@@ -1,8 +1,6 @@
 package jwek_test
 
 import (
-	"crypto/ecdh"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"testing"
@@ -14,7 +12,6 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwe"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
-	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 // These assert the two encoding rules against the specification text rather than against the
@@ -55,7 +52,7 @@ func TestECDHAgreementInfoIsEncodedInTheHeader(t *testing.T) {
 		recipientInfo = "Bob"
 	)
 
-	_, recipientPublicKey, err := jwk.GenerateECDH()
+	_, recipientPublicKey, err := jwk.GenerateECDHKey(jwk.ECDHESX25519)
 	require.NoError(t, err)
 
 	manager := jwek.NewECDHKeyAgrManager(&jwek.ECDHKeyAgrManagerConfig{
@@ -93,7 +90,13 @@ func TestKeyManagementPerToken(t *testing.T) {
 	rsaPrivateKey, rsaPublicKey, err := jwk.GenerateRSA(jwk.RSAOAEP256)
 	require.NoError(t, err)
 
-	ecdhPrivateKey, ecdhPublicKey, err := jwk.GenerateECDH()
+	ecdhPrivateKey, ecdhPublicKey, err := jwk.GenerateECDHKey(jwk.ECDHESX25519)
+	require.NoError(t, err)
+
+	p256PrivateKey, p256PublicKey, err := jwk.GenerateECDHKey(jwk.ECDHESP256)
+	require.NoError(t, err)
+
+	p521PrivateKey, p521PublicKey, err := jwk.GenerateECDHKey(jwk.ECDHESP521)
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -146,6 +149,24 @@ func TestKeyManagementPerToken(t *testing.T) {
 				&jwek.ECDHKeyAgrKWDecoderConfig{RecipientKey: ecdhPrivateKey.Key()}, jwek.ECDHESA256KW,
 			),
 		},
+		{
+			name: "ECDHES/P256",
+			manager: jwek.NewECDHKeyAgrManager(
+				&jwek.ECDHKeyAgrManagerConfig{RecipientKey: p256PublicKey.Key()}, jwek.ECDHESA256GCM,
+			),
+			decoder: jwek.NewECDHKeyAgrDecoder(
+				&jwek.ECDHKeyAgrDecoderConfig{RecipientKey: p256PrivateKey.Key()}, jwek.ECDHESA256GCM,
+			),
+		},
+		{
+			name: "ECDHESKW/P521",
+			manager: jwek.NewECDHKeyAgrKWManager(
+				&jwek.ECDHKeyAgrKWManagerConfig{RecipientKey: p521PublicKey.Key()}, jwek.ECDHESA256KW,
+			),
+			decoder: jwek.NewECDHKeyAgrKWDecoder(
+				&jwek.ECDHKeyAgrKWDecoderConfig{RecipientKey: p521PrivateKey.Key()}, jwek.ECDHESA256KW,
+			),
+		},
 	}
 
 	claims := map[string]any{"sub": "user"}
@@ -193,35 +214,90 @@ func TestKeyManagementPerToken(t *testing.T) {
 func TestECDHEphemeralKeyNamesItsKeyType(t *testing.T) {
 	t.Parallel()
 
-	_, recipientPublicKey, err := jwk.GenerateECDH()
+	testCases := []struct {
+		name string
+
+		preset jwk.ECDHPreset
+		kty    string
+	}{
+		{name: "X25519", preset: jwk.ECDHESX25519, kty: "OKP"},
+		{name: "P256", preset: jwk.ECDHESP256, kty: "EC"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, recipientPublicKey, err := jwk.GenerateECDHKey(testCase.preset)
+			require.NoError(t, err)
+
+			manager := jwek.NewECDHKeyAgrManager(
+				&jwek.ECDHKeyAgrManagerConfig{RecipientKey: recipientPublicKey.Key()}, jwek.ECDHESA128GCM,
+			)
+
+			header, err := manager.SetHeader(t.Context(), &jwa.JWH{})
+			require.NoError(t, err)
+
+			_, err = manager.ComputeCEK(t.Context(), header)
+			require.NoError(t, err)
+
+			epk, err := json.Marshal(header.EPK)
+			require.NoError(t, err)
+
+			var members map[string]any
+
+			require.NoError(t, json.Unmarshal(epk, &members))
+			require.Equal(t, testCase.kty, members["kty"])
+		})
+	}
+}
+
+// RFC 7518 Appendix C derives a content key from Alice's ephemeral P-256 key and Bob's static one.
+// Decoding Bob's side of it pins the whole path: the "EC" epk, the x-coordinate shared secret, and
+// the Concat KDF.
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#appendix-C
+func TestECDHKeyAgrDecoderRFC7518Vector(t *testing.T) {
+	t.Parallel()
+
+	bobKey, err := json.Marshal(map[string]any{
+		"kty": "EC", "use": "enc", "key_ops": []string{"deriveKey"}, "alg": "ECDH-ES",
+		"crv": "P-256",
+		"x":   "weNJy2HscCSM6AEDTDg04biOvhFhyyWvOHQfeF_PxMQ",
+		"y":   "e8lnCO-AlStT-NJVX-crhB7QRYhiix03illJOVAOyck",
+		"d":   "VEmDZpDXXK8p8N0Cndsxs924q6nS1RXFASRl6BfUqdw",
+	})
 	require.NoError(t, err)
 
-	manager := jwek.NewECDHKeyAgrManager(
-		&jwek.ECDHKeyAgrManagerConfig{RecipientKey: recipientPublicKey.Key()}, jwek.ECDHESA128GCM,
+	var bobJWK jwa.JWK
+
+	require.NoError(t, json.Unmarshal(bobKey, &bobJWK))
+
+	bobPrivateKey, _, err := jwk.ConsumeECDHKey(&bobJWK, jwk.ECDHESP256)
+	require.NoError(t, err)
+
+	var header jwa.JWH
+
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"alg":"ECDH-ES","enc":"A128GCM","apu":"QWxpY2U","apv":"Qm9i",
+		"epk":{"kty":"EC","crv":"P-256",
+			"x":"gI0GAILBdu7T53akrFmMyGcsF3n5dO7MmwNBHKW5SV0",
+			"y":"SLW_xSffzlPWrHEVI30DHM_4egVwt3NQqeUD7nMFpps"}
+	}`), &header))
+
+	decoder := jwek.NewECDHKeyAgrDecoder(
+		&jwek.ECDHKeyAgrDecoderConfig{RecipientKey: bobPrivateKey.Key()}, jwek.ECDHESA128GCM,
 	)
 
-	header, err := manager.SetHeader(t.Context(), &jwa.JWH{})
+	cek, err := decoder.ComputeCEK(t.Context(), &header, nil)
 	require.NoError(t, err)
-
-	_, err = manager.ComputeCEK(t.Context(), header)
-	require.NoError(t, err)
-
-	epk, err := json.Marshal(header.EPK)
-	require.NoError(t, err)
-
-	var members map[string]any
-
-	require.NoError(t, json.Unmarshal(epk, &members))
-	require.Equal(t, "OKP", members["kty"])
+	require.Equal(t, "VqqN6vgjbSBcIijNcacQGg", base64.RawURLEncoding.EncodeToString(cek))
 }
 
 func TestKeyManagementRejects(t *testing.T) {
 	t.Parallel()
 
 	wrapKey, err := jwk.GenerateAES(jwk.A256KW)
-	require.NoError(t, err)
-
-	p256Key, err := ecdh.P256().GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
 	t.Run("UnknownEnc", func(t *testing.T) {
@@ -234,15 +310,12 @@ func TestKeyManagementRejects(t *testing.T) {
 		require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 	})
 
-	t.Run("RecipientCurve", func(t *testing.T) {
+	t.Run("NoRecipientKey", func(t *testing.T) {
 		t.Parallel()
 
-		// The "epk" serializes X25519 points only, so a key on another curve is refused up front.
-		manager := jwek.NewECDHKeyAgrManager(
-			&jwek.ECDHKeyAgrManagerConfig{RecipientKey: p256Key.PublicKey()}, jwek.ECDHESA256GCM,
-		)
+		manager := jwek.NewECDHKeyAgrManager(&jwek.ECDHKeyAgrManagerConfig{}, jwek.ECDHESA256GCM)
 
 		_, err := manager.ComputeCEK(t.Context(), &jwa.JWH{})
-		require.ErrorIs(t, err, serializers.ErrUnsupportedCurve)
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 }

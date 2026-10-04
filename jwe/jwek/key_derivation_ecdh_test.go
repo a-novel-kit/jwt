@@ -50,7 +50,7 @@ func TestECDHKeyAgr(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			recipientPrivateKey, recipientPublicKey, err := jwk.GenerateECDH()
+			recipientPrivateKey, recipientPublicKey, err := jwk.GenerateECDHKey(jwk.ECDHESX25519)
 			require.NoError(t, err)
 
 			manager := jwek.NewECDHKeyAgrManager(&jwek.ECDHKeyAgrManagerConfig{
@@ -84,7 +84,7 @@ func TestECDHKeyAgr(t *testing.T) {
 			t.Run("WrongRecipientKey", func(t *testing.T) {
 				t.Parallel()
 
-				fakeRecipientPrivateKey, _, err := jwk.GenerateECDH()
+				fakeRecipientPrivateKey, _, err := jwk.GenerateECDHKey(jwk.ECDHESX25519)
 				require.NoError(t, err)
 
 				decoder := jwek.NewECDHKeyAgrDecoder(&jwek.ECDHKeyAgrDecoderConfig{
