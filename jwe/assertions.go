@@ -6,7 +6,9 @@ import "github.com/a-novel-kit/jwt/v2"
 var (
 	_ jwt.ProducerPlugin = (*AESCBCEncryption)(nil)
 	_ jwt.ProducerPlugin = (*AESGCMEncryption)(nil)
+	_ jwt.ProducerPlugin = (*HPKEEncryption)(nil)
 
 	_ jwt.RecipientPlugin = (*AESCBCDecryption)(nil)
 	_ jwt.RecipientPlugin = (*AESGCMDecryption)(nil)
+	_ jwt.RecipientPlugin = (*HPKEDecryption)(nil)
 )

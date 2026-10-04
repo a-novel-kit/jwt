@@ -12,6 +12,7 @@ var (
 	_ jwe.CEKManager = (*ECDHKeyAgrKWManager)(nil)
 	_ jwe.CEKManager = (*PBES2KeyEncKWManager)(nil)
 	_ jwe.CEKManager = (*AESKWManager)(nil)
+	_ jwe.CEKManager = (*HPKEKeyEncManager)(nil)
 
 	_ jwe.CEKDecoder = (*AESGCMKWDecoder)(nil)
 	_ jwe.CEKDecoder = (*RSAOAEPKeyEncDecoder)(nil)
@@ -20,4 +21,5 @@ var (
 	_ jwe.CEKDecoder = (*ECDHKeyAgrKWDecoder)(nil)
 	_ jwe.CEKDecoder = (*PBES2KeyEncKWDecoder)(nil)
 	_ jwe.CEKDecoder = (*AESKWDecoder)(nil)
+	_ jwe.CEKDecoder = (*HPKEKeyEncDecoder)(nil)
 )

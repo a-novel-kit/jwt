@@ -2,7 +2,9 @@ package jwe_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"testing"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
@@ -37,4 +39,16 @@ func (f *fakeCEKDecoder) ComputeCEK(_ context.Context, _ *jwa.JWH, encKey []byte
 	}
 
 	return f.cek, nil
+}
+
+// mustDecodeBase64 decodes a base64url segment the test itself produced.
+func mustDecodeBase64(t *testing.T, segment string) []byte {
+	t.Helper()
+
+	decoded, err := base64.RawURLEncoding.DecodeString(segment)
+	if err != nil {
+		panic(err)
+	}
+
+	return decoded
 }

@@ -1,0 +1,74 @@
+{
+  "plaintext": "You can trust us to stick with you through thick and thin-to the bitter end. And you can trust us to keep any secret of yours-closer than you keep it yourself. But you cannot trust us to let you face trouble alone, and go off without a word. We are your friends, Frodo.",
+  "vectors": [
+    {
+      "alg": "HPKE-0-KE",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "erH26InyPQifTIwmyKs63u4SUzglAHXNm2ZWT2LQ-rM",
+        "y": "GTGOC0_TnYc_Cm4dsgY8qdixil7AObs5-Xtk0QJeoH8",
+        "d": "MzJOwOcw1LDGZ-Ia6Zz5ay9zWUZKIhXkBcfq0dPA5Do",
+        "alg": "HPKE-0-KE",
+        "use": "enc",
+        "kid": "23i_7tQXiLxih47kQtE2yHy7d8q253Kp9R9i6aDyHng"
+      },
+      "compact": "eyJhbGciOiJIUEtFLTAtS0UiLCJraWQiOiIyM2lfN3RRWGlMeGloNDdrUXRFMnlIeTdkOHEyNTNLcDlSOWk2YUR5SG5nIiwiZW5jIjoiQTEyOEdDTSIsImVrIjoiQk4xRWI1bVFCZTgyLVRpWTJYc0xjWEhmb3ZjNWFxajRIRW5Ick10aFFoMDhqUDl5Vjd2U3VBZjZuYjNLQ3pSUWJmbHlGV2k3bDlrR3BtTm1xaTNYaW1RIn0.lnz6tY7OMgEqr2dUBFLhbRV5SV5NnnE75YoGf8fdCdQ.B01l-CsTkWGSh-8o.n33IRmokhNrqtaG5AL9COw-bVmYiPqCLBgludwQF3hyMYuagt4xxbKA2YdLHzgYk4ZCZQRdK5UJJcIKUsBsWNyDYhS0oZVcxq3wXOeG6jkEqUCzTU3PS0JeLW8uihm9gSjlW42dKUiYjqXL8kIJuWbCxqYs-Dslm5hfx4u_a06hvIRvJjVVQ4eWZMtUo5nIumyyid9qKwFFo_BLXaSxRZ7sa4TSRpu1Qywl8t3HcnnKThFfCSc6jIcJ3O9GIFXMDKqzBiciaxjim3xfv6A3qMHmIkF_rTT0dj9qmlolOfZeElX7sseq0EpOe9MPwcpFR3mZVUCe74FGUJNj4szJTb8pVgaZ9Yo5rXFKKn9s.MCd0fKMDwsgD6MW2XKzWWg"
+    },
+    {
+      "alg": "HPKE-1-KE",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-384",
+        "x": "D7VTLUkObllwTg8aYvZPdcnNINDy25kvNre97TKptpQSB6-IjvHLCWQJHzlDiGYA",
+        "y": "njG34YWeObrJ8AUOH4lvqspRcCViqbkn2vUPbcTUUSOub44OkVrFqwznzkdIEKrT",
+        "d": "DJll4Ommwo21BHxww16GgoGaxXWPKFY6r_ppQ7wRempir7VQ4zr0r8_iqqHf9hUp",
+        "alg": "HPKE-1-KE",
+        "use": "enc",
+        "kid": "dCxtIy9H8XajATicOvCTQMh4ZPgz6YsOK5ssKHeWWEs"
+      },
+      "compact": "eyJhbGciOiJIUEtFLTEtS0UiLCJraWQiOiJkQ3h0SXk5SDhYYWpBVGljT3ZDVFFNaDRaUGd6NllzT0s1c3NLSGVXV0VzIiwiZW5jIjoiQTI1NkdDTSIsImVrIjoiQkxyVFI4SEpkcUY4eklnc2h5TmtvaVcyTHplbjdoa2VialhfRDhNMWVtaWg0Y3JlWFVEUnVtRFVRWFlCZjN5QXdOVWRaNHoyNUExaF9Bd3hPVTNGUWE3S09UT2ZPNUlYVkItT21IcFNVaEpQcHBHSXFyTjJkOWxWNWZpS0djUkVjZyJ9.biPJlwnk1MoJKdzAXLS9go5jflQ68qihUJqreC4hALwF9nXjghFzKY6yj4hyUtRa.schW4QaSX0SNVOqD.5rtsaBNI2luA7gSzaHub-dSBOOlJkT7FbwtEoJRx8PMiSqtWIDlv21yvUjalft6EYxfQHSjmi0yPVjhjmpCj26Qga2gkoDLxAgOB4tzpIsk-gSgHY3YpgZLkSyxx-ZhtaAdXphQAzPmaeDjM8_DRnvSzyH-Hwg9HHs7jmIzqJVsoBULQop0Lk7brPXiiB5s08F2Ib6rdercbgDTTZdVXcyiNQhKoGBUOjy50FxW4GkuyTW2MH0_0VecBSrAWVg248pJSnPwvVcdCocPTYmFiSw6M9MSwl3A8KKlU33qUYapB75qOUY2zQmh8IYFFUiyMwLX50EKws1YSmNGHYbp4iDCQ1ZAqTCwY7oM2JGM.PhKLqKcrR4CexYEDXRlEoA"
+    },
+    {
+      "alg": "HPKE-2-KE",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-521",
+        "x": "AKA9Ra4-VaZVMoXlIbU2DNQSiKe92-zXuGI73CtGpibQbmyTpuLV4TN3UWcGHpO8krMaStuxuJOToVLqVUWm0zmF",
+        "y": "Ac-o4fIpIKZqPQKtEi7f04_vXnW-3BH2K14WSUp_tWsgSuHai8CGuWcwGkB5iKNpwOvh77Br0Vk69orojXETMy7W",
+        "d": "AdeDTmkW31gpYbnoI9V297i0tA28dNYR1VS2lRyn04x9UQItmnUG7fp2Wc9CQgGd1XCWYjtJsl9IQx8q0ylTKD2T",
+        "alg": "HPKE-2-KE",
+        "use": "enc",
+        "kid": "hsRjjUtVSsbXZr5gfmhzqZ-RSs-K_ofzOV09sHt6x8w"
+      },
+      "compact": "eyJhbGciOiJIUEtFLTItS0UiLCJraWQiOiJoc1JqalV0VlNzYlhacjVnZm1oenFaLVJTcy1LX29mek9WMDlzSHQ2eDh3IiwiZW5jIjoiQTI1NkdDTSIsImVrIjoiQkFFTUlGcWlGUHVFekhlb1RIVXFHenV0MWlVY0VsX0lUWGRjNlJKUEhfUWM4UzdQVkFfcHROMUttLXVMZG9TWWxfRmNlMmdabXpwbjlTRWpiZVRVOXMxOGJ3Q1pxUUpWcXhidF9jVXk2RklFZGsxUEh6c0F4a1Rfa0NJNjh5R3NJSVZWQ0JBYkROQWhEb1NBOWt3UGVMd29ESXlwUVgwWnBnbW9rVFhVUlVJM0NrVlJTUSJ9.np-f7Zgo1yJFO4h5HJkPi8EYTsdGFCmnk16aTe4ft5EVXcZhu4HSGpWyNTjxbSKT.Pe4QDK53sKuyRFcy.brG_KUQoD1h52jWgbDb1zFzbMIfWbBcK-naIdYJtYW5iJ6qw8-a-9FcXL2x2sIRoMsj2KqylIqNCPE9OYr96GWlsYucz-tRHqcwGkoG6JaUIq3OMxr0MekOfWtII8epaldQw1SyNWenaTc2jGjyoA9MJ78VV_O4uKORhTi4lP8bcv6X-d3utnIeUSgTUQQc4AWBUoSfymKHeo7gL9ACAwoGSI-mgIeDeI-7K5m18VjD_5rLzTFEKVFhrMB_c7mSVd-_nv6bVtncrros3_5a4I5C5V0s17cTljDJOTiR2i4s3iPyVaki8544bIBU0_t6lHFQtotb5ZL8zUP50iyNeYjbXSdwdn1Es3ain4SA.Os8mE9afh0oe6UgoNp6-yw"
+    },
+    {
+      "alg": "HPKE-3-KE",
+      "jwk": {
+        "kty": "OKP",
+        "crv": "X25519",
+        "x": "4XxzVQ5b1_2KId4eH7vCgtTMFS-xpFQdlewl7Ldgwmc",
+        "d": "nV8mMuP37Pu7zvd7i-Fqg8HLYpu2wWOZFb1FdkpV6iY",
+        "alg": "HPKE-3-KE",
+        "use": "enc",
+        "kid": "rZvhw8SPuKMGlrnzm-J4DZ-G4niXcJkKvb8tAbz4jJc"
+      },
+      "compact": "eyJhbGciOiJIUEtFLTMtS0UiLCJraWQiOiJyWnZodzhTUHVLTUdscm56bS1KNERaLUc0bmlYY0prS3ZiOHRBYno0akpjIiwiZW5jIjoiQTEyOEdDTSIsImVrIjoiWGJmaDE5cnBibHBDTHNjOGVqelhUSE9SY1hFa0IwUDJaNkhpcGpONV9VdyJ9.T5egCQZlUyP8UKtq8XrfHgIbEdNLwID1-nupqh_APHw.Q7ejfTauKt1TiYTW.6KHlyH3zHQlDPTrw3R1v8csmoLs59QY1B2NpWGhD1eoPdHAriRdhz62FY3JbDDykg0u_LfWTs0cMj5xqhAXLYnWFBpWqNlGSAZAcE_S9EBAg02ymscpqhRygMhu_mPXpLwr8INYCA59utnQN6d4yHcV3LgocTx4OV32wPtm9ztydPGVLA2VQhCDx_AytmkRbiv01WjH71WWvBeSElHBlGlNl-6t1sIv8VaTPUpCO3b_iaoLbiRxhH_zTiLsVjJFiR_GeSo7qBnmvEYOvb_QncKGBi3RPwoOJBuI5cEJfVZo2oenqla61H6glWOazG6lwtgA0Yz4y0b7reLaYISQ_e9hRlohzGjSsHd6WLYw.l7VO2LxXTh-CTI1qDf6FeA"
+    },
+    {
+      "alg": "HPKE-7-KE",
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "1nm4Hz__urAJOmnQoT4-Cddab4mIgwNPFpo_mq__Huk",
+        "y": "0zf-qAB9KJP6qgtYNSP6MTdVBxzgBachQ2XdgCsOk8o",
+        "d": "8CpCdkAF51G_YJPb29O3LKLBKTibK4FHWO9lYehzLqE",
+        "alg": "HPKE-7-KE",
+        "use": "enc",
+        "kid": "SMa7O1lSKSi2LJCin1PfZRYA7KGKky5oSfaMO9UOYWA"
+      },
+      "compact": "eyJhbGciOiJIUEtFLTctS0UiLCJraWQiOiJTTWE3TzFsU0tTaTJMSkNpbjFQZlpSWUE3S0dLa3k1b1NmYU1POVVPWVdBIiwiZW5jIjoiQTI1NkdDTSIsImVrIjoiQkNreC1vcWRkMG9yNTYydXVJdy1ESzl3WnZRYlZMaWs0a1cxQWNXLXhrbTFNelgxMm5CWTAyc0J5b252S3ljTmNRZVp1WXh2dmc3RGEwcEQ5WWdOTDRRIn0.w3y9z4g5rGR6jFE0-4fnEzw8ggQB-1ECteJLFkG9VOMsD7vUzwjUQocHQpza_rn8._ZHPJxfrMRpRsti3.4-7hvn-TE54CZm2h71DE4B-4m7-162t1GVG8fLfYpotwL5Cit4bO4EcTTZshXpFoltYHiyXnkUhTtv6h1yJ691-ZMM8tdYXbNe9W_aYs6yeK8s-taWVZo7Lcbo7foXNRHk2h-Rg8l_JBzDoMojW8pV5SHUekKw4jcc88XRyhIRiL1yoQ_nIOrlY2mkvUCcmYaq2JKTwXFp01kM9eWBA_kYj0TdVAKnKEsizphFrSiXipoLDSDx0nFq6JiiXnBoqase2U9_zqb1i_76PX7oSUuf_oBJL3PF92qNb1rWjhGij7lpff4eA6BuyW2NX2baxB5qAZB4KZlFT6w2_LXzytVVEdogi7zmfgmSR4C-Y.Bdp4d-yiZdsAul1rM2jmAA"
+    }
+  ]
+}

@@ -25,6 +25,9 @@ func TestGenerateECDHKey(t *testing.T) {
 		{name: "P256", preset: jwk.ECDHESP256, kty: jwa.KTYEC},
 		{name: "P384", preset: jwk.ECDHESP384, kty: jwa.KTYEC},
 		{name: "P521", preset: jwk.ECDHESP521, kty: jwa.KTYEC},
+		// HPKE keys are key-agreement keys labeled with an HPKE algorithm.
+		{name: "HPKE0", preset: jwk.HPKE0, kty: jwa.KTYEC},
+		{name: "HPKE4", preset: jwk.HPKE4, kty: jwa.KTYOKP},
 	}
 
 	for _, testCase := range testCases {
@@ -38,7 +41,7 @@ func TestGenerateECDHKey(t *testing.T) {
 				KTY:    testCase.kty,
 				Use:    jwa.UseEnc,
 				KeyOps: jwa.KeyOps{jwa.KeyOpDeriveKey},
-				Alg:    jwa.ECDHES,
+				Alg:    testCase.preset.Alg,
 			}
 
 			require.True(t, privateKey.MatchPreset(expectHeader))

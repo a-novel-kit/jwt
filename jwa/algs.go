@@ -127,3 +127,33 @@ const (
 	// PBES2HS512A256KW derives a key from a password with PBES2 (HMAC SHA-512) and wraps the CEK with A256KW.
 	PBES2HS512A256KW Alg = "PBES2-HS512+A256KW"
 )
+
+// JWE algorithms using Hybrid Public Key Encryption (HPKE), registered by IANA from
+// draft-ietf-jose-hpke-encrypt. Each fixes a key encapsulation mechanism, a key derivation function,
+// and an AEAD. The X448 suites are not listed: the standard library does not implement X448.
+// https://datatracker.ietf.org/doc/draft-ietf-jose-hpke-encrypt/
+const (
+	// HPKE0 encrypts the payload directly with DHKEM(P-256), HKDF-SHA256, and AES-128-GCM.
+	HPKE0 Alg = "HPKE-0"
+	// HPKE1 encrypts the payload directly with DHKEM(P-384), HKDF-SHA384, and AES-256-GCM.
+	HPKE1 Alg = "HPKE-1"
+	// HPKE2 encrypts the payload directly with DHKEM(P-521), HKDF-SHA512, and AES-256-GCM.
+	HPKE2 Alg = "HPKE-2"
+	// HPKE3 encrypts the payload directly with DHKEM(X25519), HKDF-SHA256, and AES-128-GCM.
+	HPKE3 Alg = "HPKE-3"
+	// HPKE4 encrypts the payload directly with DHKEM(X25519), HKDF-SHA256, and ChaCha20-Poly1305.
+	HPKE4 Alg = "HPKE-4"
+	// HPKE7 encrypts the payload directly with DHKEM(P-256), HKDF-SHA256, and AES-256-GCM.
+	HPKE7 Alg = "HPKE-7"
+
+	// HPKE0KE encrypts the CEK with DHKEM(P-256), HKDF-SHA256, and AES-128-GCM.
+	HPKE0KE Alg = "HPKE-0-KE"
+	// HPKE1KE encrypts the CEK with DHKEM(P-384), HKDF-SHA384, and AES-256-GCM.
+	HPKE1KE Alg = "HPKE-1-KE"
+	// HPKE2KE encrypts the CEK with DHKEM(P-521), HKDF-SHA512, and AES-256-GCM.
+	HPKE2KE Alg = "HPKE-2-KE"
+	// HPKE3KE encrypts the CEK with DHKEM(X25519), HKDF-SHA256, and AES-128-GCM.
+	HPKE3KE Alg = "HPKE-3-KE"
+	// HPKE7KE encrypts the CEK with DHKEM(P-256), HKDF-SHA256, and AES-256-GCM.
+	HPKE7KE Alg = "HPKE-7-KE"
+)

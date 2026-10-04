@@ -46,6 +46,7 @@ type JWHCommon struct {
 	JWHKeyAgreement
 	JWHPBES2
 	JWHAESGCMKW
+	JWHHPKE
 
 	J509
 
@@ -140,6 +141,16 @@ type JWHAESGCMKW struct {
 	IV string `json:"iv,omitempty"`
 	// Tag is the authentication tag produced when wrapping the key.
 	Tag string `json:"tag,omitempty"`
+}
+
+// JWHHPKE carries the header parameters of the HPKE key encryption algorithms. The "psk_id"
+// parameter of HPKE's PSK mode has no field: this package implements the base mode only, and its
+// decoders refuse a token whose header carries "psk_id" at all.
+//
+// https://datatracker.ietf.org/doc/html/draft-ietf-jose-hpke-encrypt#section-11.2
+type JWHHPKE struct {
+	// EK is the base64url-encoded HPKE encapsulated secret of a token whose CEK is HPKE-encrypted.
+	EK string `json:"ek,omitempty"`
 }
 
 // JWH is a full JOSE header: the common parameters plus an application-specific
