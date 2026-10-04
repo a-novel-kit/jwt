@@ -1,6 +1,7 @@
 package jwek_test
 
 import (
+	"crypto/ecdh"
 	"encoding/json"
 	"os"
 	"testing"
@@ -173,6 +174,74 @@ func TestHPKEKeyEncDecoderRejects(t *testing.T) {
 		})
 	}
 
+	// Valid base64url, but no encapsulated secret.
+	t.Run("Undecapsulable", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := decoder.ComputeCEK(
+			t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.HPKE0KE, JWHHPKE: jwa.JWHHPKE{EK: "AAAA"}}}, []byte("cek"),
+		)
+		require.Error(t, err)
+	})
+
+	t.Run("WrongKey", func(t *testing.T) {
+		t.Parallel()
+
+		_, otherPublicKey, err := jwk.GenerateECDHKey(jwk.HPKE0KE)
+		require.NoError(t, err)
+
+		manager := jwek.NewHPKEKeyEncManager(&jwek.HPKEKeyEncManagerConfig{RecipientKey: otherPublicKey.Key()}, jwek.HPKE0KE)
+
+		header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A128GCM}})
+		require.NoError(t, err)
+
+		encrypted, err := manager.EncryptCEK(t.Context(), header, make([]byte, 16))
+		require.NoError(t, err)
+
+		_, err = decoder.ComputeCEK(t.Context(), header, encrypted)
+		require.Error(t, err)
+	})
+}
+
+func TestHPKEKeyEncManagerRejects(t *testing.T) {
+	t.Parallel()
+
+	_, publicKey, err := jwk.GenerateECDHKey(jwk.HPKE0KE)
+	require.NoError(t, err)
+
+	_, x25519Public, err := jwk.GenerateECDHKey(jwk.HPKE3KE)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name string
+
+		recipientKey *ecdh.PublicKey
+		header       jwa.JWHCommon
+
+		expectErr error
+	}{
+		{
+			name:         "AlgSet",
+			recipientKey: publicKey.Key(),
+			header:       jwa.JWHCommon{Alg: jwa.RS256},
+			expectErr:    jwt.ErrConflictingHeader,
+		},
+		{name: "NoKey", expectErr: jwt.ErrInvalidSecretKey},
+		{name: "KeyOffCurve", recipientKey: x25519Public.Key(), expectErr: jwt.ErrInvalidSecretKey},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			manager := jwek.NewHPKEKeyEncManager(
+				&jwek.HPKEKeyEncManagerConfig{RecipientKey: testCase.recipientKey}, jwek.HPKE0KE,
+			)
+
+			_, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: testCase.header})
+			require.ErrorIs(t, err, testCase.expectErr)
+		})
+	}
 }
 
 // "psk_id" selects HPKE's PSK mode by its presence, so an empty or null value still counts. The

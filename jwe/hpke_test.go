@@ -195,6 +195,14 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 			expectErr: jwe.ErrInvalidToken,
 		},
 		{
+			// Valid base64url, but no encapsulated secret: decapsulation fails before any decryption.
+			name:      "Undecapsulable",
+			decrypter: decrypter,
+			header:    header,
+			token:     func(parts *jwt.EncryptedToken) { parts.EncKey = "AAAA" },
+			expectErr: jwe.ErrInvalidToken,
+		},
+		{
 			name:      "MalformedEncKey",
 			decrypter: decrypter,
 			header:    header,
@@ -301,4 +309,49 @@ func sealHPKE0(t *testing.T, recipientKey *ecdh.PublicKey, header string, payloa
 		EncKey:     base64.RawURLEncoding.EncodeToString(encapsulated),
 		CipherText: base64.RawURLEncoding.EncodeToString(cipherText),
 	}.String()
+}
+
+func TestHPKEEncryptionRejects(t *testing.T) {
+	t.Parallel()
+
+	_, publicKey, err := jwk.GenerateECDHKey(jwk.HPKE0)
+	require.NoError(t, err)
+
+	_, x25519Public, err := jwk.GenerateECDHKey(jwk.HPKE3)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name string
+
+		recipientKey *ecdh.PublicKey
+		header       jwa.JWHCommon
+
+		expectErr error
+	}{
+		{
+			name:         "AlgSet",
+			recipientKey: publicKey.Key(),
+			header:       jwa.JWHCommon{Alg: jwa.RS256},
+			expectErr:    jwt.ErrConflictingHeader,
+		},
+		{
+			name:         "EncSet",
+			recipientKey: publicKey.Key(),
+			header:       jwa.JWHCommon{Enc: jwa.A128GCM},
+			expectErr:    jwt.ErrConflictingHeader,
+		},
+		{name: "NoKey", expectErr: jwt.ErrInvalidSecretKey},
+		{name: "KeyOffCurve", recipientKey: x25519Public.Key(), expectErr: jwt.ErrInvalidSecretKey},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			encrypter := jwe.NewHPKEEncryption(&jwe.HPKEEncryptionConfig{RecipientKey: testCase.recipientKey}, jwe.HPKE0)
+
+			_, err := encrypter.Header(t.Context(), &jwa.JWH{JWHCommon: testCase.header})
+			require.ErrorIs(t, err, testCase.expectErr)
+		})
+	}
 }
