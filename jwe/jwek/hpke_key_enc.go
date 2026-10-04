@@ -5,6 +5,7 @@ import (
 	"crypto/ecdh"
 	"crypto/hpke"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt/v2"
@@ -148,7 +149,18 @@ func (decoder *HPKEKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 		)
 	}
 
-	if header.PSKID != "" {
+	// "psk_id" selects HPKE's PSK mode by its presence, whatever its value. It is not a typed header
+	// member, so it is found among the header's custom members.
+	var custom map[string]json.RawMessage
+
+	if len(header.Payload) > 0 {
+		err := json.Unmarshal(header.Payload, &custom)
+		if err != nil {
+			return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: unmarshal header: %w", jwt.ErrUnsupportedTokenFormat, err)
+		}
+	}
+
+	if _, ok := custom["psk_id"]; ok {
 		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: psk_id is not supported", jwt.ErrUnsupportedTokenFormat)
 	}
 

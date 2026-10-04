@@ -151,12 +151,6 @@ func TestHPKEKeyEncDecoderRejects(t *testing.T) {
 			expectErr: jwt.ErrMismatchRecipientPlugin,
 		},
 		{
-			name:      "PSKID",
-			decoder:   decoder,
-			header:    jwa.JWHCommon{Alg: jwa.HPKE0KE, JWHHPKE: jwa.JWHHPKE{EK: "AAAA", PSKID: "psk"}},
-			expectErr: jwt.ErrUnsupportedTokenFormat,
-		},
-		{
 			name:      "MissingEK",
 			decoder:   decoder,
 			header:    jwa.JWHCommon{Alg: jwa.HPKE0KE},
@@ -175,6 +169,57 @@ func TestHPKEKeyEncDecoderRejects(t *testing.T) {
 			t.Parallel()
 
 			_, err := testCase.decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: testCase.header}, []byte("cek"))
+			require.ErrorIs(t, err, testCase.expectErr)
+		})
+	}
+
+}
+
+// "psk_id" selects HPKE's PSK mode by its presence, so an empty or null value still counts. The
+// producer authenticates the header carrying it, so only the decoder's check can reject the token:
+// the control proves the same pipeline decrypts.
+func TestHPKEKeyEncDecoderRefusesPSKID(t *testing.T) {
+	t.Parallel()
+
+	privateKey, publicKey, err := jwk.GenerateECDHKey(jwk.HPKE0KE)
+	require.NoError(t, err)
+
+	producer := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{
+			jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
+				CEKManager: jwek.NewHPKEKeyEncManager(&jwek.HPKEKeyEncManagerConfig{RecipientKey: publicKey.Key()}, jwek.HPKE0KE),
+			}, jwe.A128GCM),
+		},
+	})
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{
+			jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
+				CEKDecoder: jwek.NewHPKEKeyEncDecoder(&jwek.HPKEKeyEncDecoderConfig{RecipientKey: privateKey.Key()}, jwek.HPKE0KE),
+			}, jwe.A128GCM),
+		},
+	})
+
+	testCases := []struct {
+		name   string
+		header any
+
+		expectErr error
+	}{
+		{name: "Control", header: nil},
+		{name: "EmptyPSKID", header: map[string]any{"psk_id": ""}, expectErr: jwt.ErrUnsupportedTokenFormat},
+		{name: "NullPSKID", header: map[string]any{"psk_id": nil}, expectErr: jwt.ErrUnsupportedTokenFormat},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, testCase.header)
+			require.NoError(t, err)
+
+			var claims map[string]any
+
+			err = recipient.Consume(t.Context(), token, &claims)
 			require.ErrorIs(t, err, testCase.expectErr)
 		})
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/ecdh"
 	"crypto/hpke"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt/v2"
@@ -147,14 +148,6 @@ func (dec *HPKEDecryption) Transform(_ context.Context, header *jwa.JWH, rawToke
 		)
 	}
 
-	// Integrated Encryption forbids "enc" and "ek"; "psk_id" selects a mode this package lacks, and
-	// "zip" a decompression it does not perform.
-	if header.Enc != "" || header.EK != "" || header.PSKID != "" || header.Zip != "" {
-		return nil, fmt.Errorf(
-			"(HPKEDecryption.Transform) %w: unsupported enc, ek, psk_id or zip parameter", jwt.ErrUnsupportedTokenFormat,
-		)
-	}
-
 	if dec.recipientKey == nil || dec.recipientKey.Curve() != dec.preset.Curve {
 		return nil, fmt.Errorf(
 			"(HPKEDecryption.Transform) %w: %s needs a recipient key on %v",
@@ -165,6 +158,20 @@ func (dec *HPKEDecryption) Transform(_ context.Context, header *jwa.JWH, rawToke
 	token, err := jwt.DecodeToken(rawToken, &jwt.EncryptedTokenDecoder{})
 	if err != nil {
 		return nil, fmt.Errorf("(HPKEDecryption.Transform) split token: %w", err)
+	}
+
+	// The draft keys these rules on presence, which the typed header loses for an empty or null value.
+	// Integrated Encryption forbids "enc" and "ek"; "psk_id" selects a mode this package lacks, and
+	// "zip" a decompression it does not perform.
+	member, err := presentMember(token.Header, "enc", "ek", "psk_id", "zip")
+	if err != nil {
+		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w", err)
+	}
+
+	if member != "" {
+		return nil, fmt.Errorf(
+			"(HPKEDecryption.Transform) %w: unsupported %q parameter", jwt.ErrUnsupportedTokenFormat, member,
+		)
 	}
 
 	if token.IV != "" || token.Tag != "" {
@@ -198,4 +205,28 @@ func (dec *HPKEDecryption) Transform(_ context.Context, header *jwa.JWH, rawToke
 	}
 
 	return plainText, nil
+}
+
+// presentMember returns the first of names the encoded protected header holds, whatever its value,
+// or "" when it holds none of them.
+func presentMember(encodedHeader string, names ...string) (string, error) {
+	serialized, err := base64.RawURLEncoding.DecodeString(encodedHeader)
+	if err != nil {
+		return "", fmt.Errorf("%w: decode header: %w", jwt.ErrUnsupportedTokenFormat, err)
+	}
+
+	var members map[string]json.RawMessage
+
+	err = json.Unmarshal(serialized, &members)
+	if err != nil {
+		return "", fmt.Errorf("%w: unmarshal header: %w", jwt.ErrUnsupportedTokenFormat, err)
+	}
+
+	for _, name := range names {
+		if _, ok := members[name]; ok {
+			return name, nil
+		}
+	}
+
+	return "", nil
 }

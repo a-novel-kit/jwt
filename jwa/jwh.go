@@ -143,15 +143,14 @@ type JWHAESGCMKW struct {
 	Tag string `json:"tag,omitempty"`
 }
 
-// JWHHPKE carries the header parameters of the HPKE key encryption algorithms.
+// JWHHPKE carries the header parameters of the HPKE key encryption algorithms. The "psk_id"
+// parameter of HPKE's PSK mode has no field: this package implements the base mode only, and its
+// decoders refuse a token whose header carries "psk_id" at all.
 //
 // https://datatracker.ietf.org/doc/html/draft-ietf-jose-hpke-encrypt#section-11.2
 type JWHHPKE struct {
 	// EK is the base64url-encoded HPKE encapsulated secret of a token whose CEK is HPKE-encrypted.
 	EK string `json:"ek,omitempty"`
-	// PSKID identifies the pre-shared key of HPKE's PSK mode. This package implements the base mode
-	// only, so its decoders refuse a token that sets it.
-	PSKID string `json:"psk_id,omitempty"` //nolint:tagliatelle
 }
 
 // JWH is a full JOSE header: the common parameters plus an application-specific
