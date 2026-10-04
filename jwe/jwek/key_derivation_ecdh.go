@@ -226,11 +226,11 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 // header's "epk", and returns the shared secret Z. A fresh pair per token keeps every token's key
 // independent of every other's.
 func ephemeralAgreement(header *jwa.JWH, recipientKey *ecdh.PublicKey) ([]byte, error) {
-	if recipientKey == nil || recipientKey.Curve() != ecdh.X25519() {
-		return nil, fmt.Errorf("%w: ECDH-ES needs an X25519 recipient key", serializers.ErrUnsupportedCurve)
+	if recipientKey == nil {
+		return nil, fmt.Errorf("%w: no recipient key", jwt.ErrInvalidSecretKey)
 	}
 
-	ephemeralKey, err := ecdh.X25519().GenerateKey(rand.Reader)
+	ephemeralKey, err := recipientKey.Curve().GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("generate ephemeral key: %w", err)
 	}
@@ -245,7 +245,10 @@ func ephemeralAgreement(header *jwa.JWH, recipientKey *ecdh.PublicKey) ([]byte, 
 		return nil, fmt.Errorf("serialize ephemeral key: %w", err)
 	}
 
-	header.EPK = &jwa.JWK{JWKCommon: jwa.JWKCommon{KTY: jwa.KTYOKP}, Payload: publicKeySerialized}
+	header.EPK = &jwa.JWK{
+		JWKCommon: jwa.JWKCommon{KTY: serializers.ECDHKeyType(recipientKey.Curve())},
+		Payload:   publicKeySerialized,
+	}
 
 	z, err := ephemeralKey.ECDH(recipientKey)
 	if err != nil {

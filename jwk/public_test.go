@@ -36,7 +36,7 @@ func TestHasPrivateMaterial(t *testing.T) {
 	edPrivate, edPublic, err := jwk.GenerateED25519()
 	require.NoError(t, err)
 
-	ecdhPrivate, ecdhPublic, err := jwk.GenerateECDH()
+	ecdhPrivate, ecdhPublic, err := jwk.GenerateECDHKey(jwk.ECDHESP256)
 	require.NoError(t, err)
 
 	mldsaPrivate, mldsaPublic, err := jwk.GenerateMLDSA(jwk.MLDSA44)
