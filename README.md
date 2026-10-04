@@ -131,15 +131,15 @@ recipient := jwt.NewRecipient(jwt.RecipientConfig{
 
 ## Sub-packages
 
-| Package    | Purpose                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------ |
-| `jwt`      | Token producers, recipients, claim helpers, header helpers, and token decoders.                        |
-| `jwa`      | Typed JOSE headers, registered JWT claims, algorithms, key metadata, and JSON merge behavior.          |
-| `jwk`      | JWK generation, strict JWK consumption, typed key wrappers, and cached key sources.                    |
-| `jws`      | JWS producer and recipient plugins for HMAC, ECDSA, Ed25519, ML-DSA, RSA, and RSA-PSS.                 |
-| `jwe`      | JWE producer and recipient plugins for AES-CBC-HMAC and AES-GCM content encryption.                    |
-| `jwe/jwek` | Content-encryption-key managers and decoders for direct keys, AES wrapping, ECDH, RSA-OAEP, and PBES2. |
-| `jwp`      | Higher-level producer/recipient helpers for embedding key references and validating registered claims. |
+| Package    | Purpose                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------ |
+| `jwt`      | Token producers, recipients, claim helpers, header helpers, and token decoders.                              |
+| `jwa`      | Typed JOSE headers, registered JWT claims, algorithms, key metadata, and JSON merge behavior.                |
+| `jwk`      | JWK generation, strict JWK consumption, typed key wrappers, and cached key sources.                          |
+| `jws`      | JWS producer and recipient plugins for HMAC, ECDSA, Ed25519, ML-DSA, RSA, and RSA-PSS.                       |
+| `jwe`      | JWE producer and recipient plugins for AES-CBC-HMAC and AES-GCM content encryption, and HPKE.                |
+| `jwe/jwek` | Content-encryption-key managers and decoders for direct keys, AES wrapping, ECDH, RSA-OAEP, PBES2, and HPKE. |
+| `jwp`      | Higher-level producer/recipient helpers for embedding key references and validating registered claims.       |
 
 ### Keys
 
@@ -178,17 +178,18 @@ deserialization.
 
 The core data structures follow the JOSE specifications:
 
-| Standard | Scope                                                    |
-| -------- | -------------------------------------------------------- |
-| RFC 7515 | JSON Web Signature (JWS)                                 |
-| RFC 7516 | JSON Web Encryption (JWE)                                |
-| RFC 7517 | JSON Web Key (JWK)                                       |
-| RFC 7518 | JSON Web Algorithms (JWA)                                |
-| RFC 7519 | JSON Web Token (JWT) registered data                     |
-| RFC 8037 | Ed25519 signatures and X25519 key agreement (`OKP` keys) |
-| RFC 8725 | JWT Best Current Practices                               |
-| RFC 9864 | Fully-specified algorithms: `Ed25519` replaces `EdDSA`   |
-| RFC 9964 | ML-DSA post-quantum signatures (`AKP` keys)              |
+| Standard | Scope                                                        |
+| -------- | ------------------------------------------------------------ |
+| RFC 7515 | JSON Web Signature (JWS)                                     |
+| RFC 7516 | JSON Web Encryption (JWE)                                    |
+| RFC 7517 | JSON Web Key (JWK)                                           |
+| RFC 7518 | JSON Web Algorithms (JWA)                                    |
+| RFC 7519 | JSON Web Token (JWT) registered data                         |
+| RFC 8037 | Ed25519 signatures and X25519 key agreement (`OKP` keys)     |
+| RFC 8725 | JWT Best Current Practices                                   |
+| RFC 9864 | Fully-specified algorithms: `Ed25519` replaces `EdDSA`       |
+| RFC 9964 | ML-DSA post-quantum signatures (`AKP` keys)                  |
+| HPKE     | HPKE for JWE (draft-ietf-jose-hpke-encrypt, IANA-registered) |
 
 Only the compact serialization is supported. The [IANA JOSE registries](https://www.iana.org/assignments/jose/jose.xhtml)
 list every registered algorithm and parameter.
