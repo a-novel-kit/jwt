@@ -12,91 +12,75 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-func mustECDH(t *testing.T) (*jwk.Key[*ecdh.PrivateKey], *jwk.Key[*ecdh.PublicKey]) {
-	t.Helper()
-
-	private, public, err := jwk.GenerateECDH()
-	require.NoError(t, err)
-
-	return private, public
-}
-
-func TestGenerateECDH(t *testing.T) {
+func TestGenerateECDHKey(t *testing.T) {
 	t.Parallel()
-
-	privateKey, publicKey, err := jwk.GenerateECDH()
-	require.NoError(t, err)
-
-	require.True(t, privateKey.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYOKP,
-		Use:    jwa.UseEnc,
-		KeyOps: jwa.KeyOps{jwa.KeyOpDeriveKey},
-		Alg:    jwa.ECDHES,
-	}))
-	require.NotEmpty(t, privateKey.KID)
-
-	require.True(t, publicKey.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYOKP,
-		Use:    jwa.UseEnc,
-		KeyOps: jwa.KeyOps{jwa.KeyOpDeriveKey},
-		Alg:    jwa.ECDHES,
-	}))
-	require.Equal(t, privateKey.KID, publicKey.KID)
-
-	t.Run("ParsePrivate", func(t *testing.T) {
-		t.Parallel()
-
-		var ecdhPayload serializers.ECDHPayload
-
-		require.NoError(t, json.Unmarshal(privateKey.Payload, &ecdhPayload))
-
-		decodedPrivate, decodedPublic, err := serializers.DecodeECDH(&ecdhPayload)
-		require.NoError(t, err)
-
-		require.NotNil(t, decodedPrivate)
-		require.NotNil(t, decodedPublic)
-
-		require.True(t, privateKey.Key().Equal(decodedPrivate))
-		require.True(t, publicKey.Key().Equal(decodedPublic))
-	})
-
-	t.Run("ParsePublic", func(t *testing.T) {
-		t.Parallel()
-
-		var ecdhPayload serializers.ECDHPayload
-
-		require.NoError(t, json.Unmarshal(publicKey.Payload, &ecdhPayload))
-
-		decodedPrivate, decodedPublic, err := serializers.DecodeECDH(&ecdhPayload)
-		require.NoError(t, err)
-
-		require.Nil(t, decodedPrivate)
-		require.NotNil(t, decodedPublic)
-
-		require.True(t, publicKey.Key().Equal(decodedPublic))
-	})
-}
-
-func TestConsumeECDH(t *testing.T) {
-	t.Parallel()
-
-	private, public := mustECDH(t)
 
 	testCases := []struct {
-		name      string
-		private   *jwk.Key[*ecdh.PrivateKey]
-		public    *jwk.Key[*ecdh.PublicKey]
-		expectErr error
+		name string
+
+		preset jwk.ECDHPreset
+		kty    jwa.KTY
 	}{
+		{name: "X25519", preset: jwk.ECDHESX25519, kty: jwa.KTYOKP},
+		{name: "P256", preset: jwk.ECDHESP256, kty: jwa.KTYEC},
+		{name: "P384", preset: jwk.ECDHESP384, kty: jwa.KTYEC},
+		{name: "P521", preset: jwk.ECDHESP521, kty: jwa.KTYEC},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			privateKey, publicKey, err := jwk.GenerateECDHKey(testCase.preset)
+			require.NoError(t, err)
+
+			expectHeader := jwa.JWKCommon{
+				KTY:    testCase.kty,
+				Use:    jwa.UseEnc,
+				KeyOps: jwa.KeyOps{jwa.KeyOpDeriveKey},
+				Alg:    jwa.ECDHES,
+			}
+
+			require.True(t, privateKey.MatchPreset(expectHeader))
+			require.True(t, publicKey.MatchPreset(expectHeader))
+			require.NotEmpty(t, privateKey.KID)
+			require.Equal(t, privateKey.KID, publicKey.KID)
+			require.Equal(t, testCase.preset.Curve, publicKey.Key().Curve())
+
+			var privatePayload, publicPayload serializers.ECDHPayload
+
+			require.NoError(t, json.Unmarshal(privateKey.Payload, &privatePayload))
+			require.NoError(t, json.Unmarshal(publicKey.Payload, &publicPayload))
+			require.NotEmpty(t, privatePayload.D)
+			require.Empty(t, publicPayload.D)
+		})
+	}
+}
+
+func TestConsumeECDHKey(t *testing.T) {
+	t.Parallel()
+
+	private, public, err := jwk.GenerateECDHKey(jwk.ECDHESP256)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name string
+
+		key    *jwa.JWK
+		preset jwk.ECDHPreset
+
+		expectPrivate bool
+		expectErr     error
+	}{
+		{name: "Success/Private", key: private.JWK, preset: jwk.ECDHESP256, expectPrivate: true},
+		{name: "Success/Public", key: public.JWK, preset: jwk.ECDHESP256},
+		// The preset's curve is checked against the payload, which MatchPreset cannot see.
+		{name: "Error/OtherCurve", key: public.JWK, preset: jwk.ECDHESP384, expectErr: jwk.ErrJWKMismatch},
+		{name: "Error/OtherKeyType", key: public.JWK, preset: jwk.ECDHESX25519, expectErr: jwk.ErrJWKMismatch},
 		{
-			name:    "Success",
-			private: private,
-			public:  public,
-		},
-		{
-			name:      "Mismatch",
-			private:   newBullshitKey[*ecdh.PrivateKey](t, "kid-1"),
-			public:    newBullshitKey[*ecdh.PublicKey](t, "kid-2"),
+			name:      "Error/Mismatch",
+			key:       newBullshitKey[*ecdh.PublicKey](t, "kid").JWK,
+			preset:    jwk.ECDHESP256,
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}
@@ -105,29 +89,27 @@ func TestConsumeECDH(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			t.Run("Private", func(t *testing.T) {
-				t.Parallel()
+			privateKey, publicKey, err := jwk.ConsumeECDHKey(testCase.key, testCase.preset)
+			require.ErrorIs(t, err, testCase.expectErr)
 
-				privateKey, publicKey, err := jwk.ConsumeECDH(testCase.private.JWK)
-				require.ErrorIs(t, err, testCase.expectErr)
-
-				if err == nil {
-					require.True(t, publicKey.Key().Equal(public.Key()))
-					require.True(t, privateKey.Key().Equal(private.Key()))
-				}
-			})
-
-			t.Run("Public", func(t *testing.T) {
-				t.Parallel()
-
-				privateKey, publicKey, err := jwk.ConsumeECDH(testCase.public.JWK)
-				require.ErrorIs(t, err, testCase.expectErr)
-
-				if err == nil {
-					require.True(t, publicKey.Key().Equal(public.Key()))
-					require.Nil(t, privateKey)
-				}
-			})
+			if err == nil {
+				require.True(t, publicKey.Key().Equal(public.Key()))
+				require.Equal(t, testCase.expectPrivate, privateKey != nil)
+			}
 		})
 	}
+}
+
+func TestConsumeECDH(t *testing.T) {
+	t.Parallel()
+
+	// The deprecated pair keeps its X25519 ECDH-ES behavior.
+	private, public, err := jwk.GenerateECDH()
+	require.NoError(t, err)
+	require.Equal(t, ecdh.X25519(), public.Key().Curve())
+
+	privateKey, publicKey, err := jwk.ConsumeECDH(private.JWK)
+	require.NoError(t, err)
+	require.True(t, privateKey.Key().Equal(private.Key()))
+	require.True(t, publicKey.Key().Equal(public.Key()))
 }
