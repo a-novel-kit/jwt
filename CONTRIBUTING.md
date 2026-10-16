@@ -1,7 +1,7 @@
 # Contributing To JWT
 
 The platform setup, local toolchain, and day-to-day workspace commands live in the
-[developer onboarding guide](https://github.com/a-novel-kit/.github/blob/master/README.md). Read the
+[developer guide](https://a-novel-kit.github.io/stack/). Read the
 [README](./README.md) first for the library's public role and usage surface.
 
 ## What Belongs Here
@@ -69,5 +69,5 @@ a-novel test --type=go -y
 
 ## Questions?
 
-Open an issue in this repository when the question is specific to `jwt`. Use the platform onboarding guide for general
+Open an issue in this repository when the question is specific to `jwt`. Use the [developer guide](https://a-novel-kit.github.io/stack/) for general
 workspace, CLI, and release-process questions.
