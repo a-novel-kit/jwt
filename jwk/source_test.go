@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -250,6 +251,163 @@ func TestSourceCaches(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, fetchCount)
+}
+
+// Tests for StaleIfError run in a synctest bubble, whose fake clock makes the window boundaries exact.
+
+func TestSourceStaleIfError(t *testing.T) {
+	t.Parallel()
+
+	errUpstream := errors.New("upstream down")
+	key := newBullshitKey[string](t, "kid-1").JWK
+
+	testCases := []struct {
+		name string
+
+		staleIfError time.Duration
+		// elapsed is the cache age at which the upstream is called again, and fails.
+		elapsed time.Duration
+
+		expect    []*jwa.JWK
+		expectErr error
+	}{
+		{
+			name: "Success/WithinWindow",
+
+			staleIfError: time.Hour,
+			elapsed:      2*time.Hour - time.Nanosecond,
+
+			expect: []*jwa.JWK{key},
+		},
+		{
+			name: "Error/WindowElapsed",
+
+			staleIfError: time.Hour,
+			elapsed:      2 * time.Hour,
+
+			expectErr: errUpstream,
+		},
+		{
+			name: "Error/Disabled",
+
+			elapsed: time.Hour,
+
+			expectErr: errUpstream,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			synctest.Test(t, func(t *testing.T) {
+				fetchCount := 0
+
+				source := jwk.NewSource(jwk.SourceConfig{
+					CacheDuration: time.Hour,
+					StaleIfError:  testCase.staleIfError,
+					Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+						fetchCount++
+
+						if fetchCount == 1 {
+							return []*jwa.JWK{key}, nil
+						}
+
+						return nil, errUpstream
+					},
+				})
+
+				_, err := source.List(t.Context())
+				require.NoError(t, err)
+
+				time.Sleep(testCase.elapsed)
+
+				keys, err := source.List(t.Context())
+				require.ErrorIs(t, err, testCase.expectErr)
+				require.Equal(t, testCase.expect, keys)
+				require.Equal(t, 2, fetchCount, "the upstream is tried before a stale set is served")
+			})
+		})
+	}
+}
+
+func TestSourceStaleIfErrorNeverFetched(t *testing.T) {
+	t.Parallel()
+
+	errUpstream := errors.New("upstream down")
+
+	source := jwk.NewSource(jwk.SourceConfig{
+		CacheDuration: time.Hour,
+		StaleIfError:  time.Hour,
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			return nil, errUpstream
+		},
+	})
+
+	// A source that never fetched has no set to fall back on.
+	_, err := source.Get(t.Context(), "")
+	require.ErrorIs(t, err, errUpstream)
+}
+
+func TestSourceStaleIfErrorRecovers(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		errUpstream := errors.New("upstream down")
+
+		var (
+			fetchCount  int
+			upstreamErr error
+		)
+
+		upstreamKID := "kid-1"
+
+		source := jwk.NewSource(jwk.SourceConfig{
+			CacheDuration: time.Hour,
+			StaleIfError:  time.Hour,
+			RetryInterval: time.Minute,
+			Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+				fetchCount++
+
+				if upstreamErr != nil {
+					return nil, upstreamErr
+				}
+
+				return []*jwa.JWK{newBullshitKey[string](t, upstreamKID).JWK}, nil
+			},
+		})
+
+		_, err := source.Get(t.Context(), "kid-1")
+		require.NoError(t, err)
+
+		// The cache expires during an outage: the last fetched key stays in service.
+		upstreamErr = errUpstream
+
+		time.Sleep(time.Hour)
+
+		key, err := source.Get(t.Context(), "kid-1")
+		require.NoError(t, err)
+		require.Equal(t, "kid-1", key.KID)
+		require.Equal(t, 2, fetchCount)
+
+		// The upstream recovers with a rotated key. The retry backoff still holds the next fetch off.
+		upstreamErr = nil
+		upstreamKID = "kid-2"
+
+		time.Sleep(time.Minute - time.Nanosecond)
+
+		key, err = source.Get(t.Context(), "")
+		require.NoError(t, err)
+		require.Equal(t, "kid-1", key.KID)
+		require.Equal(t, 2, fetchCount, "the retry backoff holds while the stale set is served")
+
+		time.Sleep(time.Nanosecond)
+
+		key, err = source.Get(t.Context(), "")
+		require.NoError(t, err)
+		require.Equal(t, "kid-2", key.KID)
+		require.Equal(t, 3, fetchCount)
+	})
 }
 
 // Tests for RefreshOnUnknownKeyID: a key id absent from the cache forces a bounded fetch, so a

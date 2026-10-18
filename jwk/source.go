@@ -37,6 +37,15 @@ type SourceConfig struct {
 	// RetryInterval bounds how often a failing Fetch is retried (negative caching), so a broken
 	// upstream is not hit on every request. Non-positive selects DefaultRetryInterval.
 	RetryInterval time.Duration
+	// StaleIfError is how long past CacheDuration the last fetched keys stay in service while Fetch
+	// fails, so an upstream outage shorter than it leaves signing and verification running. It
+	// follows the stale-if-error directive of RFC 5861. Zero reports the failure once the cache
+	// expires.
+	//
+	// Off by default because a stale set outlives revocation: a key the issuer has withdrawn stays
+	// trusted until a fetch succeeds or the window closes. A JWK carries no expiry of its own, so
+	// derive the window from the issuer's key lifetime.
+	StaleIfError time.Duration
 	// RefreshOnUnknownKeyID lets a key id absent from the cache force a fetch, so a verifier picks
 	// up a key the issuer has just rotated to without waiting out CacheDuration.
 	//
@@ -206,12 +215,19 @@ func (source *Source) refresh(ctx context.Context) error {
 	source.mu.Lock()
 	defer source.mu.Unlock()
 
+	age := time.Since(source.lastCached)
+
 	// Another goroutine may have refreshed while we waited for the write lock.
-	if source.cached != nil && time.Since(source.lastCached) < source.config.CacheDuration {
+	if source.cached != nil && age < source.config.CacheDuration {
 		return nil
 	}
 
-	return source.fetchLocked(ctx)
+	err := source.fetchLocked(ctx)
+	if err != nil && source.cached != nil && age < source.config.CacheDuration+source.config.StaleIfError {
+		return nil
+	}
+
+	return err
 }
 
 // fetchLocked replaces the cache from Fetch. The caller must hold the write lock.
