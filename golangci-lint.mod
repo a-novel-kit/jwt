@@ -1,11 +1,11 @@
 module github.com/a-novel-kit/jwt/v2/golangci-lint
 
-go 1.27.1
+go 1.27.2
 
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 require (
-	github.com/a-novel-kit/jwt/v2 v2.3.0
+	github.com/a-novel-kit/jwt/v2 v2.4.0
 	github.com/google/uuid v1.6.0
 	github.com/samber/lo v1.53.0
 	github.com/stretchr/testify v1.12.1
