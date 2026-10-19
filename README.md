@@ -17,17 +17,18 @@ A modular JWT, JWS, JWE, and JWK library for Go.
 
 ## What this is
 
-`github.com/a-novel-kit/jwt/v2` provides composable building blocks for JSON Web Tokens in Go. The root package produces
-and consumes token payloads; plugins add signing, verification, encryption, decryption, key headers, and claims
-validation.
+`github.com/a-novel-kit/jwt/v2` builds and reads JSON Web Tokens from composable parts. The root
+package produces and consumes tokens. Plugins sign, verify, encrypt, or decrypt them, and claims
+checks validate their content.
 
-The library follows the JOSE family of standards rather than hiding them behind a single opinionated client. Use it
-when an application needs direct control over token headers, algorithms, key material, and the order of token
-transformations.
+The library exposes the JOSE standards directly. Use it when an application needs control over token
+headers, algorithms, key material, and the order in which plugins transform a token.
 
-Key storage and distribution are deliberately out of scope. The `jwk` package can generate, parse, validate, and cache
-JSON Web Keys, but the system that persists private keys or publishes public key sets remains the caller's
-responsibility.
+The application owns key storage and distribution. The `jwk` package generates, parses, validates,
+and caches JSON Web Keys, while persisting private keys and publishing public key sets stay with the
+caller.
+
+Full reference: godoc on [pkg.go.dev](https://pkg.go.dev/github.com/a-novel-kit/jwt/v2).
 
 ## Installation
 
@@ -35,73 +36,29 @@ responsibility.
 go get github.com/a-novel-kit/jwt/v2
 ```
 
-Upgrading across a major version? See the [migration guides](docs/migrations/README.md) — start
-with [Upgrading to v2.0.0](docs/migrations/v2.0.0.md).
+A release that requires action from consumers comes with a
+[migration guide](docs/migrations/README.md).
 
-The root `jwt.Producer` and `jwt.Recipient` types handle the token lifecycle. With no plugins, a producer issues raw JWT
-payloads with the `"none"` algorithm. A recipient consumes those only when it lists `jwt.NewDefaultRecipientPlugin()`,
-since RFC 7518 forbids accepting unsecured tokens by default; this is useful for tests and trusted internal hops, but
-production tokens normally add JWS or JWE plugins.
+A producer issues tokens and a recipient consumes them. This example signs a token with HMAC, then
+verifies it and validates its registered claims before decoding the payload.
 
 ```go
 ctx := context.Background()
 
-producer := jwt.NewProducer(jwt.ProducerConfig{})
-token, err := producer.Issue(ctx, map[string]any{"sub": "user-123"}, nil)
+key, err := jwk.GenerateHMAC(jwk.HS256)
 if err != nil {
 	return err
 }
 
-recipient := jwt.NewRecipient(jwt.RecipientConfig{
-	Plugins: []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()},
-})
-
-var claims map[string]any
-if err := recipient.Consume(ctx, token, &claims); err != nil {
-	return err
-}
-```
-
-Signing and verification are added through producer and recipient plugins. This HMAC example uses caller-provided key
-material; the `jwk` package can generate and validate keys when the application needs JSON Web Key material.
-
-```go
-var secretKey []byte
+target := jwt.TargetConfig{Issuer: "accounts", Audience: jwa.Audience{"api"}, Subject: "user-123"}
 
 producer := jwt.NewProducer(jwt.ProducerConfig{
-	Plugins: []jwt.ProducerPlugin{
-		jws.NewHMACSigner(secretKey, jws.HS256),
-	},
+	Plugins: []jwt.ProducerPlugin{jws.NewHMACSigner(key.Key(), jws.HS256)},
 })
 
-token, err := producer.Issue(ctx, map[string]any{"sub": "user-123"}, nil)
-if err != nil {
-	return err
-}
-
-recipient := jwt.NewRecipient(jwt.RecipientConfig{
-	Plugins: []jwt.RecipientPlugin{
-		jws.NewHMACVerifier(secretKey, jws.HS256),
-	},
-})
-
-var signedClaims map[string]any
-if err := recipient.Consume(ctx, token, &signedClaims); err != nil {
-	return err
-}
-```
-
-For registered JWT claims, wrap the application payload with `jwt.NewBasicClaims` and validate it on the recipient side
-with the `jwp` claims checker.
-
-```go
 claims, err := jwt.NewBasicClaims(map[string]any{"role": "admin"}, jwt.ClaimsProducerConfig{
-	TargetConfig: jwt.TargetConfig{
-		Issuer:   "accounts",
-		Audience: "api",
-		Subject:  "user-123",
-	},
-	TTL: 15 * time.Minute,
+	TargetConfig: target,
+	TTL:          15 * time.Minute,
 })
 if err != nil {
 	return err
@@ -114,37 +71,41 @@ if err != nil {
 
 checker := jwp.NewClaimsChecker(&jwp.ClaimsCheckerConfig{
 	Checks: []jwp.ClaimsCheck{
-		jwp.NewClaimsCheckTarget(jwt.TargetConfig{
-			Issuer:   "accounts",
-			Audience: "api",
-			Subject:  "user-123",
-		}),
+		jwp.NewClaimsCheckTarget(target),
 		jwp.NewClaimsCheckTimestamp(30*time.Second, true),
 	},
 })
 
 recipient := jwt.NewRecipient(jwt.RecipientConfig{
 	Deserializer: checker.Unmarshal,
-	Plugins:      []jwt.RecipientPlugin{jws.NewHMACVerifier(secretKey, jws.HS256)},
+	Plugins:      []jwt.RecipientPlugin{jws.NewHMACVerifier(key.Key(), jws.HS256)},
 })
+
+var payload map[string]any
+if err := recipient.Consume(ctx, token, &payload); err != nil {
+	return err
+}
 ```
 
 ## Sub-packages
 
-| Package    | Purpose                                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------------------------ |
-| `jwt`      | Token producers, recipients, claim helpers, header helpers, and token decoders.                              |
-| `jwa`      | Typed JOSE headers, registered JWT claims, algorithms, key metadata, and JSON merge behavior.                |
-| `jwk`      | JWK generation, strict JWK consumption, typed key wrappers, and cached key sources.                          |
-| `jws`      | JWS producer and recipient plugins for HMAC, ECDSA, Ed25519, ML-DSA, RSA, and RSA-PSS.                       |
-| `jwe`      | JWE producer and recipient plugins for AES-CBC-HMAC and AES-GCM content encryption, and HPKE.                |
-| `jwe/jwek` | Content-encryption-key managers and decoders for direct keys, AES wrapping, ECDH, RSA-OAEP, PBES2, and HPKE. |
-| `jwp`      | Higher-level producer/recipient helpers for embedding key references and validating registered claims.       |
+| Package           | Purpose                                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| `jwt`             | Issues and consumes tokens, running the plugins that secure them.                               |
+| `jwa`             | Holds the JOSE wire types: headers, registered claims, keys, and algorithm identifiers.         |
+| `jwk`             | Generates and parses JSON Web Keys, and caches the key sets that sourced plugins draw from.     |
+| `jwk/serializers` | Converts native Go keys to and from the key members of a JSON Web Key.                          |
+| `jwk/generators`  | Produces raw symmetric key material.                                                            |
+| `jws`             | Signs and verifies tokens with HMAC, ECDSA, Ed25519, ML-DSA, RSA, and RSA-PSS.                  |
+| `jwe`             | Encrypts and decrypts tokens with AES-CBC-HMAC or AES-GCM content encryption, or with HPKE.     |
+| `jwe/jwek`        | Delivers the content encryption key: direct keys, AES wrapping, ECDH-ES, RSA-OAEP, PBES2, HPKE. |
+| `jwp`             | Advertises the signing key in the header, and validates registered claims before decoding.      |
+| `testutils`       | Helps consumers test their token flows, for example with a key source serving fixed keys.       |
 
 ### Keys
 
-`jwk.Key[T]` carries both the serialized JSON Web Key and the concrete Go key. Calling `Key()` returns the usable Go
-value, while `encoding/json` can marshal the same wrapper back to interoperable JWK JSON.
+`jwk.Key[T]` carries both the JSON Web Key and the native Go key. `Key()` returns the native key, and
+`json.Marshal` turns the wrapper back into interoperable JWK JSON.
 
 ```go
 privateKey, publicKey, err := jwk.GenerateECDSA(jwk.ES256)
@@ -160,23 +121,27 @@ if err != nil {
 ecdsaPrivateKey := privateKey.Key()
 ```
 
-JWK consumers are intentionally strict: a key must declare compatible usage, operations, and algorithm metadata before
-the parser accepts it. For encryption keys, the JWK `"alg"` value must match the JWT `"enc"` value the key is intended
-to protect.
+A Consume function accepts a key only when it declares the use, operations, and algorithm its
+preset expects. The JWK `"alg"` of a content encryption key holds the `"enc"` value it serves.
 
-### Producer and Recipient Plugins
+### Plugins
 
-Producer plugins run in order. Static plugins modify only the header; transforming plugins update the header and then
-transform the serialized token. Most applications should use one transforming plugin, because JWS and JWE change token
-shape in different ways and often compete for the same JOSE header fields.
+Producer plugins run in order, after the static plugins. A static plugin only amends the header. A
+transforming plugin sets its header fields, then transforms the serialized token. Signers and
+encrypters each claim the `"alg"` header, so a producer takes one of them, and a second fails with
+`jwt.ErrConflictingHeader`.
 
-Recipient plugins also run in order. A plugin that does not recognize the token returns `jwt.ErrMismatchRecipientPlugin`
-so the recipient can try the next plugin. The first plugin that succeeds supplies the raw claims payload for
-deserialization.
+Recipient plugins also run in order. A plugin that does not recognize the token returns
+`jwt.ErrMismatchRecipientPlugin`, and the recipient tries the next one. The first plugin that
+succeeds supplies the claims payload.
+
+A recipient consumes unsecured (`"alg":"none"`) tokens only when its plugins include
+`jwt.NewDefaultRecipientPlugin()`, since RFC 7518 forbids accepting them by default. Keep them to
+tests and trusted internal hops.
 
 ### Standards
 
-The core data structures follow the JOSE specifications:
+The data structures follow the JOSE specifications:
 
 | Standard | Scope                                                        |
 | -------- | ------------------------------------------------------------ |
@@ -191,8 +156,9 @@ The core data structures follow the JOSE specifications:
 | RFC 9964 | ML-DSA post-quantum signatures (`AKP` keys)                  |
 | HPKE     | HPKE for JWE (draft-ietf-jose-hpke-encrypt, IANA-registered) |
 
-Only the compact serialization is supported. The [IANA JOSE registries](https://www.iana.org/assignments/jose/jose.xhtml)
-list every registered algorithm and parameter.
+Tokens use the compact serialization. The
+[IANA JOSE registries](https://www.iana.org/assignments/jose/jose.xhtml) list every registered
+algorithm and parameter.
 
 ## Contributing
 

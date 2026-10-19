@@ -1,73 +1,69 @@
-# Contributing To JWT
+# Contributing to JWT
 
-The platform setup, local toolchain, and day-to-day workspace commands live in the
-[developer guide](https://a-novel-kit.github.io/stack/). Read the
-[README](./README.md) first for the library's public role and usage surface.
+This document covers what is specific to `jwt`. Platform setup and day-to-day commands live in the
+[developer guide](https://a-novel-kit.github.io/stack/), and the library taxonomy in the
+[libraries, tooling & platform concepts](https://github.com/a-novel-kit/.github/blob/master/CONTRIBUTING.md).
+Read the [README](./README.md) first for the library's role and usage.
 
-## What Belongs Here
+## What belongs here
 
-`jwt` is a graduated `a-novel-kit` Go library. It is public API, not service-local glue, so changes need a stronger
-reason than "one caller needs this today." Add behavior here when it belongs to the JOSE/JWT domain itself, serves more
-than one consumer, and cannot be covered cleanly by the Go standard library or an existing dependency already in the
-module.
+`jwt` is a graduated `a-novel-kit` library, so every exported symbol is public API. A change belongs
+here when it serves the JOSE/JWT domain itself, has more than one consumer, and no standard library
+package or existing dependency covers it cleanly.
 
-Keep application policy out of the package. The library should expose primitives for producing, consuming, signing,
-encrypting, validating, and working with JSON Web Keys; callers decide where keys are stored, which issuers are trusted,
-which audiences are valid, and how tokens are transported.
+The library exposes primitives for producing, consuming, signing, encrypting, validating, and
+handling JSON Web Keys. Callers keep the policy: where keys are stored, which issuers to trust,
+which audiences are valid, and how tokens travel.
 
-## API Shape
+## How the packages divide the work
 
-The root package owns token orchestration. `Producer` builds the header and claims payload, then applies producer
-plugins. `Recipient` decodes a token header, tries recipient plugins until one matches the token shape, and then
-deserializes the claims.
+The root package orchestrates a token, as the README's [plugin section](./README.md#plugins)
+describes. Add behavior as a new plugin or preset, so `Producer` and `Recipient` stay small and
+predictable. The specialized packages each own one part of the standards:
 
-Specialized packages own the standards-level pieces:
-
-| Package    | Maintainer focus                                                                                               |
-| ---------- | -------------------------------------------------------------------------------------------------------------- |
-| `jwa`      | Keep JOSE and JWT structures faithful to the RFC fields, including custom JSON payload handling.               |
-| `jwk`      | Keep key generation and consumption strict. JWK metadata checks are security boundaries, not convenience code. |
-| `jws`      | Keep signing and verification plugins focused on authentication and integrity.                                 |
-| `jwe`      | Keep content encryption/decryption separate from key-encryption mechanics.                                     |
-| `jwe/jwek` | Keep key management algorithms interchangeable behind `jwe.CEKManager` and `jwe.CEKDecoder`.                   |
-| `jwp`      | Keep higher-level helpers optional and built from the lower-level primitives.                                  |
-
-Prefer adding a new plugin or preset over special-casing behavior inside `Producer` or `Recipient`. The orchestration
-types should stay small and predictable.
+| Package    | Maintainer focus                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------ |
+| `jwa`      | Keep JOSE and JWT structures faithful to the RFC fields, including custom JSON payload handling. |
+| `jwk`      | Keep key generation and consumption strict. JWK metadata checks are a security boundary.         |
+| `jws`      | Keep signing and verification plugins focused on authentication and integrity.                   |
+| `jwe`      | Keep content encryption and decryption apart from key management.                                |
+| `jwe/jwek` | Keep key management algorithms interchangeable behind `jwe.CEKManager` and `jwe.CEKDecoder`.     |
+| `jwp`      | Keep higher-level helpers optional and built from the lower-level primitives.                    |
 
 ## Documentation
 
-This repo does not publish a separate Pages documentation site. The README is the external-user guide: global role,
-installation, the first interaction path, and the package map. CONTRIBUTING is the maintainer guide: concepts,
-rationale, and change boundaries.
+The README guides users, and this file guides maintainers. Symbol-level behavior belongs in Go doc
+comments and examples beside the code, which pkg.go.dev and editors show. The migration guides in
+[`docs/migrations`](docs/migrations/README.md) record the action each release requires from
+consumers.
 
-Detailed symbol-level behavior belongs in Go doc comments and examples near the code. A README section should explain
-why a package exists and when to use it; it should not duplicate every exported function that `pkg.go.dev` and
-IntelliSense already show.
+## Security
 
-## Security Notes
+Key metadata checks are part of the security model. The `jwk` Consume functions reject a key that
+does not declare compatible use, operations, and algorithm. Fix a malformed fixture instead of weakening those
+checks, or add an explicit compatibility path with tests that show why it is safe.
 
-Treat key metadata checks as part of the security model. Consumers in `jwk` intentionally reject keys that do not
-declare compatible usage, operations, and algorithm values. Do not weaken those checks to make malformed fixtures pass;
-fix the fixture or add an explicit compatibility path with tests that show why it is safe.
+Never log, trace, or return private keys, shared secrets, signed or encrypted tokens, or
+password-derived material. An error names the operation and the condition, without the credential.
 
-Do not log, trace, or return private keys, shared secrets, signed tokens, encrypted tokens, or password-derived
-material. Error messages should identify the operation and condition without echoing credential material.
+Keep deprecated algorithms out of new examples and tests. `RSA-OAEP` with SHA-1 stays available for
+compatibility, and new code uses the SHA-256 variant where it needs RSA-OAEP.
 
-Avoid deprecated algorithms in new examples and tests. `RSA-OAEP` with SHA-1 remains available for compatibility, but
-new code should prefer the SHA-256 variant where RSA-OAEP is required.
+## Local checks
 
-## Local Checks
-
-Use the repository commands through pnpm and the `a-novel` CLI:
+Run these checks before pushing. CI runs them too, along with its security scans.
 
 ```bash
-pnpm format
 pnpm lint
 a-novel test --type=go -y
+bash .github/scripts/lint-hash-registration.sh .
 ```
+
+`pnpm format` fixes what the linters can. The last command checks that every package naming a `crypto.Hash` imports the package that registers it, a gap the
+test suite cannot observe.
 
 ## Questions?
 
-Open an issue in this repository when the question is specific to `jwt`. Use the [developer guide](https://a-novel-kit.github.io/stack/) for general
-workspace, CLI, and release-process questions.
+[Open an issue](https://github.com/a-novel-kit/jwt/issues) when the question is specific to `jwt`.
+The [developer guide](https://a-novel-kit.github.io/stack/) answers workspace, CLI, and release
+questions.
