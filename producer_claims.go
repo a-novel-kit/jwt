@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
@@ -42,12 +41,17 @@ func NewBasicClaims(payload any, config ClaimsProducerConfig) (*jwa.Claims, erro
 
 	now := time.Now()
 
+	var exp int64
+	if config.TTL != 0 {
+		exp = now.Add(config.TTL).Unix()
+	}
+
 	claims := &jwa.Claims{
 		ClaimsCommon: jwa.ClaimsCommon{
 			Iss: config.Issuer,
 			Sub: config.Subject,
 			Aud: config.Audience,
-			Exp: lo.Ternary(config.TTL == 0, 0, now.Add(config.TTL).Unix()),
+			Exp: exp,
 			Nbf: now.Unix(),
 			Iat: now.Unix(),
 			Jti: uuid.NewString(),

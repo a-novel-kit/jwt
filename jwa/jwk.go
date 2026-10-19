@@ -2,8 +2,7 @@ package jwa
 
 import (
 	"encoding/json"
-
-	"github.com/samber/lo"
+	"slices"
 
 	"github.com/a-novel-kit/jwt/v2/jwa/internal"
 )
@@ -43,7 +42,7 @@ type JWKCommon struct {
 // preset requires.
 func (jwk JWKCommon) MatchPreset(other JWKCommon) bool {
 	for _, keyOp := range other.KeyOps {
-		if !lo.Contains(jwk.KeyOps, keyOp) {
+		if !slices.Contains(jwk.KeyOps, keyOp) {
 			return false
 		}
 	}
