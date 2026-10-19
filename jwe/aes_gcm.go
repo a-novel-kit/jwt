@@ -220,31 +220,12 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) split token: %w", err)
 	}
 
-	var encryptedKey []byte
-	if len(token.EncKey) > 0 {
-		encryptedKey, err = base64.RawURLEncoding.DecodeString(token.EncKey)
-	}
-
+	segments, err := decodeSegments(token)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: decode enc key: %w", jwt.ErrUnsupportedTokenFormat, err)
+		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w", err)
 	}
 
-	iv, err := base64.RawURLEncoding.DecodeString(token.IV)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: decode iv: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	tag, err := base64.RawURLEncoding.DecodeString(token.Tag)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: decode tag: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	cipherText, err := base64.RawURLEncoding.DecodeString(token.CipherText)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: decode cipher text: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	cek, err := dec.cekDecoder.ComputeCEK(ctx, header, encryptedKey)
+	cek, err := dec.cekDecoder.ComputeCEK(ctx, header, segments.encryptedKey)
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) get secret key: %w", err)
 	}
@@ -267,22 +248,24 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}
 
 	// The IV is attacker-supplied; gcm.Open panics on a wrong-length nonce, so validate it first.
-	if len(iv) != aesgcm.NonceSize() {
+	if len(segments.iv) != aesgcm.NonceSize() {
 		return nil, fmt.Errorf(
 			"(AESGCMDecryption.Transform) %w: iv length %d, expected %d",
-			ErrInvalidToken, len(iv), aesgcm.NonceSize(),
+			ErrInvalidToken, len(segments.iv), aesgcm.NonceSize(),
 		)
 	}
 
 	// A wrong-length tag is a malformed token, not an authentication failure; reject it distinctly.
-	if len(tag) != aesgcm.Overhead() {
+	if len(segments.tag) != aesgcm.Overhead() {
 		return nil, fmt.Errorf(
 			"(AESGCMDecryption.Transform) %w: tag length %d, expected %d",
-			ErrInvalidToken, len(tag), aesgcm.Overhead(),
+			ErrInvalidToken, len(segments.tag), aesgcm.Overhead(),
 		)
 	}
 
-	plainText, err := aesgcm.Open(nil, iv, append(cipherText, tag...), aad(token.Header, dec.additionalData))
+	plainText, err := aesgcm.Open(
+		nil, segments.iv, append(segments.cipherText, segments.tag...), aad(token.Header, dec.additionalData),
+	)
 	if err != nil {
 		// An authenticated-decryption failure is the GCM analogue of a bad HMAC tag, so it surfaces
 		// the same sentinel as the CBC path.

@@ -273,31 +273,12 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) split token: %w", err)
 	}
 
-	var encryptedKey []byte
-	if len(token.EncKey) > 0 {
-		encryptedKey, err = base64.RawURLEncoding.DecodeString(token.EncKey)
-	}
-
+	segments, err := decodeSegments(token)
 	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: decode enc key: %w", jwt.ErrUnsupportedTokenFormat, err)
+		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w", err)
 	}
 
-	iv, err := base64.RawURLEncoding.DecodeString(token.IV)
-	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: decode iv: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	tag, err := base64.RawURLEncoding.DecodeString(token.Tag)
-	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: decode tag: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	cipherText, err := base64.RawURLEncoding.DecodeString(token.CipherText)
-	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: decode cipher text: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	cek, err := dec.cekDecoder.ComputeCEK(ctx, header, encryptedKey)
+	cek, err := dec.cekDecoder.ComputeCEK(ctx, header, segments.encryptedKey)
 	if err != nil {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) get secret key: %w", err)
 	}
@@ -325,12 +306,12 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 
 	mac := hmac.New(dec.hash.New, macKey)
 	mac.Write(aadBytes)
-	mac.Write(iv)
-	mac.Write(cipherText)
+	mac.Write(segments.iv)
+	mac.Write(segments.cipherText)
 	mac.Write(al)
 
 	expect := mac.Sum(nil)[:dec.tagLength]
-	if !hmac.Equal(tag, expect) {
+	if !hmac.Equal(segments.tag, expect) {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: auth tag check failed", ErrInvalidSecret)
 	}
 
@@ -339,9 +320,9 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) new cipher: %w", err)
 	}
 
-	blockMode := cipher.NewCBCDecrypter(block, iv)
-	origData := make([]byte, len(cipherText))
-	blockMode.CryptBlocks(origData, cipherText)
+	blockMode := cipher.NewCBCDecrypter(block, segments.iv)
+	origData := make([]byte, len(segments.cipherText))
+	blockMode.CryptBlocks(origData, segments.cipherText)
 
 	plainText, err := internal.PKCS7UnPadding(origData)
 	if err != nil {

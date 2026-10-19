@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
@@ -44,4 +45,45 @@ func aad(encodedHeader string, additionalData []byte) []byte {
 	out = append(out, '.')
 
 	return append(out, base64.RawURLEncoding.EncodeToString(additionalData)...)
+}
+
+// encryptedSegments holds the decoded binary segments of a JWE compact token.
+type encryptedSegments struct {
+	encryptedKey []byte
+	iv           []byte
+	tag          []byte
+	cipherText   []byte
+}
+
+// decodeSegments decodes the base64url segments of a JWE compact token. An empty encrypted key
+// segment, which direct encryption and key agreement produce, stays nil.
+func decodeSegments(token *jwt.EncryptedToken) (*encryptedSegments, error) {
+	var (
+		segments encryptedSegments
+		err      error
+	)
+
+	if len(token.EncKey) > 0 {
+		segments.encryptedKey, err = base64.RawURLEncoding.DecodeString(token.EncKey)
+		if err != nil {
+			return nil, fmt.Errorf("%w: decode enc key: %w", jwt.ErrUnsupportedTokenFormat, err)
+		}
+	}
+
+	segments.iv, err = base64.RawURLEncoding.DecodeString(token.IV)
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode iv: %w", jwt.ErrUnsupportedTokenFormat, err)
+	}
+
+	segments.tag, err = base64.RawURLEncoding.DecodeString(token.Tag)
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode tag: %w", jwt.ErrUnsupportedTokenFormat, err)
+	}
+
+	segments.cipherText, err = base64.RawURLEncoding.DecodeString(token.CipherText)
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode cipher text: %w", jwt.ErrUnsupportedTokenFormat, err)
+	}
+
+	return &segments, nil
 }
