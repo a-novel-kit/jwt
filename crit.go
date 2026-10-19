@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // ErrMissingCritHeader is returned when the "crit" list names a header parameter that is absent
@@ -69,17 +70,12 @@ func CheckCritUnderstood(data json.RawMessage, crit, understood []string) error 
 		return fmt.Errorf("%w: crit list must not be empty", ErrUnsupportedCritHeader)
 	}
 
-	understoodSet := make(map[string]struct{}, len(understood))
-	for _, name := range understood {
-		understoodSet[name] = struct{}{}
-	}
-
 	for _, name := range crit {
 		if reservedHeaderParams[name] {
 			return fmt.Errorf("%w: %q is a registered parameter and must not be critical", ErrUnsupportedCritHeader, name)
 		}
 
-		if _, ok := understoodSet[name]; !ok {
+		if !slices.Contains(understood, name) {
 			return fmt.Errorf("%w: %q is not understood by this recipient", ErrUnsupportedCritHeader, name)
 		}
 	}

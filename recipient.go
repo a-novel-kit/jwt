@@ -75,15 +75,7 @@ func NewRecipient(config RecipientConfig) *Recipient {
 // Consume validates rawToken and decodes its claims into dst. It tries each plugin in order, uses
 // the first that recognizes the token, and fails if none do.
 func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst any) error {
-	if len(rawToken) > recipient.config.MaxTokenBytes {
-		// The token is a bearer credential; the message carries lengths only.
-		return fmt.Errorf(
-			"(Recipient.Consume) %w: %d bytes exceeds limit %d",
-			ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes,
-		)
-	}
-
-	err := checkCompactAlphabet(rawToken)
+	err := recipient.checkUntrusted(rawToken)
 	if err != nil {
 		return fmt.Errorf("(Recipient.Consume) %w", err)
 	}
@@ -93,22 +85,9 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		return fmt.Errorf("(Recipient.Consume) decode token: %w", err)
 	}
 
-	decodedHeader, err := base64.RawURLEncoding.DecodeString(rawHeader)
+	header, decodedHeader, err := decodeHeader(rawHeader)
 	if err != nil {
-		return fmt.Errorf("(Recipient.Consume) %w: decode header: %w", ErrUnsupportedTokenFormat, err)
-	}
-
-	var header *jwa.JWH
-
-	err = json.Unmarshal(decodedHeader, &header)
-	if err != nil {
-		return fmt.Errorf("(Recipient.Consume) %w: unmarshal header: %w", ErrUnsupportedTokenFormat, err)
-	}
-
-	// A header segment of JSON "null" unmarshals into a nil pointer without error; reject it before
-	// anything dereferences it.
-	if header == nil {
-		return fmt.Errorf("(Recipient.Consume) %w: null header", ErrUnsupportedTokenFormat)
+		return fmt.Errorf("(Recipient.Consume) %w", err)
 	}
 
 	if recipient.config.Typ != "" && !sameMediaType(header.Typ, recipient.config.Typ) {
@@ -155,15 +134,7 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 // It reads the payload of a signed (JWS) token; it does not decrypt JWE. The size limit still
 // applies, but no plugin runs and the header's crit list is not enforced.
 func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
-	if len(rawToken) > recipient.config.MaxTokenBytes {
-		// The token is a bearer credential; the message carries lengths only.
-		return fmt.Errorf(
-			"(Recipient.DecodeUnverified) %w: %d bytes exceeds limit %d",
-			ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes,
-		)
-	}
-
-	err := checkCompactAlphabet(rawToken)
+	err := recipient.checkUntrusted(rawToken)
 	if err != nil {
 		return fmt.Errorf("(Recipient.DecodeUnverified) %w", err)
 	}
@@ -173,22 +144,10 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 		return fmt.Errorf("(Recipient.DecodeUnverified) decode token: %w", err)
 	}
 
-	// Confirm the input is a structurally valid JWS — the header must be base64url-encoded, non-null
-	// JSON — so a non-JWT input cannot silently yield claims.
-	decodedHeader, err := base64.RawURLEncoding.DecodeString(token.Header)
+	// The header must decode, so a non-JWT input cannot yield claims.
+	_, _, err = decodeHeader(token.Header)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w: decode header: %w", ErrUnsupportedTokenFormat, err)
-	}
-
-	var header *jwa.JWH
-
-	err = json.Unmarshal(decodedHeader, &header)
-	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w: unmarshal header: %w", ErrUnsupportedTokenFormat, err)
-	}
-
-	if header == nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w: null header", ErrUnsupportedTokenFormat)
+		return fmt.Errorf("(Recipient.DecodeUnverified) %w", err)
 	}
 
 	rawClaims, err := base64.RawURLEncoding.DecodeString(token.Payload)
@@ -202,6 +161,40 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 	}
 
 	return nil
+}
+
+// checkUntrusted runs the checks that precede any decoding of rawToken: the size limit, then the
+// compact alphabet.
+func (recipient *Recipient) checkUntrusted(rawToken string) error {
+	if len(rawToken) > recipient.config.MaxTokenBytes {
+		// The token is a bearer credential; the message carries lengths only.
+		return fmt.Errorf("%w: %d bytes exceeds limit %d", ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes)
+	}
+
+	return checkCompactAlphabet(rawToken)
+}
+
+// decodeHeader decodes the base64url header segment of a compact token. It returns the header and
+// its JSON form, which the "crit" checks read for the extension members.
+func decodeHeader(rawHeader string) (*jwa.JWH, []byte, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(rawHeader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: decode header: %w", ErrUnsupportedTokenFormat, err)
+	}
+
+	var header *jwa.JWH
+
+	err = json.Unmarshal(decoded, &header)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: unmarshal header: %w", ErrUnsupportedTokenFormat, err)
+	}
+
+	// A header segment of JSON "null" unmarshals into a nil pointer without error.
+	if header == nil {
+		return nil, nil, fmt.Errorf("%w: null header", ErrUnsupportedTokenFormat)
+	}
+
+	return header, decoded, nil
 }
 
 // checkCompactAlphabet rejects input holding anything besides base64url characters and the "."
