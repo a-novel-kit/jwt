@@ -11,9 +11,9 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// ErrInvalidClaims wraps every failure reported by a claims check, so callers can detect a rejected
-// token by identity while the wrapped error carries which check failed. Returned by
-// [ClaimsChecker.Unmarshal].
+// ErrInvalidClaims is returned by [ClaimsChecker.Unmarshal] when it rejects a token's claims: a
+// check fails, or the payload is JSON null. Callers detect a rejected token by identity, while the
+// wrapped error says what failed.
 var ErrInvalidClaims = errors.New("invalid claims")
 
 // A RawClaimsCheck validates a token's payload from its raw JSON bytes, before any decoding. Use it
@@ -171,6 +171,11 @@ func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 	err := json.Unmarshal(raw, &token)
 	if err != nil {
 		return fmt.Errorf("(ClaimsChecker.Unmarshal) unmarshal claims: %w", err)
+	}
+
+	// A payload of JSON "null" unmarshals into a nil pointer without error.
+	if token == nil {
+		return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: null claims set", ErrInvalidClaims)
 	}
 
 	for _, check := range checker.config.Checks {

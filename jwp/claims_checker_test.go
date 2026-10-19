@@ -43,6 +43,21 @@ func TestClaimsChecker(t *testing.T) {
 			expect: map[string]any{"foo": "bar"},
 		},
 		{
+			// A JSON null payload is no claims set, so no check can read it.
+			name: "NullClaims",
+
+			config: &jwp.ClaimsCheckerConfig{
+				Checks: []jwp.ClaimsCheck{jwp.NewClaimsCheckTimestamp(0, false)},
+			},
+
+			raw: nil,
+
+			dst:    map[string]any{},
+			expect: map[string]any{},
+
+			expectErr: jwp.ErrInvalidClaims,
+		},
+		{
 			name: "WithTarget/Success",
 
 			config: &jwp.ClaimsCheckerConfig{
