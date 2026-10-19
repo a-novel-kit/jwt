@@ -113,7 +113,9 @@ func TestMarshalPartialReservesUnsetMembers(t *testing.T) {
 	// carries no tag and so cannot be omitempty, which is why it is here.
 	require.JSONEq(t, `{"Untaged":""}`, string(mustMarshal(t, common{})))
 
-	for _, name := range []string{"alg", "exp", "cty", "kid", "Untaged"} {
+	declaredNames := []string{"alg", "exp", "cty", "kid", "Untaged"}
+
+	for _, name := range declaredNames {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -168,7 +170,9 @@ func TestMarshalPartialReservesEmbeddedMembers(t *testing.T) {
 	require.JSONEq(t, `{"Named":""}`, string(mustMarshal(t, common{hidden: "set"})),
 		"the encoder names an embedded non-struct after its type and drops an unexported one")
 
-	for _, name := range []string{"kid", "Named"} {
+	encodedNames := []string{"kid", "Named"}
+
+	for _, name := range encodedNames {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

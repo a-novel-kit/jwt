@@ -71,7 +71,9 @@ func TestIssueKeepsAnUnreservedCustomHeader(t *testing.T) {
 func TestIssueRejectsReservedCustomClaims(t *testing.T) {
 	t.Parallel()
 
-	for _, name := range []string{"exp", "sub", "iss", "aud", "jti", "nbf", "iat"} {
+	registeredClaims := []string{"exp", "sub", "iss", "aud", "jti", "nbf", "iat"}
+
+	for _, name := range registeredClaims {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

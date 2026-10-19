@@ -76,7 +76,7 @@ func TestECCoordinateWidth(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, rawPoint[1], "fixture no longer has a short x coordinate")
 
-	for _, testCase := range []struct {
+	testCases := []struct {
 		name    string
 		payload func() (*serializers.ECPayload, error)
 	}{
@@ -88,7 +88,9 @@ func TestECCoordinateWidth(t *testing.T) {
 			name:    "PublicKey",
 			payload: func() (*serializers.ECPayload, error) { return serializers.EncodeEC(&privateKey.PublicKey) },
 		},
-	} {
+	}
+
+	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 

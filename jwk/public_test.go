@@ -90,8 +90,11 @@ func TestPublicStripsPrivateMembers(t *testing.T) {
 
 	// RSA carries the widest private set, so it is the one that proves every
 	// name is removed rather than just "d".
+	generatedMembers := []string{"d", "p", "q", "dp", "dq", "qi"}
+	strippedMembers := []string{"d", "p", "q", "dp", "dq", "qi", "oth"}
+
 	private := members(t, rsaPrivate.JWK)
-	for _, name := range []string{"d", "p", "q", "dp", "dq", "qi"} {
+	for _, name := range generatedMembers {
 		require.Contains(t, private, name, "the generated key should carry %s to begin with", name)
 	}
 
@@ -99,7 +102,7 @@ func TestPublicStripsPrivateMembers(t *testing.T) {
 	require.NoError(t, err)
 
 	got := members(t, public)
-	for _, name := range []string{"d", "p", "q", "dp", "dq", "qi", "oth"} {
+	for _, name := range strippedMembers {
 		require.NotContains(t, got, name)
 	}
 

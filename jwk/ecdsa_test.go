@@ -204,7 +204,9 @@ func TestConsumeECDSAAcceptsEveryPresetsOwnCurve(t *testing.T) {
 	t.Parallel()
 
 	// The check must not reject the keys the presets themselves produce.
-	for _, preset := range []jwk.ECDSAPreset{jwk.ES256, jwk.ES384, jwk.ES512} {
+	presets := []jwk.ECDSAPreset{jwk.ES256, jwk.ES384, jwk.ES512}
+
+	for _, preset := range presets {
 		t.Run(string(preset.Alg), func(t *testing.T) {
 			t.Parallel()
 
