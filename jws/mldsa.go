@@ -207,7 +207,7 @@ func (signer *SourcedMLDSASigner) Transform(ctx context.Context, header *jwa.JWH
 }
 
 // A SourcedMLDSAVerifier verifies like an [MLDSAVerifier] but resolves candidate keys from a
-// [jwk.Source] at each call. When the token names a KID it tries only that key; otherwise it tries
+// [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source bound to the token's algorithm. Build one with [NewSourcedMLDSAVerifier].
 type SourcedMLDSAVerifier struct {
 	source *jwk.Source

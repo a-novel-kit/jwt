@@ -12,7 +12,9 @@ import (
 type HeaderProducerConfig struct {
 	TargetConfig
 
+	// Typ is the media type of the complete token.
 	Typ jwa.Typ
+	// CTY is the media type of the secured content, such as jwa.CtyJWT on a nested token.
 	CTY jwa.CTY
 
 	// Crit lists custom header parameter names a recipient must process. Every name here has to

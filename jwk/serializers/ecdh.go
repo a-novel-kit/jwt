@@ -9,8 +9,8 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// An ECDHPayload wraps a key-agreement key in a JWKCommon format: an "OKP" key for X25519 (RFC 8037)
-// or an "EC" key for the NIST curves (RFC 7518 §6.2).
+// An ECDHPayload holds the key members of a key-agreement JSON Web Key: an "OKP" key for X25519
+// (RFC 8037) or an "EC" key for the NIST curves (RFC 7518 §6.2).
 type ECDHPayload struct {
 	// Crv is the JWK curve identifier: "X25519", "P-256", "P-384", or "P-521". The standard library does
 	// not implement X448, so that value makes DecodeECDH return an error.
@@ -49,7 +49,7 @@ func ECDHKeyType(curve ecdh.Curve) jwa.KTY {
 	return jwa.KTYEC
 }
 
-// DecodeECDH decodes the key-agreement key from a JWKCommon format. Each NIST coordinate has to span
+// DecodeECDH decodes the key-agreement key an ECDHPayload carries. Each NIST coordinate has to span
 // the full size of its curve's field, as RFC 7518 §6.2.1.2 requires.
 func DecodeECDH(src *ECDHPayload) (*ecdh.PrivateKey, *ecdh.PublicKey, error) {
 	curve, ok := ecdhCurves[src.Crv]
@@ -103,7 +103,7 @@ func DecodeECDH(src *ECDHPayload) (*ecdh.PrivateKey, *ecdh.PublicKey, error) {
 	return ecdhPrivKey, ecdhPubKey, nil
 }
 
-// EncodeECDH encodes the key-agreement key into a JWKCommon format.
+// EncodeECDH encodes a key-agreement key into its JWK members.
 func EncodeECDH[Key *ecdh.PublicKey | *ecdh.PrivateKey](key Key) (*ECDHPayload, error) {
 	publicKey, ok := any(key).(*ecdh.PublicKey)
 

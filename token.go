@@ -11,8 +11,8 @@ import (
 // sender's error.
 var ErrUnsupportedTokenFormat = errors.New("unsupported token format")
 
-// A TokenDecoder splits a compact serialized token into its typed segments. Each JOSE token shape
-// — unsecured, signed, encrypted — has its own decoder producing its own segment type.
+// A TokenDecoder splits a compact serialized token into its typed segments. Each JOSE token shape,
+// whether unsecured, signed or encrypted, has its own decoder and segment type.
 type TokenDecoder[R any] interface {
 	Decode(source string) (R, error)
 }
@@ -27,7 +27,7 @@ func (decoder *HeaderDecoder) Decode(source string) (string, error) {
 	// force an unbounded allocation. Only the first segment is needed, so two suffices.
 	parts := strings.SplitN(source, ".", 2)
 	if len(parts) < 2 {
-		// The token is an untrusted bearer credential; the error names the shape only.
+		// The token is an untrusted bearer credential, so the error names the shape only.
 		return "", fmt.Errorf("(HeaderDecoder.Decode) %w: expected at least 2 segments", ErrUnsupportedTokenFormat)
 	}
 
@@ -36,7 +36,9 @@ func (decoder *HeaderDecoder) Decode(source string) (string, error) {
 
 // A RawToken is an unsecured token: a header and payload with no signature or encryption.
 type RawToken struct {
-	Header  string
+	// Header is the base64url-encoded JOSE header.
+	Header string
+	// Payload is the base64url-encoded claims set.
 	Payload string
 }
 
@@ -68,10 +70,13 @@ func (decoder *RawTokenDecoder) Decode(source string) (*RawToken, error) {
 	}, nil
 }
 
-// A SignedToken is the three-segment JWS compact form: header, payload, and signature.
+// A SignedToken is the three-segment JWS compact form.
 type SignedToken struct {
-	Header    string
-	Payload   string
+	// Header is the base64url-encoded protected header.
+	Header string
+	// Payload is the base64url-encoded claims set.
+	Payload string
+	// Signature is the base64url-encoded signature over "header.payload".
 	Signature string
 }
 
@@ -102,14 +107,19 @@ func (decoder *SignedTokenDecoder) Decode(source string) (*SignedToken, error) {
 	}, nil
 }
 
-// An EncryptedToken is the five-segment JWE compact form: header, encrypted key, initialization
-// vector, ciphertext, and authentication tag.
+// An EncryptedToken is the five-segment JWE compact form. Every segment is base64url-encoded.
 type EncryptedToken struct {
-	Header     string
-	EncKey     string
-	IV         string
+	// Header is the protected header, which the integrity check also covers.
+	Header string
+	// EncKey is the encrypted content encryption key. It is empty when no key travels with the token,
+	// as with direct encryption or ECDH-ES.
+	EncKey string
+	// IV is the initialization vector of the content encryption.
+	IV string
+	// CipherText is the encrypted claims set.
 	CipherText string
-	Tag        string
+	// Tag is the authentication tag of the content encryption.
+	Tag string
 }
 
 // String returns the compact "header.key.iv.ciphertext.tag" serialization.

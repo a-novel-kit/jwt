@@ -12,9 +12,8 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jws"
 )
 
-// smallRSAKey is a bogus RSA key with a sub-2048-bit modulus. It is enough to exercise the key-size
-// floor — which only reads the modulus bit length before any crypto — without a slow weak-key
-// generation.
+// smallRSAKey is a bogus RSA key with a sub-2048-bit modulus. The key-size floor reads only the
+// modulus bit length before any crypto, so this key exercises it without a slow weak-key generation.
 func smallRSAKey() *rsa.PrivateKey {
 	return &rsa.PrivateKey{PublicKey: rsa.PublicKey{N: big.NewInt(12345), E: 65537}}
 }

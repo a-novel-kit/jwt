@@ -12,22 +12,22 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-// An RSAPreset describes how to generate or match an RSA JSON Web Key: the algorithm it is bound
-// to, whether the key is used for signatures or key management, the operations allowed on each
-// half of the pair, and the modulus size in bits.
-//
-// A modulus of n bits signs into ⌈n/8⌉ bytes, which is what pairs the 2048-, 3072-, and 4096-bit
-// signature presets with the SHA-256, SHA-384, and SHA-512 variants.
+// An RSAPreset describes how to generate or match an RSA JSON Web Key.
 type RSAPreset struct {
-	Alg           jwa.Alg
-	Use           jwa.Use
+	// Alg is the algorithm the key is bound to.
+	Alg jwa.Alg
+	// Use says whether the key serves signatures or key management.
+	Use jwa.Use
+	// PrivateKeyOps are the operations the private half permits.
 	PrivateKeyOps jwa.KeyOps
-	PublicKeyOps  jwa.KeyOps
-	KeySize       int
+	// PublicKeyOps are the operations the public half permits.
+	PublicKeyOps jwa.KeyOps
+	// KeySize is the modulus size of a generated key, in bits.
+	KeySize int
 }
 
-// Signature algorithms.
 var (
+	// RS256 generates or matches a 2048-bit key for RSASSA-PKCS1-v1_5 with SHA-256.
 	RS256 = RSAPreset{
 		Alg:           jwa.RS256,
 		Use:           jwa.UseSig,
@@ -35,6 +35,7 @@ var (
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		KeySize:       2048,
 	}
+	// RS384 generates or matches a 3072-bit key for RSASSA-PKCS1-v1_5 with SHA-384.
 	RS384 = RSAPreset{
 		Alg:           jwa.RS384,
 		Use:           jwa.UseSig,
@@ -42,6 +43,7 @@ var (
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		KeySize:       3072,
 	}
+	// RS512 generates or matches a 4096-bit key for RSASSA-PKCS1-v1_5 with SHA-512.
 	RS512 = RSAPreset{
 		Alg:           jwa.RS512,
 		Use:           jwa.UseSig,
@@ -50,6 +52,7 @@ var (
 		KeySize:       4096,
 	}
 
+	// PS256 generates or matches a 2048-bit key for RSASSA-PSS with SHA-256.
 	PS256 = RSAPreset{
 		Alg:           jwa.PS256,
 		Use:           jwa.UseSig,
@@ -57,6 +60,7 @@ var (
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		KeySize:       2048,
 	}
+	// PS384 generates or matches a 3072-bit key for RSASSA-PSS with SHA-384.
 	PS384 = RSAPreset{
 		Alg:           jwa.PS384,
 		Use:           jwa.UseSig,
@@ -64,6 +68,7 @@ var (
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		KeySize:       3072,
 	}
+	// PS512 generates or matches a 4096-bit key for RSASSA-PSS with SHA-512.
 	PS512 = RSAPreset{
 		Alg:           jwa.PS512,
 		Use:           jwa.UseSig,
@@ -73,8 +78,8 @@ var (
 	}
 )
 
-// Key management algorithms.
 var (
+	// RSAOAEP generates or matches a 4096-bit key for RSAES-OAEP with SHA-1.
 	RSAOAEP = RSAPreset{
 		Alg:           jwa.RSAOAEP,
 		Use:           jwa.UseEnc,
@@ -82,6 +87,7 @@ var (
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpDecrypt},
 		KeySize:       4096,
 	}
+	// RSAOAEP256 generates or matches a 4096-bit key for RSAES-OAEP with SHA-256.
 	RSAOAEP256 = RSAPreset{
 		Alg:           jwa.RSAOAEP256,
 		Use:           jwa.UseEnc,
@@ -93,7 +99,7 @@ var (
 
 // GenerateRSA generates a new RSA public/private key pair.
 //
-// Retrieve a raw key with res.Key(), or marshal either result into a JSON Web Key with json.Marshal.
+// Call Key on either result for the native key, or marshal it into a JSON Web Key with json.Marshal.
 //
 // Pass one of the RSA presets: the signature presets, such as [RS256], or the key-management
 // presets, such as [RSAOAEP].

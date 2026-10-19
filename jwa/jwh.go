@@ -158,6 +158,8 @@ type JWHHPKE struct {
 type JWH struct {
 	JWHCommon
 
+	// Payload holds the extra header parameters as one JSON object. A member naming a registered
+	// parameter fails the encoding with ErrReservedMember.
 	Payload json.RawMessage
 }
 

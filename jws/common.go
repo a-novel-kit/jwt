@@ -15,7 +15,7 @@ import (
 var ErrInvalidSignature = errors.New("invalid signature")
 
 // ErrUnsupportedAlgorithm is returned when a preset names an algorithm the plugin cannot map to a
-// signing scheme — for example an RSA plugin given an algorithm that is neither RS* nor PS*.
+// signing scheme, such as an RSA plugin given an algorithm that is neither RS* nor PS*.
 var ErrUnsupportedAlgorithm = errors.New("unsupported algorithm")
 
 // checkHMACKey fails unless key is at least as long as the output of hash, the floor RFC 7518 §3.2

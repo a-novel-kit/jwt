@@ -10,13 +10,14 @@ import (
 // ProducerConfig configures a Producer: the base header shared by every token and the ordered
 // plugins that sign, encrypt, or otherwise transform each one.
 type ProducerConfig struct {
+	// Header is the base header every token starts from.
 	Header HeaderProducerConfig
 
 	// Plugins run in order. Each describes its operation in the header, then transforms the
 	// serialized token to match.
 	Plugins []ProducerPlugin
-	// StaticPlugins run before Plugins and only amend the header. They produce intermediate
-	// header values, such as a derived key, that a transforming plugin later consumes.
+	// StaticPlugins run before Plugins and only amend the header. They set values a transforming
+	// plugin reads later, such as the key ID a sourced signer signs with.
 	StaticPlugins []ProducerStaticPlugin
 }
 

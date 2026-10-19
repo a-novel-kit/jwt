@@ -10,37 +10,41 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
-// KeyWrapPreset pairs a JWA algorithm identifier with its wrap-key length. It is shared by the
-// AES-KW, AES-GCM-KW, and ECDH-ES+AES-KW key managers, which carry the same two fields; for ECDH-ES
-// the length is that of the key-wrapping key derived from the shared secret. Use one of the
-// predefined presets.
+// KeyWrapPreset describes a key-wrapping algorithm of the AES-KW, AES-GCM-KW, and ECDH-ES+AES-KW
+// key managers. Use one of the predefined presets.
 type KeyWrapPreset struct {
-	Alg    jwa.Alg
+	// Alg is the key management algorithm.
+	Alg jwa.Alg
+	// KeyLen is the length of the key-wrapping key, in bytes. ECDH-ES derives a key of that length
+	// from the shared secret.
 	KeyLen int
 }
 
-// The AES key-wrap presets, one per supported wrap-key length.
 var (
+	// A128KW wraps the content encryption key with AES Key Wrap under a 16-byte key.
 	A128KW = KeyWrapPreset{
 		Alg:    jwa.A128KW,
 		KeyLen: 16,
 	}
+	// A192KW wraps the content encryption key with AES Key Wrap under a 24-byte key.
 	A192KW = KeyWrapPreset{
 		Alg:    jwa.A192KW,
 		KeyLen: 24,
 	}
+	// A256KW wraps the content encryption key with AES Key Wrap under a 32-byte key.
 	A256KW = KeyWrapPreset{
 		Alg:    jwa.A256KW,
 		KeyLen: 32,
 	}
 )
 
-// AESKWManagerConfig holds the inputs for NewAESKWManager: the key that wraps each
-// token's content encryption key.
+// AESKWManagerConfig configures NewAESKWManager.
 type AESKWManagerConfig struct {
 	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
 	// RFC 7516 requires.
-	CEK     []byte
+	CEK []byte
+	// WrapKey is the AES key that wraps each token's content encryption key. Its length matches the
+	// preset's.
 	WrapKey []byte
 }
 
@@ -106,9 +110,9 @@ func (manager *AESKWManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byt
 	return wrapped, nil
 }
 
-// AESKWDecoderConfig holds the key-wrapping key used to unwrap a content
-// encryption key.
+// AESKWDecoderConfig configures NewAESKWDecoder.
 type AESKWDecoderConfig struct {
+	// WrapKey is the AES key the content encryption key was wrapped under.
 	WrapKey []byte
 }
 

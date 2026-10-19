@@ -2,7 +2,7 @@ package jwek
 
 import "github.com/a-novel-kit/jwt/v2/jwe"
 
-// Compile-time checks that every key manager and decoder satisfies the jwe.CEKManager /
+// Compile-time checks that every key manager and decoder satisfies its jwe.CEKManager or
 // jwe.CEKDecoder contract, so a drifting method signature fails the build.
 var (
 	_ jwe.CEKManager = (*AESGCMKWManager)(nil)

@@ -13,7 +13,7 @@ import (
 
 // RFC 7517 Appendix C works a PBES2 key derivation end to end and states the salt and the derived
 // key as octet sequences. Encrypt and decrypt share whatever salt this code builds, so a round trip
-// succeeds on any value — a known answer is the only thing that separates a conforming derivation
+// succeeds on any value. A known answer is the only thing that separates a conforming derivation
 // from a merely self-consistent one.
 //
 // https://datatracker.ietf.org/doc/html/rfc7517#appendix-C

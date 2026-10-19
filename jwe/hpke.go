@@ -12,18 +12,20 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// HPKEPreset holds one HPKE Integrated Encryption suite: the "alg" identifier, the curve its
-// Diffie-Hellman KEM runs on, and its key derivation function and AEAD. Use one of the package presets.
-type HPKEPreset struct {
-	Alg   jwa.Alg
-	Curve ecdh.Curve
-	KDF   hpke.KDF
-	AEAD  hpke.AEAD
-}
-
-// The HPKE Integrated Encryption suites.
+// HPKEPreset describes an HPKE Integrated Encryption suite. Use one of the package presets.
 //
 // https://datatracker.ietf.org/doc/html/draft-ietf-jose-hpke-encrypt#section-5.1
+type HPKEPreset struct {
+	// Alg is the algorithm the suite registers.
+	Alg jwa.Alg
+	// Curve is the curve the suite's Diffie-Hellman KEM runs on.
+	Curve ecdh.Curve
+	// KDF is the suite's key derivation function.
+	KDF hpke.KDF
+	// AEAD is the suite's authenticated encryption algorithm.
+	AEAD hpke.AEAD
+}
+
 var (
 	// HPKE0 is DHKEM(P-256, HKDF-SHA256), HKDF-SHA256, and AES-128-GCM.
 	HPKE0 = HPKEPreset{Alg: jwa.HPKE0, Curve: ecdh.P256(), KDF: hpke.HKDFSHA256(), AEAD: hpke.AES128GCM()}
@@ -39,9 +41,9 @@ var (
 	HPKE7 = HPKEPreset{Alg: jwa.HPKE7, Curve: ecdh.P256(), KDF: hpke.HKDFSHA256(), AEAD: hpke.AES256GCM()}
 )
 
-// HPKEEncryptionConfig configures NewHPKEEncryption with the recipient public key the payload is
-// encrypted to.
+// HPKEEncryptionConfig configures NewHPKEEncryption.
 type HPKEEncryptionConfig struct {
+	// RecipientKey is the public key the payload is encrypted to.
 	RecipientKey *ecdh.PublicKey
 }
 
@@ -108,7 +110,7 @@ func (enc *HPKEEncryption) Transform(_ context.Context, _ *jwa.JWH, rawToken str
 		return "", fmt.Errorf("(HPKEEncryption.Transform) seal: %w", err)
 	}
 
-	// The encapsulated secret takes the encrypted key's place; the IV and tag stay empty.
+	// The encapsulated secret takes the encrypted key's place, and the IV and tag stay empty.
 	return jwt.EncryptedToken{
 		Header:     token.Header,
 		EncKey:     base64.RawURLEncoding.EncodeToString(encapsulated),
@@ -116,8 +118,9 @@ func (enc *HPKEEncryption) Transform(_ context.Context, _ *jwa.JWH, rawToken str
 	}.String(), nil
 }
 
-// HPKEDecryptionConfig configures NewHPKEDecryption with the recipient private key.
+// HPKEDecryptionConfig configures NewHPKEDecryption.
 type HPKEDecryptionConfig struct {
+	// RecipientKey is the private key that decrypts the payload.
 	RecipientKey *ecdh.PrivateKey
 }
 
@@ -161,7 +164,7 @@ func (dec *HPKEDecryption) Transform(_ context.Context, header *jwa.JWH, rawToke
 	}
 
 	// The draft keys these rules on presence, which the typed header loses for an empty or null value.
-	// Integrated Encryption forbids "enc" and "ek"; "psk_id" selects a mode this package lacks, and
+	// Integrated Encryption forbids "enc" and "ek". "psk_id" selects a mode this package lacks, and
 	// "zip" a decompression it does not perform.
 	member, err := presentMember(token.Header, "enc", "ek", "psk_id", "zip")
 	if err != nil {

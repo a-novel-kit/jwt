@@ -7,8 +7,8 @@ import (
 	"fmt"
 )
 
-// ErrDataTooLarge is returned when an input length exceeds the 32-bit field used to encode it in a
-// length-prefixed KDF block.
+// ErrDataTooLarge is returned when an input to the key derivation exceeds 0xFFFFFFF bytes, a bound
+// that keeps every length field of the derivation within 32 bits.
 var ErrDataTooLarge = errors.New("data is too large")
 
 // Derive computes a key of keySize bytes from the ECDH shared secret z, following the ECDH-ES key
@@ -53,8 +53,8 @@ func Derive(z []byte, alg string, keySize int, apu, apv []byte) ([]byte, error) 
 }
 
 // prefixBlock returns data prefixed with its length as a 32-bit big-endian integer, the
-// Datalen || Data framing that ConcatKDF's OtherInfo fields require. It fails if data is longer than
-// that length field can encode.
+// Datalen || Data framing that ConcatKDF's OtherInfo fields require. It fails with ErrDataTooLarge
+// past 0xFFFFFFF bytes.
 func prefixBlock(data []byte) ([]byte, error) {
 	out := make([]byte, len(data)+4)
 

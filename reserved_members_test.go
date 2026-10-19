@@ -14,13 +14,12 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// End-to-end cover for the custom-payload override, at the level a consumer meets it. A caller that
-// routes semi-trusted data into customClaims or customHeader reaches an override no guard can see:
-// each signer refuses a header that already carries an alg by reading the struct field, and the
-// override lands later, inside MarshalJSON.
+// These tests cover a custom member that names a registered one, at the level a consumer meets it.
+// Each signer checks the alg struct field, and a custom member joins the encoding only inside
+// MarshalJSON, after every such check. The encoding is therefore what refuses the override.
 
-// signingPlugin stands in for a signer: it stamps the algorithm on the header, which is exactly the
-// value a custom header used to be able to replace.
+// signingPlugin stands in for a signer. It stamps the algorithm on the header, the value a custom
+// header member must not replace.
 type signingPlugin struct{ alg jwa.Alg }
 
 func (plugin *signingPlugin) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {

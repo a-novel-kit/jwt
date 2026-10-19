@@ -12,24 +12,30 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// HPKEKeyEncPreset holds one HPKE Key Encryption suite: the "alg" identifier, the curve its
-// Diffie-Hellman KEM runs on, and its key derivation function and AEAD. Use one of the predefined
-// presets.
-type HPKEKeyEncPreset struct {
-	Alg   jwa.Alg
-	Curve ecdh.Curve
-	KDF   hpke.KDF
-	AEAD  hpke.AEAD
-}
-
-// The HPKE Key Encryption suites.
+// HPKEKeyEncPreset describes an HPKE Key Encryption suite. Use one of the predefined presets.
 //
 // https://datatracker.ietf.org/doc/html/draft-ietf-jose-hpke-encrypt#section-6.2
+type HPKEKeyEncPreset struct {
+	// Alg is the key management algorithm.
+	Alg jwa.Alg
+	// Curve is the curve the suite's Diffie-Hellman KEM runs on.
+	Curve ecdh.Curve
+	// KDF is the suite's key derivation function.
+	KDF hpke.KDF
+	// AEAD is the suite's authenticated encryption algorithm.
+	AEAD hpke.AEAD
+}
+
 var (
+	// HPKE0KE is DHKEM(P-256, HKDF-SHA256), HKDF-SHA256, and AES-128-GCM.
 	HPKE0KE = HPKEKeyEncPreset{Alg: jwa.HPKE0KE, Curve: ecdh.P256(), KDF: hpke.HKDFSHA256(), AEAD: hpke.AES128GCM()}
+	// HPKE1KE is DHKEM(P-384, HKDF-SHA384), HKDF-SHA384, and AES-256-GCM.
 	HPKE1KE = HPKEKeyEncPreset{Alg: jwa.HPKE1KE, Curve: ecdh.P384(), KDF: hpke.HKDFSHA384(), AEAD: hpke.AES256GCM()}
+	// HPKE2KE is DHKEM(P-521, HKDF-SHA512), HKDF-SHA512, and AES-256-GCM.
 	HPKE2KE = HPKEKeyEncPreset{Alg: jwa.HPKE2KE, Curve: ecdh.P521(), KDF: hpke.HKDFSHA512(), AEAD: hpke.AES256GCM()}
+	// HPKE3KE is DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, and AES-128-GCM.
 	HPKE3KE = HPKEKeyEncPreset{Alg: jwa.HPKE3KE, Curve: ecdh.X25519(), KDF: hpke.HKDFSHA256(), AEAD: hpke.AES128GCM()}
+	// HPKE7KE is DHKEM(P-256, HKDF-SHA256), HKDF-SHA256, and AES-256-GCM.
 	HPKE7KE = HPKEKeyEncPreset{Alg: jwa.HPKE7KE, Curve: ecdh.P256(), KDF: hpke.HKDFSHA256(), AEAD: hpke.AES256GCM()}
 )
 
@@ -44,9 +50,9 @@ func recipientStructure(enc jwa.Enc) []byte {
 	return append(info, 0xff)
 }
 
-// HPKEKeyEncManagerConfig holds the recipient public key each token's content encryption key is
-// encrypted to.
+// HPKEKeyEncManagerConfig configures NewHPKEKeyEncManager.
 type HPKEKeyEncManagerConfig struct {
+	// RecipientKey is the public key each token's content encryption key is encrypted to.
 	RecipientKey *ecdh.PublicKey
 }
 
@@ -118,8 +124,9 @@ func (manager *HPKEKeyEncManager) EncryptCEK(_ context.Context, header *jwa.JWH,
 	return encrypted, nil
 }
 
-// HPKEKeyEncDecoderConfig holds the recipient private key that decrypts the content encryption key.
+// HPKEKeyEncDecoderConfig configures NewHPKEKeyEncDecoder.
 type HPKEKeyEncDecoderConfig struct {
+	// RecipientKey is the private key that decrypts the content encryption key.
 	RecipientKey *ecdh.PrivateKey
 }
 

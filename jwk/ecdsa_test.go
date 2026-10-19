@@ -175,10 +175,10 @@ func TestConsumeECDSA(t *testing.T) {
 }
 
 // RFC 7518 §3.4 binds each algorithm to one curve. The binding lives in the payload's "crv", which
-// MatchPreset cannot see — it compares kty, use, key_ops and alg only — so a key labelled ES256 and
-// carrying a P-384 point satisfies every check the header can make.
+// MatchPreset cannot see, since it compares kty, use, key_ops and alg only. A key labeled ES256 and
+// carrying a P-384 point therefore satisfies every check the header can make.
 //
-// This is the case the existing tests miss by generating and consuming with the same preset.
+// Tests that generate and consume with the same preset never build such a key.
 func TestConsumeECDSARejectsAMismatchedCurve(t *testing.T) {
 	t.Parallel()
 

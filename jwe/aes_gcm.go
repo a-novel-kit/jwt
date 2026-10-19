@@ -12,10 +12,11 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// AESGCMPreset holds the parameters of one AES-GCM variant: the enc identifier and
-// the key length. Use one of the package presets.
+// AESGCMPreset describes an AES-GCM variant. Use one of the package presets.
 type AESGCMPreset struct {
-	Enc    jwa.Enc
+	// Enc is the content encryption algorithm.
+	Enc jwa.Enc
+	// KeyLen is the length of the content encryption key, in bytes.
 	KeyLen int
 }
 
@@ -37,10 +38,12 @@ var (
 	}
 )
 
-// AESGCMEncryptionConfig configures NewAESGCMEncryption. CEKManager supplies the
-// content encryption key; AdditionalData, when set, is authenticated but not encrypted.
+// AESGCMEncryptionConfig configures NewAESGCMEncryption.
 type AESGCMEncryptionConfig struct {
-	CEKManager     CEKManager
+	// CEKManager supplies the content encryption key and decides how it reaches the recipient.
+	CEKManager CEKManager
+	// AdditionalData is authenticated with the token without being encrypted. The recipient must
+	// configure the same value.
 	AdditionalData []byte
 }
 
@@ -77,7 +80,7 @@ func (enc *AESGCMEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 		return nil, fmt.Errorf("(AESGCMEncryption.Header) set key derivation header: %w", err)
 	}
 
-	// A CEKManager may pin the token to a specific enc; honor that pin.
+	// A CEKManager may pin the token to one enc, which this plugin must then match.
 	if header.Enc != "" && header.Enc != enc.enc {
 		return nil, fmt.Errorf(
 			"(AESGCMEncryption.Header) %w: cek manager is incompatible with the current encryption algorithm: "+
@@ -135,8 +138,8 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return "", fmt.Errorf("(AESGCMEncryption.Transform) create gcm: %w", err)
 	}
 
-	// Seal appends the authentication tag to the ciphertext; JWE carries them in
-	// separate fields, so split off the trailing Overhead() bytes.
+	// Seal appends the authentication tag to the ciphertext, and JWE carries the two in separate
+	// segments.
 	ciphertextAndTag := aesgcm.Seal(nil, iv, plainText, aad(encodedHeader, enc.additionalData))
 	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
 	cipherText := ciphertextAndTag[:cipherLen]
@@ -171,10 +174,11 @@ func (enc *AESGCMEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byt
 	return secret, nil
 }
 
-// AESGCMDecryptionConfig configures NewAESGCMDecryption. CEKDecoder recovers the
-// content encryption key; AdditionalData must equal the value used at encryption.
+// AESGCMDecryptionConfig configures NewAESGCMDecryption.
 type AESGCMDecryptionConfig struct {
-	CEKDecoder     CEKDecoder
+	// CEKDecoder recovers the content encryption key from the token.
+	CEKDecoder CEKDecoder
+	// AdditionalData must equal the value the token was encrypted with.
 	AdditionalData []byte
 }
 
@@ -208,7 +212,7 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	// Decompression is not implemented, so a compressed payload is refused instead of returned as is.
+	// This package performs no decompression, so it refuses a compressed payload.
 	if header.Zip != "" {
 		return nil, fmt.Errorf(
 			"(AESGCMDecryption.Transform) %w: unsupported zip %s", jwt.ErrUnsupportedTokenFormat, header.Zip,
@@ -247,7 +251,7 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) create gcm: %w", err)
 	}
 
-	// The IV is attacker-supplied; gcm.Open panics on a wrong-length nonce, so validate it first.
+	// The IV is attacker-supplied, and gcm.Open panics on a nonce of the wrong length.
 	if len(segments.iv) != aesgcm.NonceSize() {
 		return nil, fmt.Errorf(
 			"(AESGCMDecryption.Transform) %w: iv length %d, expected %d",
@@ -255,7 +259,8 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	// A wrong-length tag is a malformed token, not an authentication failure; reject it distinctly.
+	// A tag of the wrong length makes the token malformed, which ErrInvalidToken reports apart from an
+	// authentication failure.
 	if len(segments.tag) != aesgcm.Overhead() {
 		return nil, fmt.Errorf(
 			"(AESGCMDecryption.Transform) %w: tag length %d, expected %d",

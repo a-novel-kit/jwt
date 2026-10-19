@@ -218,9 +218,9 @@ func TestUnmarshalPartial(t *testing.T) {
 		extra  json.RawMessage
 	}{
 		{
-			// The typed fields come back in the value, and only the rest comes
-			// back as custom — so re-encoding the pair does not re-supply a and b
-			// as overrides of themselves.
+			// The typed fields come back in the value and only the rest comes back
+			// as custom, so re-encoding the pair does not re-supply a and b as
+			// overrides of themselves.
 			name: "Success",
 
 			src: []byte(`{"a":"foo","b":"bar","c":"baz"}`),

@@ -9,8 +9,8 @@ import (
 )
 
 // cekSizes holds the content encryption key length, in bytes, each "enc" algorithm consumes.
-// An AES-CBC-HMAC key carries both its MAC and encryption halves. It lists the algorithms the
-// jwe package implements; an encryption plugin for another "enc" needs an entry here before the
+// An AES-CBC-HMAC key carries both its MAC and encryption halves. The map lists the algorithms the
+// jwe package implements. An encryption plugin for another "enc" needs an entry here before the
 // wrapping and agreement-with-wrapping managers can draw keys for it.
 var cekSizes = map[jwa.Enc]int{
 	jwa.A128CBC: 32,

@@ -12,11 +12,13 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-// An HMACPreset bundles the hash and algorithm identifier for one HMAC signing scheme. Pass one of
-// the exported presets to the HMAC constructors.
+// An HMACPreset describes an HMAC signing scheme. Pass one of the exported presets to the HMAC
+// constructors.
 type HMACPreset struct {
+	// Hash is the hash HMAC runs on.
 	Hash crypto.Hash
-	Alg  jwa.Alg
+	// Alg is the signature algorithm.
+	Alg jwa.Alg
 }
 
 var (
@@ -218,8 +220,8 @@ func (signer *SourcedHMACSigner) Transform(ctx context.Context, header *jwa.JWH,
 }
 
 // A SourcedHMACVerifier verifies like an [HMACVerifier] but resolves candidate secrets from a
-// [jwk.Source] at each call. When the token names a KID it tries only that secret; otherwise it
-// tries every secret in the source. Build one with [NewSourcedHMACVerifier].
+// [jwk.Source] at each call. When the token names a KID, it tries only that secret. Otherwise
+// it tries every secret in the source. Build one with [NewSourcedHMACVerifier].
 type SourcedHMACVerifier struct {
 	source *jwk.Source
 	preset HMACPreset

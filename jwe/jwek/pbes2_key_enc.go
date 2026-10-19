@@ -14,26 +14,34 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
-// PBES2KeyEncKWPreset pairs a JWA algorithm identifier with the hash and key size
-// used to derive the wrap key from the password. Use one of the predefined presets.
+// PBES2KeyEncKWPreset describes a PBES2 key management algorithm. Use one of the predefined
+// presets.
 type PBES2KeyEncKWPreset struct {
-	Alg     jwa.Alg
-	Hash    crypto.Hash
+	// Alg is the key management algorithm.
+	Alg jwa.Alg
+	// Hash is the HMAC hash PBKDF2 derives the wrap key with.
+	Hash crypto.Hash
+	// KeySize is the length of the derived wrap key, in bytes.
 	KeySize int
 }
 
-// The PBES2 presets, one per supported hash and key size.
 var (
+	// PBES2A128KW derives a 16-byte wrap key with PBKDF2 and HMAC-SHA-256, then wraps the content
+	// encryption key with AES Key Wrap.
 	PBES2A128KW = PBES2KeyEncKWPreset{
 		Alg:     jwa.PBES2HS256A128KW,
 		Hash:    crypto.SHA256,
 		KeySize: 16,
 	}
+	// PBES2A192KW derives a 24-byte wrap key with PBKDF2 and HMAC-SHA-384, then wraps the content
+	// encryption key with AES Key Wrap.
 	PBES2A192KW = PBES2KeyEncKWPreset{
 		Alg:     jwa.PBES2HS384A192KW,
 		Hash:    crypto.SHA384,
 		KeySize: 24,
 	}
+	// PBES2A256KW derives a 32-byte wrap key with PBKDF2 and HMAC-SHA-512, then wraps the content
+	// encryption key with AES Key Wrap.
 	PBES2A256KW = PBES2KeyEncKWPreset{
 		Alg:     jwa.PBES2HS512A256KW,
 		Hash:    crypto.SHA512,
@@ -42,7 +50,7 @@ var (
 )
 
 // DefaultPBES2Iterations is the PBKDF2 iteration count used when the config leaves Iterations
-// unset. RFC 7518 §4.8.1.2 recommends a minimum of 1000; this is well above it.
+// unset. RFC 7518 §4.8.1.2 recommends a minimum of 1000.
 const DefaultPBES2Iterations = 310_000
 
 // DefaultPBES2SaltSize is the salt length in bytes used when the config leaves SaltSize unset. RFC
@@ -51,9 +59,9 @@ const DefaultPBES2SaltSize = 16
 
 // PBES2KeyEncKWManagerConfig holds the inputs for NewPBES2KeyEncKWManager.
 type PBES2KeyEncKWManagerConfig struct {
-	// Iterations is the PBKDF2 iteration count. A higher count raises the cost of
-	// a brute-force attack on the password; a minimum of 1000 is recommended.
-	// Non-positive selects DefaultPBES2Iterations.
+	// Iterations is the PBKDF2 iteration count. A higher count raises the cost of a brute-force
+	// attack on the password, and RFC 7518 recommends at least 1000. Non-positive selects
+	// DefaultPBES2Iterations.
 	Iterations int
 	// SaltSize is the salt length in bytes. A salt of 128 bits or more is
 	// recommended. Non-positive selects DefaultPBES2SaltSize.
@@ -108,10 +116,10 @@ func NewPBES2KeyEncKWManager(config *PBES2KeyEncKWManagerConfig, preset PBES2Key
 }
 
 // pbes2Salt builds the PBKDF2 salt RFC 7518 §4.8.1.1 mandates: UTF8(Alg), a zero octet, then the
-// Salt Input — the base64url-DECODED p2s, not the text that travels in the header.
+// Salt Input. The Salt Input is the decoded p2s, which the header carries base64url-encoded.
 //
-// Binding the algorithm into the salt is what keeps one password reused across two PBES2 algorithms
-// from deriving related wrap keys.
+// Binding the algorithm into the salt keeps one password reused across two PBES2 algorithms from
+// deriving related wrap keys.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-4.8.1.1
 func pbes2Salt(alg jwa.Alg, p2s string) ([]byte, error) {
@@ -189,11 +197,10 @@ func (manager *PBES2KeyEncKWManager) EncryptCEK(_ context.Context, header *jwa.J
 // unbounded value is a CPU-exhaustion vector.
 const DefaultMaxPBES2Iterations = 1_000_000
 
-// PBES2KeyEncKWDecoderConfig holds the password used to re-derive the wrap key and
-// decrypt the content encryption key.
+// PBES2KeyEncKWDecoderConfig configures NewPBES2KeyEncKWDecoder.
 type PBES2KeyEncKWDecoderConfig struct {
-	// Secret is the password the wrap key is derived from; it must match the one
-	// used to encrypt the token.
+	// Secret is the password the wrap key is derived from. It must match the one the token was
+	// encrypted with.
 	Secret string
 
 	// MaxIterations caps the token's p2c iteration count. Non-positive selects DefaultMaxPBES2Iterations.
@@ -247,8 +254,8 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 		)
 	}
 
-	// Bound the attacker-controlled p2c before PBKDF2 runs; a small token could otherwise pin a core
-	// for billions of iterations.
+	// The attacker controls p2c, and a small token can name billions of iterations, so the bound is
+	// checked before PBKDF2 runs.
 	if header.P2C <= 0 || header.P2C > decoder.maxIterations {
 		return nil, fmt.Errorf(
 			"(PBES2KeyEncKWDecoder.ComputeCEK) %w: p2c %d out of range (1..%d)",

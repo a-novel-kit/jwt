@@ -410,7 +410,7 @@ func TestSourceStaleIfErrorRecovers(t *testing.T) {
 	})
 }
 
-// Tests for RefreshOnUnknownKeyID: a key id absent from the cache forces a bounded fetch, so a
+// Tests for RefreshOnUnknownKeyID: a key ID absent from the cache forces a bounded fetch, so a
 // verifier finds a key the issuer has just rotated to without waiting out CacheDuration.
 
 func TestSourceGetUnknownKeyIDDisabled(t *testing.T) {
@@ -430,7 +430,7 @@ func TestSourceGetUnknownKeyIDDisabled(t *testing.T) {
 	_, err := source.Get(t.Context(), "kid-1")
 	require.NoError(t, err)
 
-	// By default an unknown id reports the miss against the cached set, however old that set is.
+	// By default an unknown ID reports the miss against the cached set, however old that set is.
 	_, err = source.Get(t.Context(), "rotated-kid")
 	require.ErrorIs(t, err, jwk.ErrKeyNotFound)
 	require.EqualValues(t, 1, fetches.Load())
@@ -447,7 +447,7 @@ func TestSourceGetUnknownKeyIDRefreshes(t *testing.T) {
 	source := jwk.NewSource(jwk.SourceConfig{
 		CacheDuration: time.Hour,
 		// Long enough that the cache is nowhere near expiry, so any fetch after the first can only
-		// have come from the unknown-key-id path.
+		// have come from the unknown-key-ID path.
 		RefreshOnUnknownKeyID: true,
 		UnknownKeyIDInterval:  time.Nanosecond,
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
@@ -494,9 +494,9 @@ func TestSourceGetUnknownKeyIDRateLimited(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, fetches.Load())
 
-	// The trigger is attacker-controlled: whoever presents a token picks the key id. The bound is the
-	// cache's age, so a flood of distinct forged ids costs at most one upstream call per interval —
-	// and none at all here, where the set was just fetched.
+	// The trigger is attacker-controlled: whoever presents a token picks the key ID. The bound is the
+	// cache's age, so a flood of distinct forged IDs costs at most one upstream call per interval. It
+	// costs none here, where the set was just fetched.
 	for i := range 500 {
 		_, err = source.Get(t.Context(), "forged-"+strconv.Itoa(i))
 		require.ErrorIs(t, err, jwk.ErrKeyNotFound)
@@ -567,12 +567,12 @@ func TestSourceGetUnknownKeyIDHonoursBackoff(t *testing.T) {
 	_, err := source.Get(t.Context(), "kid-1")
 	require.NoError(t, err)
 
-	// The first unknown id reaches a broken upstream and records the failure.
+	// The first unknown ID reaches a broken upstream and records the failure.
 	_, err = source.Get(t.Context(), "forged-1")
 	require.ErrorIs(t, err, errUpstream)
 	require.EqualValues(t, 2, fetches.Load())
 
-	// An unknown key id stays subject to the retry backoff, so the one attacker-controlled input
+	// An unknown key ID stays subject to the retry backoff, so the one attacker-controlled input
 	// cannot bypass the negative caching that protects a broken upstream.
 	_, err = source.Get(t.Context(), "forged-2")
 	require.ErrorIs(t, err, errUpstream)

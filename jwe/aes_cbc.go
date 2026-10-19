@@ -16,15 +16,19 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
-// AESCBCPreset holds the parameters of one AES_CBC_HMAC_SHA2 variant: the enc
-// identifier, the HMAC hash, and the key and tag lengths. Use one of the package
-// presets.
+// AESCBCPreset describes an AES_CBC_HMAC_SHA2 variant. Use one of the package presets.
 type AESCBCPreset struct {
-	Enc       jwa.Enc
-	Hash      crypto.Hash
-	KeyLen    int
+	// Enc is the content encryption algorithm.
+	Enc jwa.Enc
+	// Hash is the hash of the HMAC.
+	Hash crypto.Hash
+	// KeyLen is the length of the whole content encryption key, in bytes.
+	KeyLen int
+	// EncKeyLen is the length of the AES key, the trailing part of the content encryption key.
 	EncKeyLen int
+	// MACKeyLen is the length of the HMAC key, the leading part of the content encryption key.
 	MACKeyLen int
+	// TagLength is the length the authentication tag is truncated to, in bytes.
 	TagLength int
 }
 
@@ -58,10 +62,12 @@ var (
 	}
 )
 
-// AESCBCEncryptionConfig configures NewAESCBCEncryption. CEKManager supplies the
-// content encryption key; AdditionalData, when set, is authenticated but not encrypted.
+// AESCBCEncryptionConfig configures NewAESCBCEncryption.
 type AESCBCEncryptionConfig struct {
-	CEKManager     CEKManager
+	// CEKManager supplies the content encryption key and decides how it reaches the recipient.
+	CEKManager CEKManager
+	// AdditionalData is authenticated with the token without being encrypted. The recipient must
+	// configure the same value.
 	AdditionalData []byte
 }
 
@@ -107,7 +113,7 @@ func (enc *AESCBCEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 		return nil, fmt.Errorf("(AESCBCEncryption.Header) set key derivation header: %w", err)
 	}
 
-	// A CEKManager may pin the token to a specific enc; honor that pin.
+	// A CEKManager may pin the token to one enc, which this plugin must then match.
 	if header.Enc != "" && header.Enc != enc.enc {
 		return nil, fmt.Errorf(
 			"(AESCBCEncryption.Header) %w: cek manager is incompatible with the current encryption algorithm: "+
@@ -216,10 +222,11 @@ func (enc *AESCBCEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byt
 	return secret, nil
 }
 
-// AESCBCDecryptionConfig configures NewAESCBCDecryption. CEKDecoder recovers the
-// content encryption key; AdditionalData must equal the value used at encryption.
+// AESCBCDecryptionConfig configures NewAESCBCDecryption.
 type AESCBCDecryptionConfig struct {
-	CEKDecoder     CEKDecoder
+	// CEKDecoder recovers the content encryption key from the token.
+	CEKDecoder CEKDecoder
+	// AdditionalData must equal the value the token was encrypted with.
 	AdditionalData []byte
 }
 
@@ -261,7 +268,7 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	// Decompression is not implemented, so a compressed payload is refused instead of returned as is.
+	// This package performs no decompression, so it refuses a compressed payload.
 	if header.Zip != "" {
 		return nil, fmt.Errorf(
 			"(AESCBCDecryption.Transform) %w: unsupported zip %s", jwt.ErrUnsupportedTokenFormat, header.Zip,
@@ -290,15 +297,13 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	// K splits into two subkeys: MAC_KEY is its leading octets, ENC_KEY its trailing
-	// octets. The MAC key comes first, the reverse of the order the name suggests in
-	// "AES_CBC_HMAC_SHA2".
+	// MAC_KEY leads K and ENC_KEY trails it, as at encryption.
 	encKey := cek[dec.keyLength:]
 	macKey := cek[:dec.macKeyLength]
 
-	// Recompute the tag over the same inputs as encryption — including the encoded protected header
-	// as AAD — and reject the token unless it matches, before touching the ciphertext. hmac.Equal
-	// compares in constant time to avoid leaking the tag through timing.
+	// The tag is recomputed over the same inputs as encryption, the encoded protected header included,
+	// and checked before the ciphertext is touched. hmac.Equal compares in constant time, so timing
+	// leaks nothing about the tag.
 	aadBytes := aad(token.Header, dec.additionalData)
 
 	al := make([]byte, 8)

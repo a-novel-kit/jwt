@@ -14,37 +14,42 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-// The ECDH-ES with AES Key Wrap presets, one per supported wrap-key length.
 var (
+	// ECDHESA128KW derives a 16-byte key-wrapping key with ECDH-ES, then wraps the content encryption
+	// key with AES Key Wrap.
 	ECDHESA128KW = KeyWrapPreset{
 		Alg:    jwa.ECDHESA128KW,
 		KeyLen: 16,
 	}
+	// ECDHESA192KW derives a 24-byte key-wrapping key with ECDH-ES, then wraps the content encryption
+	// key with AES Key Wrap.
 	ECDHESA192KW = KeyWrapPreset{
 		Alg:    jwa.ECDHESA192KW,
 		KeyLen: 24,
 	}
+	// ECDHESA256KW derives a 32-byte key-wrapping key with ECDH-ES, then wraps the content encryption
+	// key with AES Key Wrap.
 	ECDHESA256KW = KeyWrapPreset{
 		Alg:    jwa.ECDHESA256KW,
 		KeyLen: 32,
 	}
 )
 
-// ECDHKeyAgrKWManagerConfig holds the inputs for NewECDHKeyAgrKWManager.
-// RecipientKey is the static half of the Diffie-Hellman exchange; ProducerInfo and
-// RecipientInfo are the optional agreement party details mixed into the key
-// derivation.
+// ECDHKeyAgrKWManagerConfig configures NewECDHKeyAgrKWManager.
 type ECDHKeyAgrKWManagerConfig struct {
 	// Deprecated: ignored. Each token agrees on its key with a fresh ephemeral key pair, as
 	// ECDH-ES requires.
-	ProducerKey  *ecdh.PrivateKey
+	ProducerKey *ecdh.PrivateKey
+	// RecipientKey is the recipient's static public key, one half of the Diffie-Hellman exchange.
 	RecipientKey *ecdh.PublicKey
 
 	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
 	// RFC 7516 requires.
 	CEK []byte
 
-	ProducerInfo  string
+	// ProducerInfo is the optional PartyUInfo mixed into the key derivation and published as "apu".
+	ProducerInfo string
+	// RecipientInfo is the optional PartyVInfo mixed into the key derivation and published as "apv".
 	RecipientInfo string
 }
 
@@ -127,9 +132,10 @@ func (manager *ECDHKeyAgrKWManager) EncryptCEK(_ context.Context, header *jwa.JW
 	return wrapped, nil
 }
 
-// ECDHKeyAgrKWDecoderConfig holds the recipient private key used to reconstruct the
-// shared secret from the producer public key carried in the token header.
+// ECDHKeyAgrKWDecoderConfig configures NewECDHKeyAgrKWDecoder.
 type ECDHKeyAgrKWDecoderConfig struct {
+	// RecipientKey is the recipient's private key, which agrees on the shared secret with the
+	// ephemeral public key the token header carries.
 	RecipientKey *ecdh.PrivateKey
 }
 

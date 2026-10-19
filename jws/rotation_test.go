@@ -16,7 +16,7 @@ import (
 )
 
 // TestSourcedMixedRotation is the acceptance test for the raw source: one Source serves keys of two
-// families, and a single recipient — configured with a verifier per accepted algorithm — verifies
+// families, and a single recipient configured with a verifier per accepted algorithm verifies
 // tokens of both, routing on the header's alg. That is the shape of an algorithm rotation: keep
 // verifiers for the old and new algorithms while both keys live. A token whose algorithm has no
 // configured verifier is rejected, so the header routes only among the verifiers the operator
@@ -130,7 +130,7 @@ func TestSourcedRotationUnknownKeyID(t *testing.T) {
 	claims := map[string]any{"foo": "bar"}
 
 	// The issuer signs with whichever key it currently holds, naming it in the header, which is what
-	// gives the consumer an id to miss on.
+	// gives the consumer an ID to miss on.
 	issue := func(t *testing.T, key *jwk.Key[*rsa.PrivateKey]) string {
 		t.Helper()
 
@@ -150,7 +150,7 @@ func TestSourcedRotationUnknownKeyID(t *testing.T) {
 	newToken := issue(t, newPriv)
 
 	// A consumer whose cache is an hour long. Rotation is invisible to it until the cache expires,
-	// unless an unknown key id can force the issue.
+	// unless an unknown key ID can force the issue.
 	newConsumer := func(t *testing.T, rotated *atomic.Bool, refreshOnUnknown bool) *jwt.Recipient {
 		t.Helper()
 
@@ -205,8 +205,8 @@ func TestSourcedRotationUnknownKeyID(t *testing.T) {
 
 		got = nil
 
-		// The header names a key id the cached set does not hold, so the source is asked for it
-		// directly and re-fetches — inside the same request, without waiting out the cache.
+		// The header names a key ID the cached set does not hold, so the source is asked for it
+		// directly and re-fetches inside the same request, without waiting out the cache.
 		require.NoError(t, recipient.Consume(t.Context(), newToken, &got))
 		require.Equal(t, claims, got)
 	})

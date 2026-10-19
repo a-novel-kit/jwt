@@ -205,7 +205,7 @@ func (signer *SourcedED25519Signer) Transform(ctx context.Context, header *jwa.J
 }
 
 // A SourcedED25519Verifier verifies like an [ED25519Verifier] but resolves candidate keys from a
-// [jwk.Source] at each call. When the token names a KID it tries only that key; otherwise it tries
+// [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source. Build one with [NewSourcedED25519Verifier].
 type SourcedED25519Verifier struct {
 	source *jwk.Source

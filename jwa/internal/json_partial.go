@@ -1,6 +1,3 @@
-// Package internal provides JSON helpers for payloads that combine a fixed set of
-// typed fields with arbitrary caller-defined ones, letting a JWT carry both
-// registered claims and custom extensions in a single object.
 package internal
 
 import (
@@ -14,17 +11,16 @@ import (
 )
 
 // ErrReservedMember reports a custom payload naming a member of the registered
-// set. Every guard in this library reads the registered value; a custom member
-// displaces it during encoding, once those guards have run and passed.
+// set. Every guard in this library reads the registered value, and a custom
+// member reaches the encoding only after those guards have passed.
 var ErrReservedMember = errors.New("custom payload may not set a registered member")
 
 // MarshalPartial encodes common and custom into one JSON object. A nil or "null"
 // custom yields the encoding of common alone.
 //
 // The two sets must be disjoint: a custom member naming one that common reserves
-// is an error. Reserved covers every member common declares, not only those it
-// encoded — registered parameters are omitempty, so an unset one encodes to
-// nothing and would otherwise stay open to a custom value.
+// is an error. Reserved covers every member common declares, including an unset
+// one that omitempty leaves out of the encoding.
 func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 	if custom == nil || string(custom) == "null" {
 		return json.Marshal(common)
@@ -82,14 +78,13 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 	return mergedSerialized, nil
 }
 
-// declaredMembersCache memoises declaredMembers, which every token issued walks
-// otherwise.
+// declaredMembersCache caches declaredMembers, which runs for every token issued.
 var declaredMembersCache sync.Map // reflect.Type -> map[string]struct{}
 
 // declaredMembers returns the JSON member names a struct type declares,
-// including those promoted from embedded structs. A non-struct — a map, or the
-// interface a caller reaches the generic parameter through — yields none,
-// leaving the encoded object as the only account of common's members.
+// including those promoted from embedded structs. A non-struct, such as a map or
+// the interface a caller reaches the generic parameter through, yields none, and
+// the encoded object alone then accounts for common's members.
 func declaredMembers(typ reflect.Type) map[string]struct{} {
 	for typ != nil && typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
@@ -117,9 +112,9 @@ func declaredMembers(typ reflect.Type) map[string]struct{} {
 
 		name, _, _ := strings.Cut(tag, ",")
 
-		// An embedded struct promotes its members into the enclosing object, and
-		// encoding/json does so even when the embedded type is unexported —
-		// hence promotion before the exported check.
+		// An embedded struct promotes its members into the enclosing object, even
+		// when the embedded type is unexported, so promotion runs before the
+		// exported check.
 		//
 		// An embedded non-struct falls through to be named after its type, which
 		// is how encoding/json encodes it: `struct{ MyString }` emits
@@ -156,10 +151,8 @@ func declaredMembers(typ reflect.Type) map[string]struct{} {
 // from them.
 //
 // The members T declares are removed from that remainder, which makes this the
-// inverse of MarshalPartial: what the typed value carries comes back out of the
-// typed value, and re-encoding the pair reproduces src. Returning src whole
-// would put every registered member in the custom half, and encoding it again
-// would be rejected as an override of the value it was read from.
+// inverse of MarshalPartial: re-encoding the pair reproduces src without
+// tripping ErrReservedMember.
 func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 	var common T
 

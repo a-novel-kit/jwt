@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// An OctPayload wraps a symmetric key in a JWKCommon format.
+// An OctPayload holds the key member of an "oct" JSON Web Key carrying a symmetric key.
 type OctPayload struct {
 	// K is the base64url-encoded symmetric key value.
 	//
