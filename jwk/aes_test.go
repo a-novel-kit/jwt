@@ -179,7 +179,7 @@ func TestConsumeAES(t *testing.T) {
 		{
 			name:      "InvalidKey",
 			preset:    jwk.A128CBC,
-			key:       newBullshitKey[[]byte](t, "kid-1"),
+			key:       newPlaceholderKey[[]byte](t, "kid-1"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}

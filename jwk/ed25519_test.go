@@ -108,8 +108,8 @@ func TestConsumeED25519(t *testing.T) {
 		},
 		{
 			name:      "Mismatch",
-			private:   newBullshitKey[ed25519.PrivateKey](t, "kid-1"),
-			public:    newBullshitKey[ed25519.PublicKey](t, "kid-2"),
+			private:   newPlaceholderKey[ed25519.PrivateKey](t, "kid-1"),
+			public:    newPlaceholderKey[ed25519.PublicKey](t, "kid-2"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}

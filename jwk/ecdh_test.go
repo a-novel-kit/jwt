@@ -82,7 +82,7 @@ func TestConsumeECDHKey(t *testing.T) {
 		{name: "Error/OtherKeyType", key: public.JWK, preset: jwk.ECDHESX25519, expectErr: jwk.ErrJWKMismatch},
 		{
 			name:      "Error/Mismatch",
-			key:       newBullshitKey[*ecdh.PublicKey](t, "kid").JWK,
+			key:       newPlaceholderKey[*ecdh.PublicKey](t, "kid").JWK,
 			preset:    jwk.ECDHESP256,
 			expectErr: jwk.ErrJWKMismatch,
 		},

@@ -137,8 +137,8 @@ func TestConsumeECDSA(t *testing.T) {
 		{
 			name:      "Mismatch",
 			preset:    jwk.ES256,
-			private:   newBullshitKey[*ecdsa.PrivateKey](t, "kid-1"),
-			public:    newBullshitKey[*ecdsa.PublicKey](t, "kid-2"),
+			private:   newPlaceholderKey[*ecdsa.PrivateKey](t, "kid-1"),
+			public:    newPlaceholderKey[*ecdsa.PublicKey](t, "kid-2"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}

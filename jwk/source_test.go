@@ -34,13 +34,13 @@ func TestSourceList(t *testing.T) {
 			name: "Success",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 
 			expect: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 		},
 		{
@@ -87,23 +87,23 @@ func TestSourceGet(t *testing.T) {
 			name: "Success",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 
-			expect: newBullshitKey[string](t, "kid-1").JWK,
+			expect: newPlaceholderKey[string](t, "kid-1").JWK,
 		},
 		{
 			name: "KID",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 
 			kid: "kid-2",
 
-			expect: newBullshitKey[string](t, "kid-2").JWK,
+			expect: newPlaceholderKey[string](t, "kid-2").JWK,
 		},
 		{
 			name:       "FetcherError",
@@ -121,8 +121,8 @@ func TestSourceGet(t *testing.T) {
 			name: "KIDNotFound",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 
 			kid: "kid-3",
@@ -152,8 +152,8 @@ func TestSourceRefresh(t *testing.T) {
 	t.Parallel()
 
 	keys := []*jwa.JWK{
-		newBullshitKey[string](t, `"number":1`).JWK,
-		newBullshitKey[string](t, `"number":2`).JWK,
+		newPlaceholderKey[string](t, `"number":1`).JWK,
+		newPlaceholderKey[string](t, `"number":2`).JWK,
 	}
 
 	fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
@@ -171,13 +171,13 @@ func TestSourceRefresh(t *testing.T) {
 	fetchedKeys, err := source.List(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, []*jwa.JWK{
-		newBullshitKey[string](t, `"number":1`).JWK,
-		newBullshitKey[string](t, `"number":2`).JWK,
+		newPlaceholderKey[string](t, `"number":1`).JWK,
+		newPlaceholderKey[string](t, `"number":2`).JWK,
 	}, fetchedKeys)
 
 	keys = []*jwa.JWK{
-		newBullshitKey[string](t, `"number":3`).JWK,
-		newBullshitKey[string](t, `"number":4`).JWK,
+		newPlaceholderKey[string](t, `"number":3`).JWK,
+		newPlaceholderKey[string](t, `"number":4`).JWK,
 	}
 
 	time.Sleep(10 * time.Millisecond)
@@ -185,8 +185,8 @@ func TestSourceRefresh(t *testing.T) {
 	fetchedKeys, err = source.List(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, []*jwa.JWK{
-		newBullshitKey[string](t, `"number":1`).JWK,
-		newBullshitKey[string](t, `"number":2`).JWK,
+		newPlaceholderKey[string](t, `"number":1`).JWK,
+		newPlaceholderKey[string](t, `"number":2`).JWK,
 	}, fetchedKeys)
 
 	time.Sleep(100 * time.Millisecond)
@@ -194,8 +194,8 @@ func TestSourceRefresh(t *testing.T) {
 	fetchedKeys, err = source.List(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, []*jwa.JWK{
-		newBullshitKey[string](t, `"number":3`).JWK,
-		newBullshitKey[string](t, `"number":4`).JWK,
+		newPlaceholderKey[string](t, `"number":3`).JWK,
+		newPlaceholderKey[string](t, `"number":4`).JWK,
 	}, fetchedKeys)
 }
 
@@ -231,7 +231,7 @@ func TestSourceCaches(t *testing.T) {
 	t.Parallel()
 
 	fetchCount := 0
-	key := newBullshitKey[string](t, "kid-1")
+	key := newPlaceholderKey[string](t, "kid-1")
 	config := jwk.SourceConfig{
 		CacheDuration: time.Hour,
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
@@ -259,7 +259,7 @@ func TestSourceStaleIfError(t *testing.T) {
 	t.Parallel()
 
 	errUpstream := errors.New("upstream down")
-	key := newBullshitKey[string](t, "kid-1").JWK
+	key := newPlaceholderKey[string](t, "kid-1").JWK
 
 	testCases := []struct {
 		name string
@@ -373,7 +373,7 @@ func TestSourceStaleIfErrorRecovers(t *testing.T) {
 					return nil, upstreamErr
 				}
 
-				return []*jwa.JWK{newBullshitKey[string](t, upstreamKID).JWK}, nil
+				return []*jwa.JWK{newPlaceholderKey[string](t, upstreamKID).JWK}, nil
 			},
 		})
 
@@ -423,7 +423,7 @@ func TestSourceGetUnknownKeyIDDisabled(t *testing.T) {
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			fetches.Add(1)
 
-			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+			return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 		},
 	})
 
@@ -454,10 +454,10 @@ func TestSourceGetUnknownKeyIDRefreshes(t *testing.T) {
 			fetches.Add(1)
 
 			if rotated.Load() {
-				return []*jwa.JWK{newBullshitKey[string](t, "kid-2").JWK}, nil
+				return []*jwa.JWK{newPlaceholderKey[string](t, "kid-2").JWK}, nil
 			}
 
-			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+			return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 		},
 	})
 
@@ -486,7 +486,7 @@ func TestSourceGetUnknownKeyIDRateLimited(t *testing.T) {
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			fetches.Add(1)
 
-			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+			return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 		},
 	})
 
@@ -517,7 +517,7 @@ func TestSourceGetUnknownKeyIDConcurrent(t *testing.T) {
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			fetches.Add(1)
 
-			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+			return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 		},
 	})
 
@@ -557,7 +557,7 @@ func TestSourceGetUnknownKeyIDHonoursBackoff(t *testing.T) {
 		UnknownKeyIDInterval:  time.Nanosecond,
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			if fetches.Add(1) == 1 {
-				return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+				return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 			}
 
 			return nil, errUpstream

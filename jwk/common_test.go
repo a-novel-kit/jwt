@@ -7,7 +7,9 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-func newBullshitKey[K any](t *testing.T, kid string) *jwk.Key[K] {
+// newPlaceholderKey returns a key whose metadata matches no preset, so every Consume function
+// rejects it with jwk.ErrJWKMismatch. Source tests use it as an opaque key identified by kid alone.
+func newPlaceholderKey[K any](t *testing.T, kid string) *jwk.Key[K] {
 	t.Helper()
 
 	return &jwk.Key[K]{
@@ -19,7 +21,7 @@ func newBullshitKey[K any](t *testing.T, kid string) *jwk.Key[K] {
 				Alg:    "00",
 				KID:    kid,
 			},
-			Payload: []byte(`{"your":"mom"}`),
+			Payload: []byte(`{"placeholder":true}`),
 		},
 	}
 }
