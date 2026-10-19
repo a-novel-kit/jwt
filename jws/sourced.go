@@ -32,9 +32,9 @@ func permitting[K any](op jwa.KeyOp, decode keyDecoder[K]) keyDecoder[K] {
 	}
 }
 
-// verifyFromSource tries each key the source lists, honoring a KID hint, until one verifies the
-// token or every candidate fails. decode turns a raw key into this verifier's native type, erroring
-// on keys from another family, which are skipped; newVerifier builds a single-key verifier.
+// verifyFromSource tries the keys that may have signed the token until one verifies it. decode
+// turns a raw key into this verifier's native type and rejects a key of another family with
+// jwk.ErrJWKMismatch, which the loop skips; newVerifier builds a single-key verifier.
 func verifyFromSource[K any](
 	ctx context.Context,
 	source *jwk.Source,
@@ -43,86 +43,68 @@ func verifyFromSource[K any](
 	decode keyDecoder[K],
 	newVerifier func(key K) jwt.RecipientPlugin,
 ) ([]byte, error) {
+	candidates, err := verificationCandidates(ctx, source, header.KID)
+	if err != nil {
+		return nil, fmt.Errorf("(verifyFromSource) %w", err)
+	}
+
 	decode = permitting(jwa.KeyOpVerify, decode)
 
-	// try verifies the token with candidate. A nil payload and a nil error means the candidate was
-	// not this verifier's to use, or did not verify — either way, keep looking.
-	try := func(candidate *jwa.JWK) ([]byte, error) {
-		key, decodeErr := decode(candidate)
-		if decodeErr != nil {
-			// Skip a key of another algorithm family. A key of this family that fails to decode is
-			// malformed material, and surfaces as an error of its own.
-			if errors.Is(decodeErr, jwk.ErrJWKMismatch) {
-				return nil, nil
-			}
-
-			return nil, fmt.Errorf("(verifyFromSource) decode key: %w", decodeErr)
-		}
-
-		payload, verifyErr := newVerifier(key).Transform(ctx, header, rawToken)
-		if verifyErr == nil {
-			return payload, nil
-		}
-
-		if !errors.Is(verifyErr, ErrInvalidSignature) {
-			return nil, fmt.Errorf("(verifyFromSource) %w", verifyErr)
-		}
-
-		return nil, nil
-	}
-
-	keys, err := source.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("(verifyFromSource) list keys: %w", err)
-	}
-
-	named := false
-
-	for _, candidate := range keys {
-		// A token that names a KID can only match that key; skip the rest.
-		if header.KID != "" && candidate.KID != header.KID {
+	for _, candidate := range candidates {
+		key, err := decode(candidate)
+		if errors.Is(err, jwk.ErrJWKMismatch) {
 			continue
 		}
 
-		named = true
-
-		payload, tryErr := try(candidate)
-		if tryErr != nil {
-			return nil, tryErr
+		// A key of this family that fails to decode is malformed material.
+		if err != nil {
+			return nil, fmt.Errorf("(verifyFromSource) decode key: %w", err)
 		}
 
-		if payload != nil {
+		payload, err := newVerifier(key).Transform(ctx, header, rawToken)
+		if err == nil {
 			return payload, nil
 		}
-	}
 
-	if header.KID == "" || named {
-		return nil, fmt.Errorf("(verifyFromSource) %w", ErrInvalidSignature)
-	}
-
-	// The token names a key id the cached set does not hold, which is how a rotation looks from here,
-	// so ask the source for the id directly. The source decides whether to go upstream; with
-	// RefreshOnUnknownKeyID unset this is a cache scan that changes nothing.
-	candidate, err := source.Get(ctx, header.KID)
-	if err != nil {
-		// Still unknown after the source has had its say, so the signature is unverifiable.
-		if errors.Is(err, jwk.ErrKeyNotFound) {
-			return nil, fmt.Errorf("(verifyFromSource) %w", ErrInvalidSignature)
+		if !errors.Is(err, ErrInvalidSignature) {
+			return nil, fmt.Errorf("(verifyFromSource) %w", err)
 		}
-
-		return nil, fmt.Errorf("(verifyFromSource) get key: %w", err)
-	}
-
-	payload, err := try(candidate)
-	if err != nil {
-		return nil, err
-	}
-
-	if payload != nil {
-		return payload, nil
 	}
 
 	return nil, fmt.Errorf("(verifyFromSource) %w", ErrInvalidSignature)
+}
+
+// verificationCandidates returns the keys that may have signed a token naming kid: every key the
+// source lists when kid is empty, and the listed keys with that ID otherwise.
+//
+// A kid missing from the listed set is how a rotation looks from here, so the source is asked for it
+// directly. The source decides whether to go upstream. With RefreshOnUnknownKeyID unset, the lookup
+// scans the cache and finds no candidate.
+func verificationCandidates(ctx context.Context, source *jwk.Source, kid string) ([]*jwa.JWK, error) {
+	keys, err := source.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list keys: %w", err)
+	}
+
+	if kid == "" {
+		return keys, nil
+	}
+
+	named := slices.DeleteFunc(keys, func(key *jwa.JWK) bool { return key.KID != kid })
+	if len(named) > 0 {
+		return named, nil
+	}
+
+	key, err := source.Get(ctx, kid)
+	if errors.Is(err, jwk.ErrKeyNotFound) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("get key: %w", err)
+	}
+
+	return []*jwa.JWK{key}, nil
 }
 
 // signFromSource resolves the key a sourced signer should use: the one matching kid, or — when kid
