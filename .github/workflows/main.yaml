@@ -50,6 +50,7 @@ jobs:
     steps:
       - uses: a-novel-kit/workflows/node-actions/lint-node@v1.63.0
         with:
+          lint_action: "lint:prettier"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   lint-shell:
