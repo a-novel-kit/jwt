@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
@@ -122,9 +123,7 @@ func declaredMembers(typ reflect.Type) map[string]struct{} {
 		// any other.
 		if field.Anonymous && name == "" {
 			if promoted := declaredMembers(field.Type); promoted != nil {
-				for member := range promoted {
-					names[member] = struct{}{}
-				}
+				maps.Copy(names, promoted)
 
 				continue
 			}
