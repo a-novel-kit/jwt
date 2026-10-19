@@ -43,9 +43,9 @@ func (manager *DirectKeyManager) EncryptCEK(_ context.Context, _ *jwa.JWH, _ []b
 	return nil, nil
 }
 
-// DirectKeyDecoderConfig holds the shared content encryption key used to decrypt
-// the token.
+// DirectKeyDecoderConfig configures NewDirectKeyDecoder.
 type DirectKeyDecoderConfig struct {
+	// CEK is the shared content encryption key the token was encrypted with.
 	CEK []byte
 }
 

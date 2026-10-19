@@ -14,17 +14,15 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-// These assert the two encoding rules against the specification text rather than against the
-// library's own round trip. Both defects were invisible precisely because producer and consumer
-// agreed on the wrong value, so any test that encrypts and then decrypts passes either way.
+// These tests assert the encoding rules against the specification text. A producer and consumer
+// that agree on a wrong value pass any test that encrypts and then decrypts, so a round trip proves
+// nothing here.
 
 func TestPBES2AppliesItsDefaults(t *testing.T) {
 	t.Parallel()
 
-	// A zero SaltSize used to produce a zero-length salt with no error — rand.Read on an empty
-	// slice returns (0, nil) — so every token from one password shared a wrap key. A zero
-	// Iterations produced p2c=0, which the decoder rejects, so the token was undecryptable and
-	// only the recipient found out.
+	// A zero SaltSize and Iterations select the defaults. rand.Read fills an empty salt without error,
+	// and the decoder rejects p2c=0, so neither zero value may reach a token.
 	manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
 		Secret: "a password",
 	}, jwek.PBES2A128KW)

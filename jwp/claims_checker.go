@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// ErrInvalidClaims wraps every failure reported by a claims check, so callers can detect a rejected
-// token by identity while the wrapped error carries which check failed. Returned by
-// [ClaimsChecker.Unmarshal].
+// ErrInvalidClaims is returned by [ClaimsChecker.Unmarshal] when it rejects a token's claims: a
+// check fails, or the payload is JSON null. Callers detect a rejected token by identity, while the
+// wrapped error says what failed.
 var ErrInvalidClaims = errors.New("invalid claims")
 
 // A RawClaimsCheck validates a token's payload from its raw JSON bytes, before any decoding. Use it
@@ -69,18 +70,10 @@ func (claimsCheck *ClaimsCheckTarget) CheckClaims(claims *jwa.Claims) error {
 	return nil
 }
 
-// audienceContainsAny reports whether have and want share at least one value — the token names an
-// audience the recipient answers to.
+// audienceContainsAny reports whether have and want share at least one value, meaning the token
+// names an audience the recipient answers to.
 func audienceContainsAny(have, want jwa.Audience) bool {
-	for _, w := range want {
-		for _, h := range have {
-			if w == h {
-				return true
-			}
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(want, func(audience string) bool { return slices.Contains(have, audience) })
 }
 
 // A ClaimsCheckTimestamp rejects a token that has expired or is not yet valid, comparing the "exp"
@@ -101,27 +94,22 @@ func NewClaimsCheckTimestamp(leeway time.Duration, requireExp bool) *ClaimsCheck
 }
 
 func (claimsCheck *ClaimsCheckTimestamp) CheckClaims(claims *jwa.Claims) error {
-	// Absence of an expiry is Exp == 0, and any other value is a bound to check.
-	// Gating the check on Exp > 0 and the requirement on Exp == 0 left a
-	// negative Exp satisfying both: it is not zero, so it reads as present, and
-	// it is not positive, so it is never compared against the clock.
+	now := time.Now()
+
+	// Exp == 0 means the token has no expiry. Any other value is a bound, so a negative Exp reads as
+	// long expired.
 	exp := time.Unix(claims.Exp, 0)
-	if claims.Exp != 0 && exp.Before(time.Now().Add(-claimsCheck.leeway)) {
-		return fmt.Errorf(
-			"token expired at %s",
-			exp.String(),
-		)
+	if claims.Exp != 0 && exp.Before(now.Add(-claimsCheck.leeway)) {
+		return fmt.Errorf("token expired at %s", exp.String())
 	}
 
 	if claimsCheck.requireExp && claims.Exp <= 0 {
 		return errors.New("missing expiration date")
 	}
 
-	if claims.Nbf > 0 && time.Unix(claims.Nbf, 0).After(time.Now().Add(claimsCheck.leeway)) {
-		return fmt.Errorf(
-			"token not valid before %s",
-			time.Unix(claims.Nbf, 0).String(),
-		)
+	nbf := time.Unix(claims.Nbf, 0)
+	if claims.Nbf > 0 && nbf.After(now.Add(claimsCheck.leeway)) {
+		return fmt.Errorf("token not valid before %s", nbf.String())
 	}
 
 	return nil
@@ -183,6 +171,11 @@ func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 	err := json.Unmarshal(raw, &token)
 	if err != nil {
 		return fmt.Errorf("(ClaimsChecker.Unmarshal) unmarshal claims: %w", err)
+	}
+
+	// A payload of JSON "null" unmarshals into a nil pointer without error.
+	if token == nil {
+		return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: null claims set", ErrInvalidClaims)
 	}
 
 	for _, check := range checker.config.Checks {

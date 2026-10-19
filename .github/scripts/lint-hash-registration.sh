@@ -7,8 +7,8 @@
 # a package naming a hash without importing one leaves the job to its consumer.
 #
 # That failure cannot be caught by the test suite. A test binary pulls in the hash packages through
-# its own dependencies — testify, crypto/ecdsa — so every hash reads as available no matter what the
-# library imports. Only a consumer importing the library alone finds out, at run time, in
+# its own dependencies, such as testify and crypto/ecdsa, so every hash reads as available no matter
+# what the library imports. Only a consumer importing the library alone finds out, at run time, in
 # production, having built cleanly.
 #
 # So the rule is checked structurally: name a hash, import its registrar.
@@ -36,7 +36,7 @@ while IFS= read -r dir; do
   for hash in $used; do
     registrar="${REGISTRAR[$hash]:-}"
     if [ -z "$registrar" ]; then
-      echo "::error file=${dir}::crypto.${hash} has no known registrar in this check — add one to REGISTRAR."
+      echo "::error file=${dir}::crypto.${hash} has no known registrar in this check. Add one to REGISTRAR."
       fail=1
 
       continue

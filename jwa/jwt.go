@@ -48,6 +48,8 @@ type ClaimsCommon struct {
 type Claims struct {
 	ClaimsCommon
 
+	// Payload holds the application-specific claims as one JSON object. A member naming a registered
+	// claim fails the encoding with ErrReservedMember.
 	Payload json.RawMessage
 }
 

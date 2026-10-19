@@ -14,7 +14,8 @@ import (
 // That test hands ConcatKDF the length-prefixed OtherInfo blocks as literals, so it pins the KDF
 // and says nothing about how the blocks are built. Derive is the layer that builds them from apu
 // and apv, and it is where the header's base64url values have to be decoded first: the appendix
-// carries "apu":"QWxpY2U" in the header and [65, 108, 105, 99, 101] — "Alice" — in PartyUInfo.
+// carries "apu":"QWxpY2U" in the header and the bytes of "Alice", [65, 108, 105, 99, 101], in
+// PartyUInfo.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#appendix-C
 func TestVectorDerive(t *testing.T) {

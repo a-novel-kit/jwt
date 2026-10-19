@@ -9,10 +9,10 @@ import (
 	"math/big"
 )
 
-// An ECPayload wraps an ECDSA key in a JWKCommon format.
+// An ECPayload holds the key members of an "EC" JSON Web Key carrying an ECDSA key.
 type ECPayload struct {
-	// Crv is the case-sensitive JWK name of the elliptic curve the key belongs to. DecodeEC accepts the curves
-	// listed in its switch; any other value returns ErrUnsupportedCurve.
+	// Crv is the case-sensitive JWK name of the curve the key lives on. DecodeEC supports "P-256",
+	// "P-384", and "P-521", and returns ErrUnsupportedCurve for any other value.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.2.1.1
 	Crv string `json:"crv"`
@@ -142,16 +142,13 @@ func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	return keyPriv, keyPub, nil
 }
 
-// encodeCoordinate renders an affine coordinate at the curve's full octet length.
+// encodeCoordinate renders an affine coordinate at the curve's full octet length, as RFC 7518
+// §6.2.1.2 requires. [big.Int.Bytes] drops leading zero bytes, which roughly one coordinate in 256
+// has, and spec-compliant consumers such as WebCrypto importKey reject the short value. [DecodeEC]
+// reads through [big.Int.SetBytes] and accepts any length.
 //
-// RFC 7518 requires x and y to be "the full size of a coordinate for the curve"
-// (https://datatracker.ietf.org/doc/html/rfc7518#section-6.2.1.2), while [big.Int.Bytes] drops
-// leading zero bytes — which roughly one coordinate in 256 has. Spec-compliant consumers such as
-// WebCrypto importKey reject the short value, and only they do: [DecodeEC] reads through
-// [big.Int.SetBytes], which accepts any length.
-//
-// FillBytes panics on a value too large for the buffer; callers pass coordinates read off a parsed
-// key, which are on the curve and therefore fit by construction.
+// FillBytes panics on a value too large for the buffer. Callers pass coordinates read off a parsed
+// key, which lie on the curve and therefore fit.
 func encodeCoordinate(curve elliptic.Curve, coordinate *big.Int) string {
 	buf := make([]byte, (curve.Params().BitSize+7)/8)
 	coordinate.FillBytes(buf)

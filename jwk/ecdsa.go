@@ -13,23 +13,26 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-// An ECDSAPreset describes how to generate or match an ECDSA JSON Web Key: the algorithm it is
-// bound to and the elliptic curve its keys live on.
+// An ECDSAPreset describes how to generate or match an ECDSA JSON Web Key.
 type ECDSAPreset struct {
-	Alg   jwa.Alg
+	// Alg is the signature algorithm the key is bound to.
+	Alg jwa.Alg
+	// Curve is the elliptic curve the key lives on, the one Alg requires.
 	Curve elliptic.Curve
 }
 
-// Signature algorithms.
 var (
+	// ES256 generates or matches a P-256 key for ECDSA with SHA-256.
 	ES256 = ECDSAPreset{
 		Alg:   jwa.ES256,
 		Curve: elliptic.P256(),
 	}
+	// ES384 generates or matches a P-384 key for ECDSA with SHA-384.
 	ES384 = ECDSAPreset{
 		Alg:   jwa.ES384,
 		Curve: elliptic.P384(),
 	}
+	// ES512 generates or matches a P-521 key for ECDSA with SHA-512.
 	ES512 = ECDSAPreset{
 		Alg:   jwa.ES512,
 		Curve: elliptic.P521(),
@@ -38,7 +41,7 @@ var (
 
 // GenerateECDSA generates a new ECDSA key pair.
 //
-// Retrieve a raw key with res.Key(), or marshal either result into a JSON Web Key with json.Marshal.
+// Call Key on either result for the native key, or marshal it into a JSON Web Key with json.Marshal.
 //
 // Pass one of the ECDSA presets, such as [ES256].
 func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.PublicKey], error) {
@@ -133,10 +136,8 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 		return nil, nil, fmt.Errorf("(ConsumeECDSA) decode payload: %w", err)
 	}
 
-	// RFC 7518 §3.4 binds each algorithm to one curve — ES256 to P-256, ES384 to P-384, ES512 to
-	// P-521 — and the curve lives in the payload, where MatchPreset above cannot see it. Without
-	// this the preset's Curve is written by GenerateECDSA and read by nothing, so a source
-	// labelled ES256 holding a P-384 key is accepted.
+	// RFC 7518 §3.4 binds each algorithm to one curve, such as ES256 to P-256. The curve lives in the
+	// payload, where MatchPreset above cannot see it, so it is checked here.
 	var curve elliptic.Curve
 
 	switch {
@@ -169,8 +170,8 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 	return privateKey, publicKey, nil
 }
 
-// curveName reports a curve's standard name for an error message. A key whose payload named no
-// recognised curve decodes to none at all, and that has to read as a mismatch rather than panic.
+// curveName reports a curve's standard name for an error message. A key whose payload names no
+// recognized curve decodes to a nil curve, which reads as "unknown".
 func curveName(curve elliptic.Curve) string {
 	if curve == nil {
 		return "unknown"

@@ -2,8 +2,7 @@ package jwa
 
 import (
 	"encoding/json"
-
-	"github.com/samber/lo"
+	"slices"
 
 	"github.com/a-novel-kit/jwt/v2/jwa/internal"
 )
@@ -20,12 +19,12 @@ type JWKCommon struct {
 	// the only required member of a JWK.
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.1
 	KTY KTY `json:"kty"`
-	// Use marks the key as intended for signing or for encryption. It is
-	// mutually informative with KeyOps and should stay consistent with it.
+	// Use marks the key as intended for signing or for encryption. It overlaps
+	// with KeyOps and should stay consistent with it.
 	// https://datatracker.ietf.org/doc/html/rfc7517#section-4.2
 	Use Use `json:"use,omitempty"`
 	// KeyOps lists the operations the key may perform. It offers finer control
-	// than Use; the two should not disagree when both are set.
+	// than Use, and the two should agree when both are set.
 	// https://datatracker.ietf.org/doc/html/rfc7517#section-4.3
 	KeyOps KeyOps `json:"key_ops,omitempty"`
 	// Alg names the algorithm the key is intended to be used with.
@@ -43,7 +42,7 @@ type JWKCommon struct {
 // preset requires.
 func (jwk JWKCommon) MatchPreset(other JWKCommon) bool {
 	for _, keyOp := range other.KeyOps {
-		if !lo.Contains(jwk.KeyOps, keyOp) {
+		if !slices.Contains(jwk.KeyOps, keyOp) {
 			return false
 		}
 	}
@@ -59,6 +58,8 @@ func (jwk JWKCommon) MatchPreset(other JWKCommon) bool {
 type JWK struct {
 	JWKCommon
 
+	// Payload holds the type-specific key members as one JSON object, such as the modulus and
+	// exponent of an RSA key.
 	Payload json.RawMessage
 }
 

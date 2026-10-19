@@ -11,31 +11,36 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// RSAOAEPKeyEncPreset pairs a JWA algorithm identifier with the hash used by
-// RSAES-OAEP, for both the label digest and MGF1. Use one of the predefined presets.
+// RSAOAEPKeyEncPreset describes an RSAES-OAEP key encryption algorithm. Use one of the predefined
+// presets.
 type RSAOAEPKeyEncPreset struct {
-	Alg  jwa.Alg
+	// Alg is the key management algorithm.
+	Alg jwa.Alg
+	// Hash serves RSAES-OAEP as both the label digest and the MGF1 hash.
 	Hash crypto.Hash
 }
 
 var (
+	// RSAOAEP encrypts the content encryption key with RSAES-OAEP and SHA-1.
+	//
 	// Deprecated: this preset uses the broken SHA-1 hash function. Use RSAOAEP256 instead.
 	RSAOAEP = RSAOAEPKeyEncPreset{
 		Alg:  jwa.RSAOAEP,
 		Hash: crypto.SHA1,
 	}
+	// RSAOAEP256 encrypts the content encryption key with RSAES-OAEP and SHA-256.
 	RSAOAEP256 = RSAOAEPKeyEncPreset{
 		Alg:  jwa.RSAOAEP256,
 		Hash: crypto.SHA256,
 	}
 )
 
-// RSAOAEPKeyEncManagerConfig holds the recipient RSA public key that encrypts each
-// token's content encryption key.
+// RSAOAEPKeyEncManagerConfig configures NewRSAOAEPKeyEncManager.
 type RSAOAEPKeyEncManagerConfig struct {
 	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
 	// RFC 7516 requires.
-	CEK    []byte
+	CEK []byte
+	// EncKey is the recipient's public key, which each token's content encryption key is encrypted to.
 	EncKey *rsa.PublicKey
 }
 
@@ -94,9 +99,9 @@ func (manager *RSAOAEPKeyEncManager) EncryptCEK(_ context.Context, _ *jwa.JWH, c
 	return encoded, nil
 }
 
-// RSAOAEPKeyEncDecoderConfig holds the recipient RSA private key used to decrypt
-// the content encryption key.
+// RSAOAEPKeyEncDecoderConfig configures NewRSAOAEPKeyEncDecoder.
 type RSAOAEPKeyEncDecoderConfig struct {
+	// EncKey is the recipient's private key, which decrypts the content encryption key.
 	EncKey *rsa.PrivateKey
 }
 

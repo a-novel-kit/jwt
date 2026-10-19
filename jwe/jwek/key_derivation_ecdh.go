@@ -14,54 +14,62 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-// ECDHKeyAgrPreset binds a content-encryption algorithm to its derived-key length
-// for ECDH-ES key agreement. Use one of the predefined presets, each of which
-// targets one specific encryption.
+// ECDHKeyAgrPreset describes ECDH-ES key agreement for one content encryption algorithm. Use one of
+// the predefined presets.
 type ECDHKeyAgrPreset struct {
-	Enc    jwa.Enc
-	Alg    jwa.Alg
+	// Enc is the content encryption algorithm the derived key serves.
+	Enc jwa.Enc
+	// Alg is ignored, since the header always names ECDH-ES.
+	Alg jwa.Alg
+	// KeyLen is the length of the derived content encryption key, in bytes.
 	KeyLen int
 }
 
-// The ECDH-ES presets, one per supported content-encryption algorithm.
 var (
+	// ECDHESA128CBC derives the 32-byte content encryption key of A128CBC-HS256.
 	ECDHESA128CBC = ECDHKeyAgrPreset{
 		Enc:    jwa.A128CBC,
 		KeyLen: 32,
 	}
+	// ECDHESA192CBC derives the 48-byte content encryption key of A192CBC-HS384.
 	ECDHESA192CBC = ECDHKeyAgrPreset{
 		Enc:    jwa.A192CBC,
 		KeyLen: 48,
 	}
+	// ECDHESA256CBC derives the 64-byte content encryption key of A256CBC-HS512.
 	ECDHESA256CBC = ECDHKeyAgrPreset{
 		Enc:    jwa.A256CBC,
 		KeyLen: 64,
 	}
 
+	// ECDHESA128GCM derives the 16-byte content encryption key of A128GCM.
 	ECDHESA128GCM = ECDHKeyAgrPreset{
 		Enc:    jwa.A128GCM,
 		KeyLen: 16,
 	}
+	// ECDHESA192GCM derives the 24-byte content encryption key of A192GCM.
 	ECDHESA192GCM = ECDHKeyAgrPreset{
 		Enc:    jwa.A192GCM,
 		KeyLen: 24,
 	}
+	// ECDHESA256GCM derives the 32-byte content encryption key of A256GCM.
 	ECDHESA256GCM = ECDHKeyAgrPreset{
 		Enc:    jwa.A256GCM,
 		KeyLen: 32,
 	}
 )
 
-// ECDHKeyAgrManagerConfig holds the inputs for NewECDHKeyAgrManager. RecipientKey
-// is the static half of the Diffie-Hellman exchange; ProducerInfo and RecipientInfo
-// are the optional agreement party details mixed into the key derivation.
+// ECDHKeyAgrManagerConfig configures NewECDHKeyAgrManager.
 type ECDHKeyAgrManagerConfig struct {
 	// Deprecated: ignored. Each token agrees on its key with a fresh ephemeral key pair, as
 	// ECDH-ES requires.
-	ProducerKey  *ecdh.PrivateKey
+	ProducerKey *ecdh.PrivateKey
+	// RecipientKey is the recipient's static public key, one half of the Diffie-Hellman exchange.
 	RecipientKey *ecdh.PublicKey
 
-	ProducerInfo  string
+	// ProducerInfo is the optional PartyUInfo mixed into the key derivation and published as "apu".
+	ProducerInfo string
+	// RecipientInfo is the optional PartyVInfo mixed into the key derivation and published as "apv".
 	RecipientInfo string
 }
 
@@ -131,9 +139,10 @@ func (manager *ECDHKeyAgrManager) EncryptCEK(_ context.Context, _ *jwa.JWH, _ []
 	return nil, nil
 }
 
-// ECDHKeyAgrDecoderConfig holds the recipient private key used to reconstruct the
-// shared secret from the producer public key carried in the token header.
+// ECDHKeyAgrDecoderConfig configures NewECDHKeyAgrDecoder.
 type ECDHKeyAgrDecoderConfig struct {
+	// RecipientKey is the recipient's private key, which agrees on the shared secret with the
+	// ephemeral public key the token header carries.
 	RecipientKey *ecdh.PrivateKey
 }
 
@@ -259,8 +268,7 @@ func ephemeralAgreement(header *jwa.JWH, recipientKey *ecdh.PublicKey) ([]byte, 
 }
 
 // agreementInfo decodes the apu/apv agreement parameters a header carries. RFC 7518 §4.6.1.2 defines
-// both as base64url-encoded, and internal.Derive mixes in the decoded bytes, so the two cannot be
-// the same value.
+// both as base64url-encoded, and internal.Derive mixes in the decoded bytes.
 func agreementInfo(header *jwa.JWH) ([]byte, []byte, error) {
 	apu, err := base64.RawURLEncoding.DecodeString(header.APU)
 	if err != nil {

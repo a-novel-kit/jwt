@@ -317,7 +317,7 @@ func TestRecipientConcurrentConsume(t *testing.T) {
 func TestRecipientDecodeUnverified(t *testing.T) {
 	t.Parallel()
 
-	// A signed token whose signature would never verify — DecodeUnverified reads its claims anyway.
+	// The signature of this token never verifies, and DecodeUnverified reads its claims anyway.
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256"}`))
 	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"alice","jti":"abc"}`))
 	token := header + "." + payload + ".not-a-real-signature"

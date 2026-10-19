@@ -13,20 +13,20 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// DefaultMaxTokenBytes bounds the size of an untrusted token Consume will parse when the
-// RecipientConfig does not set a limit. It caps the work an oversized input can force while staying
+// DefaultMaxTokenBytes bounds the size of an untrusted token a Recipient parses when its
+// RecipientConfig sets no limit. It caps the work an oversized input can force while staying
 // well clear of a legitimate token, down to a JWE carrying an embedded certificate chain.
 const DefaultMaxTokenBytes = 1 << 18 // 256 KiB.
 
-// ErrTokenTooLarge is returned by Consume when a token exceeds the configured size limit.
+// ErrTokenTooLarge is returned by Consume and DecodeUnverified when a token exceeds the configured
+// size limit.
 var ErrTokenTooLarge = errors.New("token exceeds maximum size")
 
 // ErrUnexpectedTyp is returned by Consume when a token's "typ" header does not declare the media type
 // the recipient expects.
 var ErrUnexpectedTyp = errors.New("unexpected token type")
 
-// RecipientConfig configures a Recipient: the ordered plugins that verify or decrypt a token and
-// an optional deserializer for its claims.
+// RecipientConfig configures how a Recipient verifies, checks, and decodes a token.
 type RecipientConfig struct {
 	// Plugins run in order until one recognizes the token. A recipient without plugins accepts no
 	// token: unsecured ("none") tokens are consumed only when [DefaultRecipientPlugin] is listed here.
@@ -75,15 +75,7 @@ func NewRecipient(config RecipientConfig) *Recipient {
 // Consume validates rawToken and decodes its claims into dst. It tries each plugin in order, uses
 // the first that recognizes the token, and fails if none do.
 func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst any) error {
-	if len(rawToken) > recipient.config.MaxTokenBytes {
-		// The token is a bearer credential; the message carries lengths only.
-		return fmt.Errorf(
-			"(Recipient.Consume) %w: %d bytes exceeds limit %d",
-			ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes,
-		)
-	}
-
-	err := checkCompactAlphabet(rawToken)
+	err := recipient.checkUntrusted(rawToken)
 	if err != nil {
 		return fmt.Errorf("(Recipient.Consume) %w", err)
 	}
@@ -93,30 +85,17 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		return fmt.Errorf("(Recipient.Consume) decode token: %w", err)
 	}
 
-	decodedHeader, err := base64.RawURLEncoding.DecodeString(rawHeader)
+	header, decodedHeader, err := decodeHeader(rawHeader)
 	if err != nil {
-		return fmt.Errorf("(Recipient.Consume) %w: decode header: %w", ErrUnsupportedTokenFormat, err)
-	}
-
-	var header *jwa.JWH
-
-	err = json.Unmarshal(decodedHeader, &header)
-	if err != nil {
-		return fmt.Errorf("(Recipient.Consume) %w: unmarshal header: %w", ErrUnsupportedTokenFormat, err)
-	}
-
-	// A header segment of JSON "null" unmarshals into a nil pointer without error; reject it before
-	// anything dereferences it.
-	if header == nil {
-		return fmt.Errorf("(Recipient.Consume) %w: null header", ErrUnsupportedTokenFormat)
+		return fmt.Errorf("(Recipient.Consume) %w", err)
 	}
 
 	if recipient.config.Typ != "" && !sameMediaType(header.Typ, recipient.config.Typ) {
 		return fmt.Errorf("(Recipient.Consume) %w: %q, expected %q", ErrUnexpectedTyp, header.Typ, recipient.config.Typ)
 	}
 
-	// A non-nil Crit means the "crit" member is present in the header. Whether it is well-formed —
-	// including the RFC 7515 §4.1.11 rule that it must not be empty — is CheckCritUnderstood's call.
+	// A non-nil Crit means the header holds a "crit" member, even an empty one. CheckCritUnderstood
+	// decides whether the member is well formed.
 	if header.Crit != nil {
 		err = CheckCritUnderstood(decodedHeader, header.Crit, recipient.config.CriticalHeaders)
 		if err != nil {
@@ -124,8 +103,8 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		}
 	}
 
-	// A plugin that does not match the token yields ErrMismatchRecipientPlugin; fall through to the
-	// next one. Any other error is fatal.
+	// A plugin that does not match the token returns ErrMismatchRecipientPlugin, and the next plugin
+	// runs. Any other error rejects the token.
 	for _, plugin := range recipient.config.Plugins {
 		rawClaims, err := plugin.Transform(ctx, header, rawToken)
 		if err != nil {
@@ -149,21 +128,13 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 
 // DecodeUnverified decodes rawToken's claims into dst without verifying its signature. The result is
 // untrusted and must never carry a trust decision. Use it only on a token whose authenticity is
-// already established — one just minted locally, or one a separate step has verified. To verify and
-// decode, use [Recipient.Consume].
+// already established, such as one just minted locally or one a separate step has verified. To
+// verify and decode, use [Recipient.Consume].
 //
-// It reads the payload of a signed (JWS) token; it does not decrypt JWE. The size limit still
+// It reads the payload of a signed (JWS) token and cannot decrypt a JWE. The size limit still
 // applies, but no plugin runs and the header's crit list is not enforced.
 func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
-	if len(rawToken) > recipient.config.MaxTokenBytes {
-		// The token is a bearer credential; the message carries lengths only.
-		return fmt.Errorf(
-			"(Recipient.DecodeUnverified) %w: %d bytes exceeds limit %d",
-			ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes,
-		)
-	}
-
-	err := checkCompactAlphabet(rawToken)
+	err := recipient.checkUntrusted(rawToken)
 	if err != nil {
 		return fmt.Errorf("(Recipient.DecodeUnverified) %w", err)
 	}
@@ -173,22 +144,10 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 		return fmt.Errorf("(Recipient.DecodeUnverified) decode token: %w", err)
 	}
 
-	// Confirm the input is a structurally valid JWS — the header must be base64url-encoded, non-null
-	// JSON — so a non-JWT input cannot silently yield claims.
-	decodedHeader, err := base64.RawURLEncoding.DecodeString(token.Header)
+	// The header must decode, so a non-JWT input cannot yield claims.
+	_, _, err = decodeHeader(token.Header)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w: decode header: %w", ErrUnsupportedTokenFormat, err)
-	}
-
-	var header *jwa.JWH
-
-	err = json.Unmarshal(decodedHeader, &header)
-	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w: unmarshal header: %w", ErrUnsupportedTokenFormat, err)
-	}
-
-	if header == nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w: null header", ErrUnsupportedTokenFormat)
+		return fmt.Errorf("(Recipient.DecodeUnverified) %w", err)
 	}
 
 	rawClaims, err := base64.RawURLEncoding.DecodeString(token.Payload)
@@ -204,6 +163,40 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 	return nil
 }
 
+// checkUntrusted runs the checks that precede any decoding of rawToken: the size limit, then the
+// compact alphabet.
+func (recipient *Recipient) checkUntrusted(rawToken string) error {
+	if len(rawToken) > recipient.config.MaxTokenBytes {
+		// The token is a bearer credential, so the message carries lengths only.
+		return fmt.Errorf("%w: %d bytes exceeds limit %d", ErrTokenTooLarge, len(rawToken), recipient.config.MaxTokenBytes)
+	}
+
+	return checkCompactAlphabet(rawToken)
+}
+
+// decodeHeader decodes the base64url header segment of a compact token. It returns the header and
+// its JSON form, which the "crit" checks read for the extension members.
+func decodeHeader(rawHeader string) (*jwa.JWH, []byte, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(rawHeader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: decode header: %w", ErrUnsupportedTokenFormat, err)
+	}
+
+	var header *jwa.JWH
+
+	err = json.Unmarshal(decoded, &header)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: unmarshal header: %w", ErrUnsupportedTokenFormat, err)
+	}
+
+	// A header segment of JSON "null" unmarshals into a nil pointer without error.
+	if header == nil {
+		return nil, nil, fmt.Errorf("%w: null header", ErrUnsupportedTokenFormat)
+	}
+
+	return header, decoded, nil
+}
+
 // checkCompactAlphabet rejects input holding anything besides base64url characters and the "."
 // separator, the only characters a compact token consists of. The base64 decoder skips line breaks,
 // so this runs before any segment is decoded.
@@ -213,7 +206,7 @@ func checkCompactAlphabet(rawToken string) error {
 	for i := range len(rawToken) {
 		c := rawToken[i]
 		if (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' && c != '_' && c != '.' {
-			// The token is a bearer credential; the message names the position only.
+			// The token is a bearer credential, so the message names the position only.
 			return fmt.Errorf("%w: illegal character at offset %d", ErrUnsupportedTokenFormat, i)
 		}
 	}

@@ -96,7 +96,7 @@ func TestConsumeHMAC(t *testing.T) {
 		{
 			name:      "InvalidKey",
 			preset:    jwk.HS256,
-			key:       newBullshitKey[[]byte](t, "kid-1"),
+			key:       newPlaceholderKey[[]byte](t, "kid-1"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}

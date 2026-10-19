@@ -12,28 +12,32 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-// An ECDHPreset describes how to generate or match a key-agreement JSON Web Key: the algorithm it is
-// bound to and the curve its keys live on. Keys on X25519 serialize as "OKP" keys, keys on the NIST
-// curves as "EC" keys.
+// An ECDHPreset describes how to generate or match a key-agreement JSON Web Key. Keys on X25519
+// serialize as "OKP" keys, keys on the NIST curves as "EC" keys.
 type ECDHPreset struct {
-	Alg   jwa.Alg
+	// Alg is the key management algorithm the key is bound to.
+	Alg jwa.Alg
+	// Curve is the curve the key lives on.
 	Curve ecdh.Curve
 }
 
-// ECDH-ES key agreement, one preset per curve. RFC 7518 recommends P-256.
 var (
+	// ECDHESX25519 generates or matches an X25519 key for ECDH-ES.
 	ECDHESX25519 = ECDHPreset{
 		Alg:   jwa.ECDHES,
 		Curve: ecdh.X25519(),
 	}
+	// ECDHESP256 generates or matches a P-256 key for ECDH-ES, the curve RFC 7518 recommends.
 	ECDHESP256 = ECDHPreset{
 		Alg:   jwa.ECDHES,
 		Curve: ecdh.P256(),
 	}
+	// ECDHESP384 generates or matches a P-384 key for ECDH-ES.
 	ECDHESP384 = ECDHPreset{
 		Alg:   jwa.ECDHES,
 		Curve: ecdh.P384(),
 	}
+	// ECDHESP521 generates or matches a P-521 key for ECDH-ES.
 	ECDHESP521 = ECDHPreset{
 		Alg:   jwa.ECDHES,
 		Curve: ecdh.P521(),
@@ -42,7 +46,7 @@ var (
 
 // GenerateECDHKey generates a new key-agreement key pair on the preset's curve.
 //
-// Retrieve a raw key with res.Key(), or marshal either result into a JSON Web Key with json.Marshal.
+// Call Key on either result for the native key, or marshal it into a JSON Web Key with json.Marshal.
 //
 // Pass one of the ECDH presets, such as [ECDHESP256].
 func GenerateECDHKey(preset ECDHPreset) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {

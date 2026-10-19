@@ -14,12 +14,14 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-// An RSAPreset bundles the hash and algorithm identifier for one RSA signing scheme. Pass one of the
-// exported presets to the RSA constructors: the RS* presets use RSASSA-PKCS1-v1_5, the PS* presets
-// use RSASSA-PSS, and both run on the same RSA keys.
+// An RSAPreset describes an RSA signing scheme. Pass one of the exported presets to the RSA
+// constructors. The RS* presets use RSASSA-PKCS1-v1_5 and the PS* presets RSASSA-PSS, both on the
+// same RSA keys.
 type RSAPreset struct {
+	// Hash digests the signing input.
 	Hash crypto.Hash
-	Alg  jwa.Alg
+	// Alg is the signature algorithm, which also selects the scheme.
+	Alg jwa.Alg
 }
 
 var (
@@ -60,7 +62,7 @@ type RSASigner struct {
 }
 
 // NewRSASigner returns a [jwt.ProducerPlugin] that signs tokens with RSA, using the hash carried by
-// the preset (one of [RS256], [RS384], [RS512], [PS256], [PS384], [PS512]); the preset's algorithm
+// the preset (one of [RS256], [RS384], [RS512], [PS256], [PS384], [PS512]). The preset's algorithm
 // selects PKCS1v15 (RS*) or PSS (PS*). The key must be at least 2048 bits.
 //
 // See RFC 7518, sections 3.3 and 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
@@ -143,7 +145,7 @@ type RSAVerifier struct {
 }
 
 // NewRSAVerifier returns a [jwt.RecipientPlugin] that verifies RSA-signed tokens, using the hash
-// carried by the preset (one of [RS256], [RS384], [RS512], [PS256], [PS384], [PS512]); the preset's
+// carried by the preset (one of [RS256], [RS384], [RS512], [PS256], [PS384], [PS512]). The preset's
 // algorithm selects PKCS1v15 (RS*) or PSS (PS*). It accepts only tokens whose alg matches the
 // preset's, so an RS* verifier rejects a PS* token.
 //
@@ -313,7 +315,7 @@ func (signer *SourcedRSASigner) Transform(ctx context.Context, header *jwa.JWH, 
 }
 
 // A SourcedRSAVerifier verifies like an [RSAVerifier] but resolves candidate keys from a
-// [jwk.Source] at each call. When the token names a KID it tries only that key; otherwise it tries
+// [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source. Build one with [NewSourcedRSAVerifier].
 type SourcedRSAVerifier struct {
 	source *jwk.Source

@@ -1,6 +1,7 @@
 package jws
 
 import (
+	"crypto"
 	"crypto/rsa"
 	"errors"
 	"fmt"
@@ -14,8 +15,21 @@ import (
 var ErrInvalidSignature = errors.New("invalid signature")
 
 // ErrUnsupportedAlgorithm is returned when a preset names an algorithm the plugin cannot map to a
-// signing scheme — for example an RSA plugin given an algorithm that is neither RS* nor PS*.
+// signing scheme, such as an RSA plugin given an algorithm that is neither RS* nor PS*.
 var ErrUnsupportedAlgorithm = errors.New("unsupported algorithm")
+
+// checkHMACKey fails unless key is at least as long as the output of hash, the floor RFC 7518 §3.2
+// sets for the HS* algorithms.
+func checkHMACKey(key []byte, hash crypto.Hash) error {
+	if len(key) < hash.Size() {
+		return fmt.Errorf(
+			"%w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
+			jwt.ErrInvalidSecretKey, len(key), hash.Size(),
+		)
+	}
+
+	return nil
+}
 
 // minRSAKeyBits is the smallest RSA modulus the RS* and PS* algorithms accept, per RFC 7518 §3.3
 // and §3.5 ("A key of size 2048 bits or larger MUST be used"). Enforced at both sign and verify.

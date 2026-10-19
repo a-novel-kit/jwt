@@ -82,10 +82,12 @@ func TestAESGCMKW(t *testing.T) {
 					testCase.preset,
 				)
 
-				for _, malform := range []func(*jwa.JWHCommon){
+				malforms := []func(*jwa.JWHCommon){
 					func(common *jwa.JWHCommon) { common.IV = "!!!" },
 					func(common *jwa.JWHCommon) { common.Tag = "!!!" },
-				} {
+				}
+
+				for _, malform := range malforms {
 					common := header.JWHCommon
 					malform(&common)
 

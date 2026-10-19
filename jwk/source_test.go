@@ -34,13 +34,13 @@ func TestSourceList(t *testing.T) {
 			name: "Success",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 
 			expect: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 		},
 		{
@@ -87,23 +87,23 @@ func TestSourceGet(t *testing.T) {
 			name: "Success",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 
-			expect: newBullshitKey[string](t, "kid-1").JWK,
+			expect: newPlaceholderKey[string](t, "kid-1").JWK,
 		},
 		{
 			name: "KID",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 
 			kid: "kid-2",
 
-			expect: newBullshitKey[string](t, "kid-2").JWK,
+			expect: newPlaceholderKey[string](t, "kid-2").JWK,
 		},
 		{
 			name:       "FetcherError",
@@ -121,8 +121,8 @@ func TestSourceGet(t *testing.T) {
 			name: "KIDNotFound",
 
 			fetcherResp: []*jwa.JWK{
-				newBullshitKey[string](t, "kid-1").JWK,
-				newBullshitKey[string](t, "kid-2").JWK,
+				newPlaceholderKey[string](t, "kid-1").JWK,
+				newPlaceholderKey[string](t, "kid-2").JWK,
 			},
 
 			kid: "kid-3",
@@ -152,8 +152,8 @@ func TestSourceRefresh(t *testing.T) {
 	t.Parallel()
 
 	keys := []*jwa.JWK{
-		newBullshitKey[string](t, `"number":1`).JWK,
-		newBullshitKey[string](t, `"number":2`).JWK,
+		newPlaceholderKey[string](t, `"number":1`).JWK,
+		newPlaceholderKey[string](t, `"number":2`).JWK,
 	}
 
 	fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
@@ -171,13 +171,13 @@ func TestSourceRefresh(t *testing.T) {
 	fetchedKeys, err := source.List(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, []*jwa.JWK{
-		newBullshitKey[string](t, `"number":1`).JWK,
-		newBullshitKey[string](t, `"number":2`).JWK,
+		newPlaceholderKey[string](t, `"number":1`).JWK,
+		newPlaceholderKey[string](t, `"number":2`).JWK,
 	}, fetchedKeys)
 
 	keys = []*jwa.JWK{
-		newBullshitKey[string](t, `"number":3`).JWK,
-		newBullshitKey[string](t, `"number":4`).JWK,
+		newPlaceholderKey[string](t, `"number":3`).JWK,
+		newPlaceholderKey[string](t, `"number":4`).JWK,
 	}
 
 	time.Sleep(10 * time.Millisecond)
@@ -185,8 +185,8 @@ func TestSourceRefresh(t *testing.T) {
 	fetchedKeys, err = source.List(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, []*jwa.JWK{
-		newBullshitKey[string](t, `"number":1`).JWK,
-		newBullshitKey[string](t, `"number":2`).JWK,
+		newPlaceholderKey[string](t, `"number":1`).JWK,
+		newPlaceholderKey[string](t, `"number":2`).JWK,
 	}, fetchedKeys)
 
 	time.Sleep(100 * time.Millisecond)
@@ -194,8 +194,8 @@ func TestSourceRefresh(t *testing.T) {
 	fetchedKeys, err = source.List(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, []*jwa.JWK{
-		newBullshitKey[string](t, `"number":3`).JWK,
-		newBullshitKey[string](t, `"number":4`).JWK,
+		newPlaceholderKey[string](t, `"number":3`).JWK,
+		newPlaceholderKey[string](t, `"number":4`).JWK,
 	}, fetchedKeys)
 }
 
@@ -231,7 +231,7 @@ func TestSourceCaches(t *testing.T) {
 	t.Parallel()
 
 	fetchCount := 0
-	key := newBullshitKey[string](t, "kid-1")
+	key := newPlaceholderKey[string](t, "kid-1")
 	config := jwk.SourceConfig{
 		CacheDuration: time.Hour,
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
@@ -259,7 +259,7 @@ func TestSourceStaleIfError(t *testing.T) {
 	t.Parallel()
 
 	errUpstream := errors.New("upstream down")
-	key := newBullshitKey[string](t, "kid-1").JWK
+	key := newPlaceholderKey[string](t, "kid-1").JWK
 
 	testCases := []struct {
 		name string
@@ -373,7 +373,7 @@ func TestSourceStaleIfErrorRecovers(t *testing.T) {
 					return nil, upstreamErr
 				}
 
-				return []*jwa.JWK{newBullshitKey[string](t, upstreamKID).JWK}, nil
+				return []*jwa.JWK{newPlaceholderKey[string](t, upstreamKID).JWK}, nil
 			},
 		})
 
@@ -410,7 +410,7 @@ func TestSourceStaleIfErrorRecovers(t *testing.T) {
 	})
 }
 
-// Tests for RefreshOnUnknownKeyID: a key id absent from the cache forces a bounded fetch, so a
+// Tests for RefreshOnUnknownKeyID: a key ID absent from the cache forces a bounded fetch, so a
 // verifier finds a key the issuer has just rotated to without waiting out CacheDuration.
 
 func TestSourceGetUnknownKeyIDDisabled(t *testing.T) {
@@ -423,14 +423,14 @@ func TestSourceGetUnknownKeyIDDisabled(t *testing.T) {
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			fetches.Add(1)
 
-			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+			return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 		},
 	})
 
 	_, err := source.Get(t.Context(), "kid-1")
 	require.NoError(t, err)
 
-	// By default an unknown id reports the miss against the cached set, however old that set is.
+	// By default an unknown ID reports the miss against the cached set, however old that set is.
 	_, err = source.Get(t.Context(), "rotated-kid")
 	require.ErrorIs(t, err, jwk.ErrKeyNotFound)
 	require.EqualValues(t, 1, fetches.Load())
@@ -447,17 +447,17 @@ func TestSourceGetUnknownKeyIDRefreshes(t *testing.T) {
 	source := jwk.NewSource(jwk.SourceConfig{
 		CacheDuration: time.Hour,
 		// Long enough that the cache is nowhere near expiry, so any fetch after the first can only
-		// have come from the unknown-key-id path.
+		// have come from the unknown-key-ID path.
 		RefreshOnUnknownKeyID: true,
 		UnknownKeyIDInterval:  time.Nanosecond,
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			fetches.Add(1)
 
 			if rotated.Load() {
-				return []*jwa.JWK{newBullshitKey[string](t, "kid-2").JWK}, nil
+				return []*jwa.JWK{newPlaceholderKey[string](t, "kid-2").JWK}, nil
 			}
 
-			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+			return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 		},
 	})
 
@@ -486,7 +486,7 @@ func TestSourceGetUnknownKeyIDRateLimited(t *testing.T) {
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			fetches.Add(1)
 
-			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+			return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 		},
 	})
 
@@ -494,9 +494,9 @@ func TestSourceGetUnknownKeyIDRateLimited(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, fetches.Load())
 
-	// The trigger is attacker-controlled: whoever presents a token picks the key id. The bound is the
-	// cache's age, so a flood of distinct forged ids costs at most one upstream call per interval —
-	// and none at all here, where the set was just fetched.
+	// The trigger is attacker-controlled: whoever presents a token picks the key ID. The bound is the
+	// cache's age, so a flood of distinct forged IDs costs at most one upstream call per interval. It
+	// costs none here, where the set was just fetched.
 	for i := range 500 {
 		_, err = source.Get(t.Context(), "forged-"+strconv.Itoa(i))
 		require.ErrorIs(t, err, jwk.ErrKeyNotFound)
@@ -517,7 +517,7 @@ func TestSourceGetUnknownKeyIDConcurrent(t *testing.T) {
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			fetches.Add(1)
 
-			return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+			return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 		},
 	})
 
@@ -557,7 +557,7 @@ func TestSourceGetUnknownKeyIDHonoursBackoff(t *testing.T) {
 		UnknownKeyIDInterval:  time.Nanosecond,
 		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
 			if fetches.Add(1) == 1 {
-				return []*jwa.JWK{newBullshitKey[string](t, "kid-1").JWK}, nil
+				return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
 			}
 
 			return nil, errUpstream
@@ -567,12 +567,12 @@ func TestSourceGetUnknownKeyIDHonoursBackoff(t *testing.T) {
 	_, err := source.Get(t.Context(), "kid-1")
 	require.NoError(t, err)
 
-	// The first unknown id reaches a broken upstream and records the failure.
+	// The first unknown ID reaches a broken upstream and records the failure.
 	_, err = source.Get(t.Context(), "forged-1")
 	require.ErrorIs(t, err, errUpstream)
 	require.EqualValues(t, 2, fetches.Load())
 
-	// An unknown key id stays subject to the retry backoff, so the one attacker-controlled input
+	// An unknown key ID stays subject to the retry backoff, so the one attacker-controlled input
 	// cannot bypass the negative caching that protects a broken upstream.
 	_, err = source.Get(t.Context(), "forged-2")
 	require.ErrorIs(t, err, errUpstream)

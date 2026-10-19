@@ -14,9 +14,9 @@ import (
 var ErrPrivateKeyMaterial = errors.New("key carries private material")
 
 // privateMembers are the JWK members RFC 7518 §6 and RFC 9964 §3 define as
-// private, across every key type. RSA carries the most; EC and OKP carry only
-// "d", AKP only "priv"; a symmetric key is nothing but its secret, which is why
-// Public refuses one outright.
+// private, across every key type. RSA carries the most, EC and OKP carry only
+// "d", and AKP only "priv". A symmetric key is nothing but its secret, which is
+// why Public refuses one outright.
 //
 // The names are a closed set fixed by the RFCs, so a new key type is the only
 // thing that can add to it.
@@ -62,9 +62,8 @@ func HasPrivateMaterial(key *jwa.JWK) (bool, error) {
 // Public returns key with every private member removed, leaving the half a
 // recipient needs to verify. The original is not modified.
 //
-// A symmetric key has no public half — its single member is the secret — so one
-// yields ErrPrivateKeyMaterial rather than an emptied key that would look
-// publishable.
+// A symmetric key has no public half, since its single member is the secret, so
+// one yields ErrPrivateKeyMaterial.
 func Public(key *jwa.JWK) (*jwa.JWK, error) {
 	if key == nil {
 		return nil, nil

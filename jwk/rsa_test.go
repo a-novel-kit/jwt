@@ -195,8 +195,8 @@ func TestConsumeRSA(t *testing.T) {
 		{
 			name:      "Mismatch",
 			preset:    jwk.RS256,
-			private:   newBullshitKey[*rsa.PrivateKey](t, "kid-1"),
-			public:    newBullshitKey[*rsa.PublicKey](t, "kid-2"),
+			private:   newPlaceholderKey[*rsa.PrivateKey](t, "kid-1"),
+			public:    newPlaceholderKey[*rsa.PublicKey](t, "kid-2"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}

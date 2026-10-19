@@ -24,9 +24,10 @@ type EmbedKeyConfig struct {
 	// keep the token small.
 	//
 	// The key must be a public one. A header travels inside the token, so embedding a key that
-	// carries private material hands the signing key to every recipient; Header refuses it with
-	// [jwk.ErrPrivateKeyMaterial]. Source resolves the signing key, private half included, so pass
-	// [jwk.Public] over it — a symmetric key cannot be embedded at all.
+	// carries private material hands the signing key to every recipient, and Header refuses it with
+	// [jwk.ErrPrivateKeyMaterial]. A Source of signing keys resolves the private half, so embed from a
+	// Source whose Fetch returns its keys through [jwk.Public]. A symmetric key cannot be embedded at
+	// all.
 	Embed bool
 }
 
@@ -42,8 +43,8 @@ func NewEmbedKey(config EmbedKeyConfig) *EmbedKey {
 	return &EmbedKey{config: config}
 }
 
-// Header writes the key's identifier, URL, and — when configured — the key itself into the token
-// header.
+// Header writes the key's identifier and URL into the token header, and the key itself when Embed is
+// set.
 func (plugin *EmbedKey) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	key := plugin.config.Key
 	kid := plugin.config.KID
@@ -65,9 +66,6 @@ func (plugin *EmbedKey) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, 
 	header.JKU = plugin.config.URL
 
 	if plugin.config.Embed && key != nil {
-		// The header ships inside the token, so a key with private material here
-		// hands the signing key to every recipient of every token. Source
-		// resolves signing keys, which is exactly where that key comes from.
 		private, err := jwk.HasPrivateMaterial(key)
 		if err != nil {
 			return nil, fmt.Errorf("(EmbedKey.Header) inspect key: %w", err)

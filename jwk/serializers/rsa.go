@@ -20,8 +20,8 @@ type RSAOtherPrime struct {
 	T string `json:"t"`
 }
 
-// An RSAPayload wraps an RSA key in a JWKCommon format. Every numeric field is Base64urlUInt-encoded, following
-// RFC 7518 §6.3.
+// An RSAPayload holds the key members of an "RSA" JSON Web Key. Every numeric field is
+// Base64urlUInt-encoded, following RFC 7518 §6.3.
 type RSAPayload struct {
 	// N is the key modulus.
 	//
@@ -59,8 +59,8 @@ type RSAPayload struct {
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.6
 	QI string `json:"qi,omitempty"`
 
-	// Oth carries the remaining prime factors when the key was built from more than two primes; it is omitted for
-	// the usual two-prime key.
+	// Oth carries the remaining prime factors of a key built from more than two primes. The usual
+	// two-prime key omits it.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.2.7
 	Oth []RSAOtherPrime `json:"oth,omitempty"`

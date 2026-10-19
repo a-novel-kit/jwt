@@ -137,8 +137,8 @@ func TestConsumeECDSA(t *testing.T) {
 		{
 			name:      "Mismatch",
 			preset:    jwk.ES256,
-			private:   newBullshitKey[*ecdsa.PrivateKey](t, "kid-1"),
-			public:    newBullshitKey[*ecdsa.PublicKey](t, "kid-2"),
+			private:   newPlaceholderKey[*ecdsa.PrivateKey](t, "kid-1"),
+			public:    newPlaceholderKey[*ecdsa.PublicKey](t, "kid-2"),
 			expectErr: jwk.ErrJWKMismatch,
 		},
 	}
@@ -175,10 +175,10 @@ func TestConsumeECDSA(t *testing.T) {
 }
 
 // RFC 7518 §3.4 binds each algorithm to one curve. The binding lives in the payload's "crv", which
-// MatchPreset cannot see — it compares kty, use, key_ops and alg only — so a key labelled ES256 and
-// carrying a P-384 point satisfies every check the header can make.
+// MatchPreset cannot see, since it compares kty, use, key_ops and alg only. A key labeled ES256 and
+// carrying a P-384 point therefore satisfies every check the header can make.
 //
-// This is the case the existing tests miss by generating and consuming with the same preset.
+// Tests that generate and consume with the same preset never build such a key.
 func TestConsumeECDSARejectsAMismatchedCurve(t *testing.T) {
 	t.Parallel()
 
@@ -204,7 +204,9 @@ func TestConsumeECDSAAcceptsEveryPresetsOwnCurve(t *testing.T) {
 	t.Parallel()
 
 	// The check must not reject the keys the presets themselves produce.
-	for _, preset := range []jwk.ECDSAPreset{jwk.ES256, jwk.ES384, jwk.ES512} {
+	presets := []jwk.ECDSAPreset{jwk.ES256, jwk.ES384, jwk.ES512}
+
+	for _, preset := range presets {
 		t.Run(string(preset.Alg), func(t *testing.T) {
 			t.Parallel()
 

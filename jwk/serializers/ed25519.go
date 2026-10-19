@@ -9,7 +9,7 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// An EDPayload wraps an EdDSA key in a JWKCommon format.
+// An EDPayload holds the key members of an "OKP" JSON Web Key carrying an Ed25519 key (RFC 8037).
 type EDPayload struct {
 	// Crv is the JWK curve identifier. Only "Ed25519" is supported: the standard library does not implement the
 	// Ed448 variant, so any other value makes DecodeED return an error. Plug in your own decoder if you need Ed448.
@@ -30,7 +30,7 @@ type EDPayload struct {
 // its private and public halves do not belong together.
 var ErrInvalidEDKey = errors.New("invalid EdDSA key")
 
-// DecodeED decodes the EdDSA key from a JWKCommon format.
+// DecodeED decodes the Ed25519 key an EDPayload carries.
 //
 // Besides the 32-byte private key RFC 8037 specifies, "d" may hold the 64-byte seed-and-public-key
 // form of ed25519.PrivateKey, so keys serialized from that form keep loading.
@@ -73,7 +73,7 @@ func DecodeED(src *EDPayload) (ed25519.PrivateKey, ed25519.PublicKey, error) {
 	return edPrivKey, edPubKey, nil
 }
 
-// EncodeED returns the JWKCommon representation of an EdDSA key.
+// EncodeED encodes an Ed25519 key into its JWK members.
 func EncodeED[Key ed25519.PublicKey | ed25519.PrivateKey](key Key) *EDPayload {
 	pubKey, ok := any(key).(ed25519.PublicKey)
 	if ok {

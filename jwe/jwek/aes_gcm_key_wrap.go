@@ -13,28 +13,31 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// The AES GCM key-wrap presets, one per supported wrap-key length.
 var (
+	// A128GCMKW wraps the content encryption key with AES-GCM under a 16-byte key.
 	A128GCMKW = KeyWrapPreset{
 		Alg:    jwa.A128GCMKW,
 		KeyLen: 16,
 	}
+	// A192GCMKW wraps the content encryption key with AES-GCM under a 24-byte key.
 	A192GCMKW = KeyWrapPreset{
 		Alg:    jwa.A192GCMKW,
 		KeyLen: 24,
 	}
+	// A256GCMKW wraps the content encryption key with AES-GCM under a 32-byte key.
 	A256GCMKW = KeyWrapPreset{
 		Alg:    jwa.A256GCMKW,
 		KeyLen: 32,
 	}
 )
 
-// AESGCMKWManagerConfig holds the inputs for NewAESGCMKWManager: the key that wraps
-// each token's content encryption key.
+// AESGCMKWManagerConfig configures NewAESGCMKWManager.
 type AESGCMKWManagerConfig struct {
 	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
 	// RFC 7516 requires.
-	CEK     []byte
+	CEK []byte
+	// WrapKey is the AES key that wraps each token's content encryption key. Its length matches the
+	// preset's.
 	WrapKey []byte
 }
 
@@ -107,8 +110,8 @@ func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, c
 	}
 
 	ciphertextAndTag := aesgcm.Seal(nil, iv, cek, []byte{})
-	// Seal appends the authentication tag to the ciphertext; the JWE header carries
-	// the tag separately, so split the two apart here.
+	// Seal appends the authentication tag to the ciphertext, and the JWE header carries the tag
+	// separately.
 	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
 	ciphertext := ciphertextAndTag[:cipherLen]
 	tag := ciphertextAndTag[cipherLen:]
@@ -129,9 +132,9 @@ func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, c
 	return ciphertext, nil
 }
 
-// AESGCMKWDecoderConfig holds the key-wrapping key used to unwrap a content
-// encryption key.
+// AESGCMKWDecoderConfig configures NewAESGCMKWDecoder.
 type AESGCMKWDecoderConfig struct {
+	// WrapKey is the AES key the content encryption key was wrapped under.
 	WrapKey []byte
 }
 

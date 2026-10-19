@@ -11,16 +11,19 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-// An AESPreset describes how to generate or match an AES JSON Web Key: the algorithm it is bound
-// to, the key operations it permits, and its key size in bytes.
+// An AESPreset describes how to generate or match an AES JSON Web Key.
 type AESPreset struct {
-	Alg     jwa.Alg
-	KeyOps  jwa.KeyOps
+	// Alg is the algorithm the key is bound to: a content encryption "enc" value, or a key-wrapping
+	// "alg" value.
+	Alg jwa.Alg
+	// KeyOps are the operations the key permits.
+	KeyOps jwa.KeyOps
+	// KeySize is the length of a generated key, in bytes.
 	KeySize int
 }
 
-// Content-Encryption Keys (CEK).
 var (
+	// A128CBC generates or matches the 32-byte content encryption key of A128CBC-HS256.
 	A128CBC = AESPreset{
 		Alg: jwa.Alg(jwa.A128CBC),
 		KeyOps: jwa.KeyOps{
@@ -29,6 +32,7 @@ var (
 		},
 		KeySize: 32,
 	}
+	// A192CBC generates or matches the 48-byte content encryption key of A192CBC-HS384.
 	A192CBC = AESPreset{
 		Alg: jwa.Alg(jwa.A192CBC),
 		KeyOps: jwa.KeyOps{
@@ -37,6 +41,7 @@ var (
 		},
 		KeySize: 48,
 	}
+	// A256CBC generates or matches the 64-byte content encryption key of A256CBC-HS512.
 	A256CBC = AESPreset{
 		Alg: jwa.Alg(jwa.A256CBC),
 		KeyOps: jwa.KeyOps{
@@ -46,6 +51,7 @@ var (
 		KeySize: 64,
 	}
 
+	// A128GCM generates or matches the 16-byte content encryption key of A128GCM.
 	A128GCM = AESPreset{
 		Alg: jwa.Alg(jwa.A128GCM),
 		KeyOps: jwa.KeyOps{
@@ -54,6 +60,7 @@ var (
 		},
 		KeySize: 16,
 	}
+	// A192GCM generates or matches the 24-byte content encryption key of A192GCM.
 	A192GCM = AESPreset{
 		Alg: jwa.Alg(jwa.A192GCM),
 		KeyOps: jwa.KeyOps{
@@ -62,6 +69,7 @@ var (
 		},
 		KeySize: 24,
 	}
+	// A256GCM generates or matches the 32-byte content encryption key of A256GCM.
 	A256GCM = AESPreset{
 		Alg: jwa.Alg(jwa.A256GCM),
 		KeyOps: jwa.KeyOps{
@@ -72,8 +80,8 @@ var (
 	}
 )
 
-// Key-Encryption Keys (KEK).
 var (
+	// A128KW generates or matches the 16-byte key-wrapping key of A128KW.
 	A128KW = AESPreset{
 		Alg: jwa.A128KW,
 		KeyOps: jwa.KeyOps{
@@ -82,6 +90,7 @@ var (
 		},
 		KeySize: 16,
 	}
+	// A192KW generates or matches the 24-byte key-wrapping key of A192KW.
 	A192KW = AESPreset{
 		Alg: jwa.A192KW,
 		KeyOps: jwa.KeyOps{
@@ -90,6 +99,7 @@ var (
 		},
 		KeySize: 24,
 	}
+	// A256KW generates or matches the 32-byte key-wrapping key of A256KW.
 	A256KW = AESPreset{
 		Alg: jwa.A256KW,
 		KeyOps: jwa.KeyOps{
@@ -99,6 +109,7 @@ var (
 		KeySize: 32,
 	}
 
+	// A128GCMKW generates or matches the 16-byte key-wrapping key of A128GCMKW.
 	A128GCMKW = AESPreset{
 		Alg: jwa.A128GCMKW,
 		KeyOps: jwa.KeyOps{
@@ -107,6 +118,7 @@ var (
 		},
 		KeySize: 16,
 	}
+	// A192GCMKW generates or matches the 24-byte key-wrapping key of A192GCMKW.
 	A192GCMKW = AESPreset{
 		Alg: jwa.A192GCMKW,
 		KeyOps: jwa.KeyOps{
@@ -115,6 +127,7 @@ var (
 		},
 		KeySize: 24,
 	}
+	// A256GCMKW generates or matches the 32-byte key-wrapping key of A256GCMKW.
 	A256GCMKW = AESPreset{
 		Alg: jwa.A256GCMKW,
 		KeyOps: jwa.KeyOps{
@@ -127,7 +140,7 @@ var (
 
 // GenerateAES generates a new secret key for AES encryption algorithms.
 //
-// Retrieve the raw key with res.Key(), or marshal the result into a JSON Web Key with json.Marshal.
+// Call Key on the result for the native key, or marshal it into a JSON Web Key with json.Marshal.
 //
 // Pass one of the package's AES presets: the content-encryption presets, such as [A128GCM],
 // produce a CEK, and the key-wrapping presets, such as [A128KW], produce a KEK.

@@ -1,5 +1,7 @@
 package jwa
 
+import "slices"
+
 // A J509 holds the X.509 certificate parameters that a JSON Web Key may use to
 // bind its key to a certificate, as defined by RFC 7517.
 type J509 struct {
@@ -38,31 +40,9 @@ type J509 struct {
 // Equal reports whether two J509 values carry identical certificate parameters.
 // A nil argument is never equal.
 func (payload *J509) Equal(other *J509) bool {
-	if other == nil {
-		return false
-	}
-
-	if payload.X5U != other.X5U {
-		return false
-	}
-
-	if len(payload.X5C) != len(other.X5C) {
-		return false
-	}
-
-	for i, v := range payload.X5C {
-		if v != other.X5C[i] {
-			return false
-		}
-	}
-
-	if payload.X5T != other.X5T {
-		return false
-	}
-
-	if payload.X5TS256 != other.X5TS256 {
-		return false
-	}
-
-	return true
+	return other != nil &&
+		payload.X5U == other.X5U &&
+		slices.Equal(payload.X5C, other.X5C) &&
+		payload.X5T == other.X5T &&
+		payload.X5TS256 == other.X5TS256
 }

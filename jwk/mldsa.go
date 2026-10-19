@@ -11,23 +11,27 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-// An MLDSAPreset describes how to generate an ML-DSA JSON Web Key: the algorithm it is bound to and
-// the FIPS 204 parameter set its keys use.
+// An MLDSAPreset describes how to generate an ML-DSA JSON Web Key.
 type MLDSAPreset struct {
-	Alg    jwa.Alg
+	// Alg is the signature algorithm the key is bound to.
+	Alg jwa.Alg
+	// Params is the FIPS 204 parameter set the key uses.
 	Params mldsa.Parameters
 }
 
-// Post-quantum signature algorithms. FIPS 204 recommends [MLDSA44] for most applications.
 var (
+	// MLDSA44 generates an ML-DSA-44 key, the parameter set FIPS 204 recommends for most
+	// applications.
 	MLDSA44 = MLDSAPreset{
 		Alg:    jwa.MLDSA44,
 		Params: mldsa.MLDSA44(),
 	}
+	// MLDSA65 generates an ML-DSA-65 key.
 	MLDSA65 = MLDSAPreset{
 		Alg:    jwa.MLDSA65,
 		Params: mldsa.MLDSA65(),
 	}
+	// MLDSA87 generates an ML-DSA-87 key.
 	MLDSA87 = MLDSAPreset{
 		Alg:    jwa.MLDSA87,
 		Params: mldsa.MLDSA87(),
@@ -37,7 +41,7 @@ var (
 // GenerateMLDSA generates a new ML-DSA key pair, serialized as an Algorithm Key Pair (AKP) JSON Web
 // Key whose private member is the 32-byte seed (RFC 9964).
 //
-// Retrieve a raw key with res.Key(), or marshal either result into a JSON Web Key with json.Marshal.
+// Call Key on either result for the native key, or marshal it into a JSON Web Key with json.Marshal.
 //
 // Pass one of the ML-DSA presets, such as [MLDSA44].
 func GenerateMLDSA(preset MLDSAPreset) (*Key[*mldsa.PrivateKey], *Key[*mldsa.PublicKey], error) {

@@ -14,7 +14,7 @@ import (
 
 // GenerateED25519 generates a new Ed25519 key pair.
 //
-// Retrieve a raw key with res.Key(), or marshal either result into a JSON Web Key with json.Marshal.
+// Call Key on either result for the native key, or marshal it into a JSON Web Key with json.Marshal.
 func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {

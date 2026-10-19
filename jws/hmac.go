@@ -12,11 +12,13 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-// An HMACPreset bundles the hash and algorithm identifier for one HMAC signing scheme. Pass one of
-// the exported presets to the HMAC constructors.
+// An HMACPreset describes an HMAC signing scheme. Pass one of the exported presets to the HMAC
+// constructors.
 type HMACPreset struct {
+	// Hash is the hash HMAC runs on.
 	Hash crypto.Hash
-	Alg  jwa.Alg
+	// Alg is the signature algorithm.
+	Alg jwa.Alg
 }
 
 var (
@@ -63,11 +65,9 @@ func (signer *HMACSigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, 
 		return nil, fmt.Errorf("(HMACSigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
-	if len(signer.secretKey) < signer.hash.Size() {
-		return nil, fmt.Errorf(
-			"(HMACSigner.Header) %w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
-			jwt.ErrInvalidSecretKey, len(signer.secretKey), signer.hash.Size(),
-		)
+	err := checkHMACKey(signer.secretKey, signer.hash)
+	if err != nil {
+		return nil, fmt.Errorf("(HMACSigner.Header) %w", err)
 	}
 
 	header.Alg = signer.alg
@@ -78,11 +78,9 @@ func (signer *HMACSigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, 
 func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw string) (string, error) {
 	// A sourced signer re-resolves its key here without going back through Header, so this is the
 	// guard that gates every signature.
-	if len(signer.secretKey) < signer.hash.Size() {
-		return "", fmt.Errorf(
-			"(HMACSigner.Transform) %w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
-			jwt.ErrInvalidSecretKey, len(signer.secretKey), signer.hash.Size(),
-		)
+	err := checkHMACKey(signer.secretKey, signer.hash)
+	if err != nil {
+		return "", fmt.Errorf("(HMACSigner.Transform) %w", err)
 	}
 
 	token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
@@ -132,11 +130,9 @@ func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawT
 		)
 	}
 
-	if len(verifier.secretKey) < verifier.hash.Size() {
-		return nil, fmt.Errorf(
-			"(HMACVerifier.Transform) %w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
-			jwt.ErrInvalidSecretKey, len(verifier.secretKey), verifier.hash.Size(),
-		)
+	err := checkHMACKey(verifier.secretKey, verifier.hash)
+	if err != nil {
+		return nil, fmt.Errorf("(HMACVerifier.Transform) %w", err)
 	}
 
 	token, err := jwt.DecodeToken(rawToken, &jwt.SignedTokenDecoder{})
@@ -224,8 +220,8 @@ func (signer *SourcedHMACSigner) Transform(ctx context.Context, header *jwa.JWH,
 }
 
 // A SourcedHMACVerifier verifies like an [HMACVerifier] but resolves candidate secrets from a
-// [jwk.Source] at each call. When the token names a KID it tries only that secret; otherwise it
-// tries every secret in the source. Build one with [NewSourcedHMACVerifier].
+// [jwk.Source] at each call. When the token names a KID, it tries only that secret. Otherwise
+// it tries every secret in the source. Build one with [NewSourcedHMACVerifier].
 type SourcedHMACVerifier struct {
 	source *jwk.Source
 	preset HMACPreset

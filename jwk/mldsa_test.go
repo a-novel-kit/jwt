@@ -71,7 +71,7 @@ func TestConsumeMLDSA(t *testing.T) {
 	}{
 		{name: "Success/Private", key: private.JWK, expectPrivate: true},
 		{name: "Success/Public", key: public.JWK},
-		{name: "Error/Mismatch", key: newBullshitKey[any](t, "kid").JWK, expectErr: jwk.ErrJWKMismatch},
+		{name: "Error/Mismatch", key: newPlaceholderKey[any](t, "kid").JWK, expectErr: jwk.ErrJWKMismatch},
 		{name: "Error/OtherFamily", key: edPublic.JWK, expectErr: jwk.ErrJWKMismatch},
 		{name: "Error/WrongParameterSet", key: &relabeled, expectErr: serializers.ErrInvalidMLDSAKey},
 	}

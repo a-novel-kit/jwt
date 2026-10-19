@@ -43,6 +43,21 @@ func TestClaimsChecker(t *testing.T) {
 			expect: map[string]any{"foo": "bar"},
 		},
 		{
+			// A JSON null payload is no claims set, so no check can read it.
+			name: "NullClaims",
+
+			config: &jwp.ClaimsCheckerConfig{
+				Checks: []jwp.ClaimsCheck{jwp.NewClaimsCheckTimestamp(0, false)},
+			},
+
+			raw: nil,
+
+			dst:    map[string]any{},
+			expect: map[string]any{},
+
+			expectErr: jwp.ErrInvalidClaims,
+		},
+		{
 			name: "WithTarget/Success",
 
 			config: &jwp.ClaimsCheckerConfig{
@@ -247,9 +262,7 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwp.ErrInvalidClaims,
 		},
 		{
-			// A negative exp used to satisfy both gates at once: not zero, so it
-			// read as present, and not positive, so it was never compared against
-			// the clock. The token then never expired, requireExp included.
+			// A negative exp is a bound in the past, so the token has expired.
 			name: "Exp/Failure/Negative",
 
 			config: &jwp.ClaimsCheckerConfig{

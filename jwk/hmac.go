@@ -11,37 +11,36 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-// An HMACPreset describes how to generate or match an HMAC JSON Web Key: the algorithm it is bound
-// to and its key size in bytes.
+// An HMACPreset describes how to generate or match an HMAC JSON Web Key.
 type HMACPreset struct {
-	Alg     jwa.Alg
+	// Alg is the signature algorithm the key is bound to.
+	Alg jwa.Alg
+	// KeySize is the length of a generated key, in bytes. The presets use the block size of their
+	// hash, the longest key HMAC takes without hashing it first (RFC 2104 §2).
 	KeySize int
 }
 
 var (
+	// HS256 generates or matches a 64-byte key for HMAC with SHA-256.
 	HS256 = HMACPreset{
-		Alg: jwa.HS256,
-		// If the key is more than 64 bytes long, it is hashed (using SHA-256) to derive a 32-byte key.
-		// https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.hmacsha256.-ctor?view=net-9.0
+		Alg:     jwa.HS256,
 		KeySize: 64,
 	}
+	// HS384 generates or matches a 128-byte key for HMAC with SHA-384.
 	HS384 = HMACPreset{
-		Alg: jwa.HS384,
-		// If the key is more than 128 bytes long, it is hashed (using SHA-384) to derive a 48-byte key.
-		// https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.hmacsha384.-ctor?view=net-9.0
+		Alg:     jwa.HS384,
 		KeySize: 128,
 	}
+	// HS512 generates or matches a 128-byte key for HMAC with SHA-512.
 	HS512 = HMACPreset{
-		Alg: jwa.HS512,
-		// If the key is more than 128 bytes long, it is hashed (using SHA-512) to derive a 64-byte key.
-		// https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.hmacsha512.-ctor?view=net-9.0
+		Alg:     jwa.HS512,
 		KeySize: 128,
 	}
 )
 
 // GenerateHMAC generates a new secret key for HMAC signature algorithms.
 //
-// Retrieve the raw key with res.Key(), or marshal the result into a JSON Web Key with json.Marshal.
+// Call Key on the result for the native key, or marshal it into a JSON Web Key with json.Marshal.
 //
 // Pass one of the HMAC presets, such as [HS256].
 func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {

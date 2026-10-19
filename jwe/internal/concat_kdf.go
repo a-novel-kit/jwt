@@ -1,6 +1,3 @@
-// Package internal holds the low-level cryptographic primitives that the JWE key-management
-// algorithms compose: key derivation, key wrapping, and padding. They live here so several
-// algorithm implementations share one vetted implementation of each primitive.
 package internal
 
 import (

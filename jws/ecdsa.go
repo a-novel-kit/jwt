@@ -15,12 +15,15 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-// An ECDSAPreset bundles the curve, hash, and algorithm identifier for one ECDSA signing scheme.
-// Pass one of the exported presets to the ECDSA constructors.
+// An ECDSAPreset describes an ECDSA signing scheme. Pass one of the exported presets to the ECDSA
+// constructors.
 type ECDSAPreset struct {
+	// Hash digests the signing input.
 	Hash crypto.Hash
-	Alg  jwa.Alg
-	Crv  elliptic.Curve
+	// Alg is the signature algorithm.
+	Alg jwa.Alg
+	// Crv is the curve the key must live on.
+	Crv elliptic.Curve
 }
 
 var (
@@ -110,7 +113,8 @@ func (signer *ECDSASigner) Transform(_ context.Context, _ *jwa.JWH, rawToken str
 	keyBytes := inferECDSAKeySize(signer.secretKey.Params())
 
 	// JWS encodes an ECDSA signature as the fixed-width concatenation R || S, each value big-endian
-	// and left-padded to the curve's coordinate size — not the ASN.1 DER that crypto/ecdsa returns.
+	// and left-padded to the curve's coordinate size. The ASN.1 DER form of ecdsa.SignASN1 does not
+	// interoperate.
 	signature := make([]byte, 2*keyBytes)
 	r.FillBytes(signature[0:keyBytes])
 	s.FillBytes(signature[keyBytes:])
@@ -152,9 +156,9 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	// RFC 7518 §3.4 binds the algorithm to the curve, and the signer checks the same thing. An
-	// operator who configures ES256 against a P-384 key does not enforce ES256, and matching on alg
-	// alone leaves that unsaid — the signature simply fails to verify.
+	// RFC 7518 §3.4 binds the algorithm to the curve, as the signer also checks. A verifier configured
+	// for ES256 with a P-384 key enforces no ES256 at all, so it reports the misconfiguration instead
+	// of failing every signature.
 	if verifier.publicKey == nil || verifier.publicKey.Curve != verifier.crv {
 		return nil, fmt.Errorf(
 			"(ECDSAVerifier.Transform) %w: verification key does not live on the curve %s requires",
@@ -281,7 +285,7 @@ func (signer *SourcedECDSASigner) Transform(ctx context.Context, header *jwa.JWH
 }
 
 // A SourcedECDSAVerifier verifies like an [ECDSAVerifier] but resolves candidate keys from a
-// [jwk.Source] at each call. When the token names a KID it tries only that key; otherwise it tries
+// [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source. Build one with [NewSourcedECDSAVerifier].
 type SourcedECDSAVerifier struct {
 	source *jwk.Source

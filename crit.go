@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // ErrMissingCritHeader is returned when the "crit" list names a header parameter that is absent
@@ -16,7 +17,7 @@ var ErrUnsupportedCritHeader = errors.New("unsupported crit header")
 
 // reservedHeaderParams are the header parameters defined by the JWS/JWE/JWA/JWT specifications. A
 // producer must not mark any of them critical (RFC 7515 §4.1.11), so a recipient rejects a crit list
-// that names one; otherwise "crit" could smuggle contradictory processing rules.
+// that names one.
 var reservedHeaderParams = map[string]bool{
 	"alg": true, "jku": true, "jwk": true, "kid": true,
 	"x5u": true, "x5c": true, "x5t": true, "x5t#S256": true,
@@ -56,22 +57,16 @@ func CheckCrit(data json.RawMessage, crit []string) error {
 	return nil
 }
 
-// CheckCritUnderstood enforces the recipient's "crit" obligation (RFC 7515 §4.1.11): the token is
-// invalid unless every listed critical extension is both understood by the recipient and present in
-// the header. understood is the set of extension names the recipient is configured to process; any
-// crit entry outside it, or one naming a registered JOSE parameter, is rejected. data is the decoded
-// header. A present but empty crit list is itself invalid, so callers pass crit only when the member
-// is present.
+// CheckCritUnderstood enforces the recipient's "crit" obligation (RFC 7515 §4.1.11). The token is
+// invalid unless every listed critical extension is understood by the recipient and present in data,
+// the decoded header. understood names the extensions the recipient is configured to process, and a
+// crit entry outside it, or one naming a registered JOSE parameter, is rejected.
+//
+// A present but empty crit list is itself invalid, so callers pass crit only when the header holds
+// the member.
 func CheckCritUnderstood(data json.RawMessage, crit, understood []string) error {
-	// The caller invokes this only when the member is present, so an empty slice is the "crit":[]
-	// form RFC 7515 §4.1.11 forbids.
 	if len(crit) == 0 {
 		return fmt.Errorf("%w: crit list must not be empty", ErrUnsupportedCritHeader)
-	}
-
-	understoodSet := make(map[string]struct{}, len(understood))
-	for _, name := range understood {
-		understoodSet[name] = struct{}{}
 	}
 
 	for _, name := range crit {
@@ -79,11 +74,10 @@ func CheckCritUnderstood(data json.RawMessage, crit, understood []string) error 
 			return fmt.Errorf("%w: %q is a registered parameter and must not be critical", ErrUnsupportedCritHeader, name)
 		}
 
-		if _, ok := understoodSet[name]; !ok {
+		if !slices.Contains(understood, name) {
 			return fmt.Errorf("%w: %q is not understood by this recipient", ErrUnsupportedCritHeader, name)
 		}
 	}
 
-	// Every understood critical extension must also be present in the header.
 	return CheckCrit(data, crit)
 }
