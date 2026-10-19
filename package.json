@@ -4,13 +4,12 @@
   "license": "AGPL-3.0",
   "type": "module",
   "scripts": {
-    "format": "pnpm run format:prettier",
+    "format": "pnpm format:go && pnpm format:prettier",
+    "format:go": "go mod tidy && go tool -modfile=golangci-lint.mod golangci-lint run ./... --fix",
     "format:prettier": "prettier --write . --config prettier.config.js",
-    "lint": "pnpm run lint:prettier",
-    "lint:prettier": "prettier --check . --config prettier.config.js",
-    "publish:major": "pnpm version major && git push --follow-tags",
-    "publish:minor": "pnpm version minor && git push --follow-tags",
-    "publish:patch": "pnpm version patch && git push --follow-tags"
+    "lint": "pnpm lint:go && pnpm lint:prettier",
+    "lint:go": "go tool -modfile=golangci-lint.mod golangci-lint run ./...",
+    "lint:prettier": "prettier --check . --config prettier.config.js"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
