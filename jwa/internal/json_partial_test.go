@@ -101,19 +101,19 @@ func TestMarshalPartialReservesUnsetMembers(t *testing.T) {
 	type common struct {
 		embedded
 
-		Alg     string `json:"alg,omitempty"`
-		Exp     int64  `json:"exp,omitempty"`
-		Renamed string `json:"cty,omitempty"`
-		Skipped string `json:"-"`
-		Untaged string
+		Alg      string `json:"alg,omitempty"`
+		Exp      int64  `json:"exp,omitempty"`
+		Renamed  string `json:"cty,omitempty"`
+		Skipped  string `json:"-"`
+		Untagged string
 	}
 
 	// Nothing is set, so alg, exp, cty and kid are absent from the encoding, and
-	// each is reserved below on the strength of the declaration alone. Untaged
+	// each is reserved below on the strength of the declaration alone. Untagged
 	// carries no tag and so cannot be omitempty, which is why it is here.
-	require.JSONEq(t, `{"Untaged":""}`, string(mustMarshal(t, common{})))
+	require.JSONEq(t, `{"Untagged":""}`, string(mustMarshal(t, common{})))
 
-	declaredNames := []string{"alg", "exp", "cty", "kid", "Untaged"}
+	declaredNames := []string{"alg", "exp", "cty", "kid", "Untagged"}
 
 	for _, name := range declaredNames {
 		t.Run(name, func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestMarshalPartialReservesUnsetMembers(t *testing.T) {
 		// name collides with nothing.
 		out, err := internal.MarshalPartial(common{}, json.RawMessage(`{"Skipped":"mine"}`))
 		require.NoError(t, err)
-		require.JSONEq(t, `{"Untaged":"","Skipped":"mine"}`, string(out))
+		require.JSONEq(t, `{"Untagged":"","Skipped":"mine"}`, string(out))
 	})
 
 	t.Run("an unrelated member still passes through", func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestMarshalPartialReservesUnsetMembers(t *testing.T) {
 
 		out, err := internal.MarshalPartial(common{Alg: "HS256"}, json.RawMessage(`{"role":"admin"}`))
 		require.NoError(t, err)
-		require.JSONEq(t, `{"Untaged":"","alg":"HS256","role":"admin"}`, string(out))
+		require.JSONEq(t, `{"Untagged":"","alg":"HS256","role":"admin"}`, string(out))
 	})
 }
 

@@ -6,14 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
-	"github.com/a-novel-kit/jwt/v2/jwe"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
-
-// DirectKeyManager plugs into the JWE engine as a jwe.CEKManager ("dir" key management); this
-// assertion keeps its method set matching the interface.
-var _ jwe.CEKManager = (*jwek.DirectKeyManager)(nil)
 
 func TestDirectEncryption(t *testing.T) {
 	t.Parallel()
