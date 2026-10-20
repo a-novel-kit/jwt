@@ -31,6 +31,10 @@ type ECPayload struct {
 	D string `json:"d,omitempty"`
 }
 
+// ErrInvalidECKey is returned when the private key of a decoded ECDSA key does not match its public
+// point.
+var ErrInvalidECKey = errors.New("invalid ECDSA key")
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Reimplemented from crypto/ecdsa internals, which the standard library does not export.
 
@@ -138,6 +142,11 @@ func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	keyPriv, err := ecdsa.ParseRawPrivateKey(curve, d)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse raw private key: %w", err)
+	}
+
+	// A signature made with a private key that does not match "x" and "y" never verifies against them.
+	if !keyPriv.PublicKey.Equal(keyPub) {
+		return nil, nil, fmt.Errorf("%w: private key does not match public key", ErrInvalidECKey)
 	}
 
 	return keyPriv, keyPub, nil

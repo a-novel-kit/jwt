@@ -46,6 +46,24 @@ func TestEC(t *testing.T) {
 		require.Nil(t, decodedPrivateKey)
 		require.True(t, publicKey.Equal(decodedPublicKey))
 	})
+
+	t.Run("Error/MismatchedPublicKey", func(t *testing.T) {
+		t.Parallel()
+
+		otherKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		payload, err := serializers.EncodeEC(privateKey)
+		require.NoError(t, err)
+
+		other, err := serializers.EncodeEC(&otherKey.PublicKey)
+		require.NoError(t, err)
+
+		payload.X, payload.Y = other.X, other.Y
+
+		_, _, err = serializers.DecodeEC(payload)
+		require.ErrorIs(t, err, serializers.ErrInvalidECKey)
+	})
 }
 
 // TestECCoordinateWidth pins the RFC 7518 requirement that x and y are encoded at the curve's full
