@@ -194,28 +194,9 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 		)
 	}
 
-	if header.EPK == nil {
-		return nil, fmt.Errorf(
-			"(ECDHKeyAgrDecoder.ComputeCEK) %w: missing EPK field",
-			jwt.ErrUnsupportedTokenFormat,
-		)
-	}
-
-	var ecdhPayload serializers.ECDHPayload
-
-	err := json.Unmarshal(header.EPK.Payload, &ecdhPayload)
+	z, err := recipientAgreement(header, decoder.config.RecipientKey)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) %w: unmarshal payload: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	_, producerPublicKey, err := serializers.DecodeECDH(&ecdhPayload)
-	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) consume producer public key: %w", err)
-	}
-
-	z, err := decoder.config.RecipientKey.ECDH(producerPublicKey)
-	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) derive shared secret: %w", err)
+		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) %w", err)
 	}
 
 	apu, apv, err := agreementInfo(header)
@@ -260,6 +241,33 @@ func ephemeralAgreement(header *jwa.JWH, recipientKey *ecdh.PublicKey) ([]byte, 
 	}
 
 	z, err := ephemeralKey.ECDH(recipientKey)
+	if err != nil {
+		return nil, fmt.Errorf("derive shared secret: %w", err)
+	}
+
+	return z, nil
+}
+
+// recipientAgreement reads the ephemeral public key a header's "epk" carries and returns the shared
+// secret Z it agrees on with recipientKey, the counterpart of ephemeralAgreement.
+func recipientAgreement(header *jwa.JWH, recipientKey *ecdh.PrivateKey) ([]byte, error) {
+	if header.EPK == nil {
+		return nil, fmt.Errorf("%w: missing EPK field", jwt.ErrUnsupportedTokenFormat)
+	}
+
+	var ecdhPayload serializers.ECDHPayload
+
+	err := json.Unmarshal(header.EPK.Payload, &ecdhPayload)
+	if err != nil {
+		return nil, fmt.Errorf("%w: unmarshal payload: %w", jwt.ErrUnsupportedTokenFormat, err)
+	}
+
+	_, producerPublicKey, err := serializers.DecodeECDH(&ecdhPayload)
+	if err != nil {
+		return nil, fmt.Errorf("consume producer public key: %w", err)
+	}
+
+	z, err := recipientKey.ECDH(producerPublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("derive shared secret: %w", err)
 	}
