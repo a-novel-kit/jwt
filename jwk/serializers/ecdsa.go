@@ -46,7 +46,7 @@ func pointFromAffine(curve elliptic.Curve, x, y *big.Int) ([]byte, error) {
 	if x.BitLen() > bitSize || y.BitLen() > bitSize {
 		return nil, errors.New("overflowing coordinate")
 	}
-	// Encode the coordinates and let [ecdsa.NewPublicKey] reject invalid points.
+	// Encode the coordinates and let ecdsa.ParseUncompressedPublicKey reject invalid points.
 	byteLen := (bitSize + 7) / 8
 	buf := make([]byte, 1+2*byteLen)
 	buf[0] = 4 // uncompressed point
@@ -74,6 +74,7 @@ func pointToAffine(curve elliptic.Curve, p []byte) (x, y *big.Int, err error) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+// parsePublicKeyParams returns the affine coordinates of key and the curve they lie on.
 func parsePublicKeyParams(key *ecdsa.PublicKey) (*big.Int, *big.Int, elliptic.Curve, error) {
 	raw, err := key.Bytes()
 	if err != nil {

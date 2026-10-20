@@ -126,7 +126,8 @@ func ConsumeECDHKey(source *jwa.JWK, preset ECDHPreset) (*Key[*ecdh.PrivateKey],
 }
 
 // ecdhHeader returns the common parameters of a key-agreement key for preset. Both halves of the
-// pair share them: each derives the agreed key.
+// pair share them, since each derives the agreed key. GenerateECDHKey stamps them with a key ID, and
+// ConsumeECDHKey requires them.
 func ecdhHeader(preset ECDHPreset) jwa.JWKCommon {
 	return jwa.JWKCommon{
 		KTY:    serializers.ECDHKeyType(preset.Curve),

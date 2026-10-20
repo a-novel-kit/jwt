@@ -109,9 +109,9 @@ func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, c
 		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) generate IV: %w", err)
 	}
 
-	ciphertextAndTag := aesgcm.Seal(nil, iv, cek, []byte{})
 	// Seal appends the authentication tag to the ciphertext, and the JWE header carries the tag
 	// separately.
+	ciphertextAndTag := aesgcm.Seal(nil, iv, cek, []byte{})
 	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
 	ciphertext := ciphertextAndTag[:cipherLen]
 	tag := ciphertextAndTag[cipherLen:]

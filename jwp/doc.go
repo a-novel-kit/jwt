@@ -1,4 +1,4 @@
-// Package jwp holds optional helpers built from the lower-level packages: a static plugin that
-// advertises the signing key in the token header, and a claims checker that validates the
-// registered claims of a token before decoding it.
+// Package jwp holds optional helpers built from the lower-level packages, for needs many token flows
+// share, such as validating registered claims before decoding them. The lower-level packages never
+// depend on it.
 package jwp
