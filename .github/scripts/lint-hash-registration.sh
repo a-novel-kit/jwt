@@ -27,24 +27,30 @@ declare -A REGISTRAR=(
 
 fail=0
 
-# Package directories holding non-test Go sources that name a hash.
+# Each directory holding non-test Go sources is one package. Its test files never reach a consumer,
+# so they neither count as naming a hash nor as importing a registrar.
 while IFS= read -r dir; do
-  used=$(grep -rhoE 'crypto\.SHA[0-9]+' "$dir"/*.go 2>/dev/null |
-    grep -v '_test.go' | sed 's/crypto\.//' | sort -u || true)
+  sources=()
+  for file in "$dir"/*.go; do
+    [[ "$file" == *_test.go ]] || sources+=("$file")
+  done
+
+  used=$(grep -hoE 'crypto\.SHA[0-9]+' "${sources[@]}" | sed 's/crypto\.//' | sort -u || true)
   [ -n "$used" ] || continue
 
   for hash in $used; do
     registrar="${REGISTRAR[$hash]:-}"
     if [ -z "$registrar" ]; then
-      echo "::error file=${dir}::crypto.${hash} has no known registrar in this check. Add one to REGISTRAR."
+      printf '::error file=%s::crypto.%s has no known registrar in this check. Add one to REGISTRAR.\n' \
+        "$dir" "$hash"
       fail=1
 
       continue
     fi
 
-    # The blank import may live in any non-test file of the package.
-    if ! grep -rqE "^[[:space:]]*_ \"${registrar}\"" "$dir"/*.go 2>/dev/null; then
-      echo "::error file=${dir}::package names crypto.${hash} but no file imports \`_ \"${registrar}\"\`, so calling New() on it panics for a consumer that imports this package alone. Add the blank import (see hashes.go)."
+    if ! grep -qE "^[[:space:]]*_ \"${registrar}\"" "${sources[@]}"; then
+      printf '::error file=%s::package names crypto.%s but no file imports %s, so calling New() on it panics for a consumer that imports this package alone. Add the blank import (see hashes.go).\n' \
+        "$dir" "$hash" "\`_ \"${registrar}\"\`"
       fail=1
     fi
   done
@@ -55,4 +61,4 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-echo "✓ every package naming a crypto.Hash imports its registrar."
+printf '✓ every package naming a crypto.Hash imports its registrar.\n'
