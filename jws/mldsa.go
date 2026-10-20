@@ -151,19 +151,17 @@ func sourcedMLDSAPublic(alg jwa.Alg) keyDecoder[*mldsa.PublicKey] {
 }
 
 // sourcedMLDSAPrivate decodes a raw JSON Web Key into an ML-DSA private key for signing.
-func sourcedMLDSAPrivate() keyDecoder[*mldsa.PrivateKey] {
-	return func(key *jwa.JWK) (*mldsa.PrivateKey, error) {
-		privateKey, _, err := jwk.ConsumeMLDSA(key)
-		if err != nil {
-			return nil, err
-		}
-
-		if privateKey == nil {
-			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
-		}
-
-		return privateKey.Key(), nil
+func sourcedMLDSAPrivate(key *jwa.JWK) (*mldsa.PrivateKey, error) {
+	privateKey, _, err := jwk.ConsumeMLDSA(key)
+	if err != nil {
+		return nil, err
 	}
+
+	if privateKey == nil {
+		return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
+	}
+
+	return privateKey.Key(), nil
 }
 
 // A SourcedMLDSASigner signs like an [MLDSASigner] but resolves its key from a [jwk.Source] at each
@@ -184,7 +182,7 @@ func NewSourcedMLDSASigner(source *jwk.Source) *SourcedMLDSASigner {
 }
 
 func (signer *SourcedMLDSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedMLDSAPrivate())
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedMLDSAPrivate)
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedMLDSASigner.Header) %w", err)
 	}
@@ -198,7 +196,7 @@ func (signer *SourcedMLDSASigner) Header(ctx context.Context, header *jwa.JWH) (
 }
 
 func (signer *SourcedMLDSASigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedMLDSAPrivate())
+	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedMLDSAPrivate)
 	if err != nil {
 		return "", fmt.Errorf("(SourcedMLDSASigner.Transform) %w", err)
 	}

@@ -220,15 +220,20 @@ func (verifier *RSAVerifier) verify(digest, sig []byte) error {
 	return rsa.VerifyPKCS1v15(verifier.publicKey, verifier.hash, digest, sig)
 }
 
-// sourcedRSAPublic decodes a raw JSON Web Key into an RSA public key for verification, matching only
-// signature keys bound to alg and skipping any that carry private material.
-func sourcedRSAPublic(alg jwa.Alg) keyDecoder[*rsa.PublicKey] {
-	preset := jwk.RSAPreset{
+// rsaSignatureKey returns the jwk preset matching an RSA signature key bound to alg.
+func rsaSignatureKey(alg jwa.Alg) jwk.RSAPreset {
+	return jwk.RSAPreset{
 		Alg:           alg,
 		Use:           jwa.UseSig,
 		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 	}
+}
+
+// sourcedRSAPublic decodes a raw JSON Web Key into an RSA public key for verification, matching only
+// signature keys bound to alg and skipping any that carry private material.
+func sourcedRSAPublic(alg jwa.Alg) keyDecoder[*rsa.PublicKey] {
+	preset := rsaSignatureKey(alg)
 
 	return func(key *jwa.JWK) (*rsa.PublicKey, error) {
 		privateKey, publicKey, err := jwk.ConsumeRSA(key, preset)
@@ -251,12 +256,7 @@ func sourcedRSAPublic(alg jwa.Alg) keyDecoder[*rsa.PublicKey] {
 // sourcedRSAPrivate decodes a raw JSON Web Key into an RSA private key for signing, matching only
 // signature keys bound to alg.
 func sourcedRSAPrivate(alg jwa.Alg) keyDecoder[*rsa.PrivateKey] {
-	preset := jwk.RSAPreset{
-		Alg:           alg,
-		Use:           jwa.UseSig,
-		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
-		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
-	}
+	preset := rsaSignatureKey(alg)
 
 	return func(key *jwa.JWK) (*rsa.PrivateKey, error) {
 		privateKey, _, err := jwk.ConsumeRSA(key, preset)
