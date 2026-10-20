@@ -1,6 +1,11 @@
 package jwe_test
 
 import (
+	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -321,4 +326,57 @@ func TestAESCBCMalformedSegment(t *testing.T) {
 			require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwt.ErrUnsupportedTokenFormat)
 		})
 	}
+}
+
+// RFC 7518 §5.2.2.1 takes MAC_KEY from the leading MAC_KEY_LEN octets of the content encryption key
+// and ENC_KEY from the octets after it. The package presets split the key in equal halves, which hides
+// the offset, and a round trip agrees with itself on any split. This preset's keys differ in length,
+// and the test decrypts the ciphertext with ENC_KEY on its own.
+func TestAESCBCKeySplit(t *testing.T) {
+	t.Parallel()
+
+	preset := jwe.AESCBCPreset{
+		Enc:       jwa.A256CBC,
+		Hash:      crypto.SHA256,
+		KeyLen:    48,
+		EncKeyLen: 32,
+		MACKeyLen: 16,
+		TagLength: 16,
+	}
+
+	cek := make([]byte, preset.KeyLen)
+	_, err := rand.Read(cek)
+	require.NoError(t, err)
+
+	encrypter := jwe.NewAESCBCEncryption(&jwe.AESCBCEncryptionConfig{
+		CEKManager: &fakeCEKManager{cek: cek, encrypted: []byte("encrypted")},
+	}, preset)
+
+	header, err := encrypter.Header(t.Context(), &jwa.JWH{})
+	require.NoError(t, err)
+
+	plainText := []byte(`{"foo":"bar"}`)
+	rawToken := jwt.RawToken{Header: "e30", Payload: base64.RawURLEncoding.EncodeToString(plainText)}
+
+	token, err := encrypter.Transform(t.Context(), header, rawToken.String())
+	require.NoError(t, err)
+
+	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+	require.NoError(t, err)
+
+	block, err := aes.NewCipher(cek[preset.MACKeyLen:])
+	require.NoError(t, err)
+
+	cipherText := mustDecodeBase64(t, parts.CipherText)
+	decrypted := make([]byte, len(cipherText))
+	cipher.NewCBCDecrypter(block, mustDecodeBase64(t, parts.IV)).CryptBlocks(decrypted, cipherText)
+	require.Equal(t, plainText, decrypted[:len(plainText)])
+
+	decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{
+		CEKDecoder: &fakeCEKDecoder{cek: cek, encrypted: []byte("encrypted")},
+	}, preset)
+
+	decoded, err := decrypter.Transform(t.Context(), header, token)
+	require.NoError(t, err)
+	require.Equal(t, plainText, decoded)
 }

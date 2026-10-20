@@ -164,7 +164,7 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	// K splits into two subkeys: MAC_KEY is its leading octets, ENC_KEY its trailing
 	// octets. The MAC key comes first, the reverse of the order the name suggests in
 	// "AES_CBC_HMAC_SHA2".
-	encKey := secret[enc.keyLength:]
+	encKey := secret[enc.macKeyLength:]
 	macKey := secret[:enc.macKeyLength]
 
 	block, err := aes.NewCipher(encKey)
@@ -281,7 +281,7 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}
 
 	// MAC_KEY leads K and ENC_KEY trails it, as at encryption.
-	encKey := cek[dec.keyLength:]
+	encKey := cek[dec.macKeyLength:]
 	macKey := cek[:dec.macKeyLength]
 
 	// The tag is checked before the ciphertext is touched. hmac.Equal compares in constant time, so
