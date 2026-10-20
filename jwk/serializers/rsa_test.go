@@ -3,6 +3,8 @@ package serializers_test
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,32 +15,67 @@ import (
 func TestRSA(t *testing.T) {
 	t.Parallel()
 
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	require.NoError(t, err)
+	testCases := []struct {
+		name   string
+		primes int
+	}{
+		{name: "TwoPrimes", primes: 2},
+		{name: "ThreePrimes", primes: 3},
+		{name: "FourPrimes", primes: 4},
+	}
 
-	publicKey := &privateKey.PublicKey
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("PrivateKey", func(t *testing.T) {
-		t.Parallel()
+			privateKey, err := rsa.GenerateMultiPrimeKey(rand.Reader, testCase.primes, 2048) //nolint:staticcheck
+			require.NoError(t, err)
 
-		payload := serializers.EncodeRSA(privateKey)
+			publicKey := &privateKey.PublicKey
 
-		decodedPrivateKey, decodedPublicKey, err := serializers.DecodeRSA(payload)
-		require.NoError(t, err)
+			t.Run("PrivateKey", func(t *testing.T) {
+				t.Parallel()
 
-		require.True(t, privateKey.Equal(decodedPrivateKey))
-		require.True(t, publicKey.Equal(decodedPublicKey))
-	})
+				payload := serializers.EncodeRSA(privateKey)
 
-	t.Run("PublicKey", func(t *testing.T) {
-		t.Parallel()
+				// RFC 7518 §6.3.2.7 gives each prime after the second its own "oth" entry: the factor, its CRT
+				// exponent, and the inverse of the product of the factors before it.
+				require.Len(t, payload.Oth, testCase.primes-2)
 
-		payload := serializers.EncodeRSA(publicKey)
+				product := new(big.Int).Mul(privateKey.Primes[0], privateKey.Primes[1])
 
-		decodedPrivateKey, decodedPublicKey, err := serializers.DecodeRSA(payload)
-		require.NoError(t, err)
+				for i, prime := range privateKey.Primes[2:] {
+					exponent := new(big.Int).Mod(privateKey.D, new(big.Int).Sub(prime, big.NewInt(1)))
+					coefficient := new(big.Int).ModInverse(product, prime)
 
-		require.Nil(t, decodedPrivateKey)
-		require.True(t, publicKey.Equal(decodedPublicKey))
-	})
+					require.Equal(t, serializers.RSAOtherPrime{
+						R: base64.RawURLEncoding.EncodeToString(prime.Bytes()),
+						D: base64.RawURLEncoding.EncodeToString(exponent.Bytes()),
+						T: base64.RawURLEncoding.EncodeToString(coefficient.Bytes()),
+					}, payload.Oth[i])
+
+					product.Mul(product, prime)
+				}
+
+				decodedPrivateKey, decodedPublicKey, err := serializers.DecodeRSA(payload)
+				require.NoError(t, err)
+
+				require.NoError(t, decodedPrivateKey.Validate())
+				require.True(t, privateKey.Equal(decodedPrivateKey))
+				require.True(t, publicKey.Equal(decodedPublicKey))
+			})
+
+			t.Run("PublicKey", func(t *testing.T) {
+				t.Parallel()
+
+				payload := serializers.EncodeRSA(publicKey)
+
+				decodedPrivateKey, decodedPublicKey, err := serializers.DecodeRSA(payload)
+				require.NoError(t, err)
+
+				require.Nil(t, decodedPrivateKey)
+				require.True(t, publicKey.Equal(decodedPublicKey))
+			})
+		})
+	}
 }

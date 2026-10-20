@@ -96,6 +96,15 @@ func TestECDHKeyAgr(t *testing.T) {
 				require.NotEqual(t, computedCEK, decodedCEK)
 			})
 
+			t.Run("NoRecipientKey", func(t *testing.T) {
+				t.Parallel()
+
+				decoder := jwek.NewECDHKeyAgrDecoder(&jwek.ECDHKeyAgrDecoderConfig{}, testCase.preset)
+
+				_, err := decoder.ComputeCEK(t.Context(), header, nil)
+				require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+			})
+
 			t.Run("MalformedAgreementInfo", func(t *testing.T) {
 				t.Parallel()
 
