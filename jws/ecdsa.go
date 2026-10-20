@@ -50,14 +50,7 @@ var (
 // inferECDSAKeySize returns the byte width of a coordinate on the given curve, rounding up when the
 // bit size is not a multiple of eight. JWS pads both signature halves to this width.
 func inferECDSAKeySize(params *elliptic.CurveParams) int {
-	curveBits := params.BitSize
-	keyBytes := curveBits / 8
-
-	if curveBits%8 > 0 {
-		keyBytes++
-	}
-
-	return keyBytes
+	return (params.BitSize + 7) / 8
 }
 
 // An ECDSASigner signs tokens with ECDSA as a [jwt.ProducerPlugin]. Build one with [NewECDSASigner].
