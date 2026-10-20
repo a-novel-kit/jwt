@@ -148,25 +148,25 @@ func DecodeRSA(src *RSAPayload) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 		}
 
 		for i, oth := range src.Oth {
-			OR, err := base64.RawURLEncoding.DecodeString(oth.R)
+			prime, err := base64.RawURLEncoding.DecodeString(oth.R)
 			if err != nil {
 				return nil, nil, fmt.Errorf("decode rsa private key other prime factor %d: %w", i, err)
 			}
 
-			OD, err := base64.RawURLEncoding.DecodeString(oth.D)
+			exponent, err := base64.RawURLEncoding.DecodeString(oth.D)
 			if err != nil {
 				return nil, nil, fmt.Errorf("decode rsa private key other prime factor %d CRT exponent: %w", i, err)
 			}
 
-			OT, err := base64.RawURLEncoding.DecodeString(oth.T)
+			coefficient, err := base64.RawURLEncoding.DecodeString(oth.T)
 			if err != nil {
 				return nil, nil, fmt.Errorf("decode rsa private key other prime factor %d CRT coefficient: %w", i, err)
 			}
 
 			key.Precomputed.CRTValues[i+2] = rsa.CRTValue{ //nolint:staticcheck
-				R:     new(big.Int).SetBytes(OR),
-				Exp:   new(big.Int).SetBytes(OD),
-				Coeff: new(big.Int).SetBytes(OT),
+				R:     new(big.Int).SetBytes(prime),
+				Exp:   new(big.Int).SetBytes(exponent),
+				Coeff: new(big.Int).SetBytes(coefficient),
 			}
 		}
 	}
@@ -176,31 +176,28 @@ func DecodeRSA(src *RSAPayload) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 
 // EncodeRSA builds the RSAPayload representation of an RSA public or private key.
 func EncodeRSA[Key *rsa.PublicKey | *rsa.PrivateKey](key Key) *RSAPayload {
-	payload := new(RSAPayload)
-
 	pubKey, ok := any(key).(*rsa.PublicKey)
 	if ok {
-		payload.N = base64.RawURLEncoding.EncodeToString(pubKey.N.Bytes())
-		payload.E = base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pubKey.E)).Bytes())
-
-		return payload
+		return &RSAPayload{
+			N: base64.RawURLEncoding.EncodeToString(pubKey.N.Bytes()),
+			E: base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pubKey.E)).Bytes()),
+		}
 	}
 
 	privKey := any(key).(*rsa.PrivateKey)
 
 	privKey.Precompute()
 
-	payload.N = base64.RawURLEncoding.EncodeToString(privKey.N.Bytes())
-	payload.E = base64.RawURLEncoding.EncodeToString(big.NewInt(int64(privKey.E)).Bytes())
-
-	payload.D = base64.RawURLEncoding.EncodeToString(privKey.D.Bytes())
-
-	payload.P = base64.RawURLEncoding.EncodeToString(privKey.Primes[0].Bytes())
-	payload.Q = base64.RawURLEncoding.EncodeToString(privKey.Primes[1].Bytes())
-
-	payload.DP = base64.RawURLEncoding.EncodeToString(privKey.Precomputed.Dp.Bytes())
-	payload.DQ = base64.RawURLEncoding.EncodeToString(privKey.Precomputed.Dq.Bytes())
-	payload.QI = base64.RawURLEncoding.EncodeToString(privKey.Precomputed.Qinv.Bytes())
+	payload := &RSAPayload{
+		N:  base64.RawURLEncoding.EncodeToString(privKey.N.Bytes()),
+		E:  base64.RawURLEncoding.EncodeToString(big.NewInt(int64(privKey.E)).Bytes()),
+		D:  base64.RawURLEncoding.EncodeToString(privKey.D.Bytes()),
+		P:  base64.RawURLEncoding.EncodeToString(privKey.Primes[0].Bytes()),
+		Q:  base64.RawURLEncoding.EncodeToString(privKey.Primes[1].Bytes()),
+		DP: base64.RawURLEncoding.EncodeToString(privKey.Precomputed.Dp.Bytes()),
+		DQ: base64.RawURLEncoding.EncodeToString(privKey.Precomputed.Dq.Bytes()),
+		QI: base64.RawURLEncoding.EncodeToString(privKey.Precomputed.Qinv.Bytes()),
+	}
 
 	if len(privKey.Precomputed.CRTValues) > 0 { //nolint:staticcheck
 		payload.Oth = make([]RSAOtherPrime, len(privKey.Precomputed.CRTValues)-2) //nolint:staticcheck
