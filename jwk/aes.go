@@ -150,27 +150,15 @@ func GenerateAES(preset AESPreset) (*Key[[]byte], error) {
 		return nil, fmt.Errorf("(GenerateAES) generate key: %w", err)
 	}
 
-	payload := serializers.EncodeOct(key)
-
-	header := jwa.JWKCommon{
-		KTY:    jwa.KTYOct,
-		Use:    jwa.UseEnc,
-		KeyOps: preset.KeyOps,
-		Alg:    preset.Alg,
-		KID:    uuid.NewString(),
-	}
-
-	payloadSerialized, err := json.Marshal(payload)
+	payloadSerialized, err := json.Marshal(serializers.EncodeOct(key))
 	if err != nil {
 		return nil, fmt.Errorf("(GenerateAES) serialize payload: %w", err)
 	}
 
-	jsonKey := &jwa.JWK{
-		JWKCommon: header,
-		Payload:   payloadSerialized,
-	}
+	header := aesHeader(preset)
+	header.KID = uuid.NewString()
 
-	return &Key[[]byte]{jsonKey, key}, nil
+	return NewKey(&jwa.JWK{JWKCommon: header, Payload: payloadSerialized}, key), nil
 }
 
 // ConsumeAES parses a JSON Web Key into the secret key for an AES algorithm.
@@ -178,12 +166,7 @@ func GenerateAES(preset AESPreset) (*Key[[]byte], error) {
 // It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
 // generate the key; see [GenerateAES] for the available presets.
 func ConsumeAES(source *jwa.JWK, preset AESPreset) (*Key[[]byte], error) {
-	if !source.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYOct,
-		Use:    jwa.UseEnc,
-		KeyOps: preset.KeyOps,
-		Alg:    preset.Alg,
-	}) {
+	if !source.MatchPreset(aesHeader(preset)) {
 		return nil, fmt.Errorf("(ConsumeAES) %w", ErrJWKMismatch)
 	}
 
@@ -199,5 +182,16 @@ func ConsumeAES(source *jwa.JWK, preset AESPreset) (*Key[[]byte], error) {
 		return nil, fmt.Errorf("(ConsumeAES) decode payload: %w", err)
 	}
 
-	return NewKey[[]byte](source, decoded), nil
+	return NewKey(source, decoded), nil
+}
+
+// aesHeader returns the common parameters of an AES key for preset. GenerateAES stamps them with a
+// key ID, and ConsumeAES requires them.
+func aesHeader(preset AESPreset) jwa.JWKCommon {
+	return jwa.JWKCommon{
+		KTY:    jwa.KTYOct,
+		Use:    jwa.UseEnc,
+		KeyOps: preset.KeyOps,
+		Alg:    preset.Alg,
+	}
 }

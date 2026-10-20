@@ -88,8 +88,7 @@ type Source struct {
 func NewSource(config SourceConfig) *Source {
 	return &Source{
 		config: config,
-		cached: nil,
-		mu:     new(sync.RWMutex),
+		mu:     &sync.RWMutex{},
 	}
 }
 

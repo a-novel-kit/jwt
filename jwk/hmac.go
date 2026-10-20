@@ -49,27 +49,15 @@ func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {
 		return nil, fmt.Errorf("(GenerateHMAC) generate key: %w", err)
 	}
 
-	payload := serializers.EncodeOct(key)
-
-	header := jwa.JWKCommon{
-		KTY:    jwa.KTYOct,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpSign, jwa.KeyOpVerify},
-		Alg:    preset.Alg,
-		KID:    uuid.NewString(),
-	}
-
-	payloadSerialized, err := json.Marshal(payload)
+	payloadSerialized, err := json.Marshal(serializers.EncodeOct(key))
 	if err != nil {
 		return nil, fmt.Errorf("(GenerateHMAC) serialize payload: %w", err)
 	}
 
-	jsonKey := &jwa.JWK{
-		JWKCommon: header,
-		Payload:   payloadSerialized,
-	}
+	header := hmacHeader(preset)
+	header.KID = uuid.NewString()
 
-	return &Key[[]byte]{jsonKey, key}, nil
+	return NewKey(&jwa.JWK{JWKCommon: header, Payload: payloadSerialized}, key), nil
 }
 
 // ConsumeHMAC parses a JSON Web Key into the secret key for an HMAC algorithm.
@@ -77,12 +65,7 @@ func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {
 // It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
 // generate the key; see [GenerateHMAC] for the available presets.
 func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
-	if !source.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYOct,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpSign, jwa.KeyOpVerify},
-		Alg:    preset.Alg,
-	}) {
+	if !source.MatchPreset(hmacHeader(preset)) {
 		return nil, fmt.Errorf("(ConsumeHMAC) %w", ErrJWKMismatch)
 	}
 
@@ -98,5 +81,17 @@ func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
 		return nil, fmt.Errorf("(ConsumeHMAC) decode payload: %w", err)
 	}
 
-	return NewKey[[]byte](source, decoded), nil
+	return NewKey(source, decoded), nil
+}
+
+// hmacHeader returns the common parameters of an HMAC key for preset. The one secret both signs and
+// verifies, so the key permits both. GenerateHMAC stamps them with a key ID, and ConsumeHMAC
+// requires them.
+func hmacHeader(preset HMACPreset) jwa.JWKCommon {
+	return jwa.JWKCommon{
+		KTY:    jwa.KTYOct,
+		Use:    jwa.UseSig,
+		KeyOps: jwa.KeyOps{jwa.KeyOpSign, jwa.KeyOpVerify},
+		Alg:    preset.Alg,
+	}
 }

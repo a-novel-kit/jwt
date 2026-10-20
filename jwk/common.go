@@ -27,3 +27,15 @@ func (key *Key[K]) Key() K {
 func NewKey[K any](jwk *jwa.JWK, parsed K) *Key[K] {
 	return &Key[K]{jwk, parsed}
 }
+
+// signatureHeader returns the common parameters of the signature key half that performs op:
+// jwa.KeyOpSign for a private key, jwa.KeyOpVerify for a public one. A Generate function stamps
+// them with a key ID, and the matching Consume function requires them.
+func signatureHeader(kty jwa.KTY, alg jwa.Alg, op jwa.KeyOp) jwa.JWKCommon {
+	return jwa.JWKCommon{
+		KTY:    kty,
+		Use:    jwa.UseSig,
+		KeyOps: jwa.KeyOps{op},
+		Alg:    alg,
+	}
+}
