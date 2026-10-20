@@ -89,15 +89,15 @@ type AESCBCEncryption struct {
 // the variant.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
-func NewAESCBCEncryption(config *AESCBCEncryptionConfig, presets AESCBCPreset) *AESCBCEncryption {
+func NewAESCBCEncryption(config *AESCBCEncryptionConfig, preset AESCBCPreset) *AESCBCEncryption {
 	return &AESCBCEncryption{
 		cekManager:     config.CEKManager,
 		additionalData: config.AdditionalData,
-		enc:            presets.Enc,
-		hash:           presets.Hash,
-		keyLength:      presets.EncKeyLen,
-		macKeyLength:   presets.MACKeyLen,
-		tagLength:      presets.TagLength,
+		enc:            preset.Enc,
+		hash:           preset.Hash,
+		keyLength:      preset.EncKeyLen,
+		macKeyLength:   preset.MACKeyLen,
+		tagLength:      preset.TagLength,
 	}
 }
 
@@ -177,32 +177,15 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	cipherText := make([]byte, len(origData))
 	blockMode.CryptBlocks(cipherText, origData)
 
-	// AAD binds the encoded protected header (RFC 7516 §5.1) plus any application data. AL is its
-	// length in bits as a big-endian uint64, the last input to the tag.
 	aadBytes := aad(encodedHeader, enc.additionalData)
-
-	al := make([]byte, 8)
-	binary.BigEndian.PutUint64(al, uint64(len(aadBytes)*8))
-
-	// The tag is HMAC over AAD, IV, ciphertext, and AL in the order the spec fixes, truncated to
-	// tagLength octets.
-	authenticationTag := hmac.New(enc.hash.New, macKey)
-	authenticationTag.Write(aadBytes)
-	authenticationTag.Write(iv)
-	authenticationTag.Write(cipherText)
-	authenticationTag.Write(al)
-
-	var encodedSecret string
-	if len(encryptedSecret) > 0 {
-		encodedSecret = base64.RawURLEncoding.EncodeToString(encryptedSecret)
-	}
+	tag := cbcTag(enc.hash, macKey, aadBytes, iv, cipherText, enc.tagLength)
 
 	return jwt.EncryptedToken{
 		Header:     encodedHeader,
-		EncKey:     encodedSecret,
+		EncKey:     base64.RawURLEncoding.EncodeToString(encryptedSecret),
 		IV:         base64.RawURLEncoding.EncodeToString(iv),
 		CipherText: base64.RawURLEncoding.EncodeToString(cipherText),
-		Tag:        base64.RawURLEncoding.EncodeToString(authenticationTag.Sum(nil)[:enc.tagLength]),
+		Tag:        base64.RawURLEncoding.EncodeToString(tag),
 	}.String(), nil
 }
 
@@ -248,15 +231,15 @@ type AESCBCDecryption struct {
 // variant; it must match the one used at encryption.
 //
 // https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
-func NewAESCBCDecryption(config *AESCBCDecryptionConfig, presets AESCBCPreset) *AESCBCDecryption {
+func NewAESCBCDecryption(config *AESCBCDecryptionConfig, preset AESCBCPreset) *AESCBCDecryption {
 	return &AESCBCDecryption{
 		cekDecoder:     config.CEKDecoder,
 		additionalData: config.AdditionalData,
-		enc:            presets.Enc,
-		hash:           presets.Hash,
-		keyLength:      presets.EncKeyLen,
-		macKeyLength:   presets.MACKeyLen,
-		tagLength:      presets.TagLength,
+		enc:            preset.Enc,
+		hash:           preset.Hash,
+		keyLength:      preset.EncKeyLen,
+		macKeyLength:   preset.MACKeyLen,
+		tagLength:      preset.TagLength,
 	}
 }
 
@@ -301,21 +284,11 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	encKey := cek[dec.keyLength:]
 	macKey := cek[:dec.macKeyLength]
 
-	// The tag is recomputed over the same inputs as encryption, the encoded protected header included,
-	// and checked before the ciphertext is touched. hmac.Equal compares in constant time, so timing
-	// leaks nothing about the tag.
+	// The tag is checked before the ciphertext is touched. hmac.Equal compares in constant time, so
+	// timing leaks nothing about the tag.
 	aadBytes := aad(token.Header, dec.additionalData)
 
-	al := make([]byte, 8)
-	binary.BigEndian.PutUint64(al, uint64(len(aadBytes)*8))
-
-	mac := hmac.New(dec.hash.New, macKey)
-	mac.Write(aadBytes)
-	mac.Write(segments.iv)
-	mac.Write(segments.cipherText)
-	mac.Write(al)
-
-	expect := mac.Sum(nil)[:dec.tagLength]
+	expect := cbcTag(dec.hash, macKey, aadBytes, segments.iv, segments.cipherText, dec.tagLength)
 	if !hmac.Equal(segments.tag, expect) {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: auth tag check failed", ErrInvalidSecret)
 	}
@@ -335,4 +308,21 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}
 
 	return plainText, nil
+}
+
+// cbcTag computes the AES_CBC_HMAC_SHA2 authentication tag (RFC 7518 §5.2.2.1): the HMAC, under
+// macKey, of the additional authenticated data, the IV, the ciphertext and AL, in the order the
+// spec fixes, truncated to tagLength octets. AL is the bit length of the additional authenticated
+// data as a big-endian uint64.
+func cbcTag(hash crypto.Hash, macKey, aadBytes, iv, cipherText []byte, tagLength int) []byte {
+	al := make([]byte, 8)
+	binary.BigEndian.PutUint64(al, uint64(len(aadBytes)*8))
+
+	mac := hmac.New(hash.New, macKey)
+	mac.Write(aadBytes)
+	mac.Write(iv)
+	mac.Write(cipherText)
+	mac.Write(al)
+
+	return mac.Sum(nil)[:tagLength]
 }

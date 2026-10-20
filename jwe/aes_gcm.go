@@ -59,12 +59,12 @@ type AESGCMEncryption struct {
 
 // NewAESGCMEncryption creates a jwt.ProducerPlugin that encrypts a token payload
 // with AES-GCM. Pass one of the package's AESGCMPreset values to select the key size.
-func NewAESGCMEncryption(config *AESGCMEncryptionConfig, presets AESGCMPreset) *AESGCMEncryption {
+func NewAESGCMEncryption(config *AESGCMEncryptionConfig, preset AESGCMPreset) *AESGCMEncryption {
 	return &AESGCMEncryption{
 		cekManager:     config.CEKManager,
 		additionalData: config.AdditionalData,
-		enc:            presets.Enc,
-		keyLength:      presets.KeyLen,
+		enc:            preset.Enc,
+		keyLength:      preset.KeyLen,
 	}
 }
 
@@ -195,12 +195,12 @@ type AESGCMDecryption struct {
 // NewAESGCMDecryption creates a jwt.RecipientPlugin that decrypts a token encrypted
 // with AES-GCM. Pass one of the package's AESGCMPreset values to select the key size;
 // it must match the one used at encryption.
-func NewAESGCMDecryption(config *AESGCMDecryptionConfig, presets AESGCMPreset) *AESGCMDecryption {
+func NewAESGCMDecryption(config *AESGCMDecryptionConfig, preset AESGCMPreset) *AESGCMDecryption {
 	return &AESGCMDecryption{
 		cekDecoder:     config.CEKDecoder,
 		additionalData: config.AdditionalData,
-		enc:            presets.Enc,
-		keyLength:      presets.KeyLen,
+		enc:            preset.Enc,
+		keyLength:      preset.KeyLen,
 	}
 }
 
