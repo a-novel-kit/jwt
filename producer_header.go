@@ -37,12 +37,12 @@ func NewHeaderProducer(config HeaderProducerConfig) *HeaderProducer {
 func (producer *HeaderProducer) New(custom any) (*jwa.JWH, error) {
 	customSerialized, err := json.Marshal(custom)
 	if err != nil {
-		return nil, fmt.Errorf("(HeaderProducer.NewHeader) marshal custom header: %w", err)
+		return nil, fmt.Errorf("(HeaderProducer.New) marshal custom header: %w", err)
 	}
 
 	err = CheckCrit(customSerialized, producer.config.Crit)
 	if err != nil {
-		return nil, fmt.Errorf("(HeaderProducer.NewHeader) check crit: %w", err)
+		return nil, fmt.Errorf("(HeaderProducer.New) check crit: %w", err)
 	}
 
 	return &jwa.JWH{
