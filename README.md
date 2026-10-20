@@ -28,7 +28,7 @@ The application owns key storage and distribution. The `jwk` package generates, 
 and caches JSON Web Keys, while persisting private keys and publishing public key sets stay with the
 caller.
 
-Full reference: godoc on [pkg.go.dev](https://pkg.go.dev/github.com/a-novel-kit/jwt/v2).
+The godoc on [pkg.go.dev](https://pkg.go.dev/github.com/a-novel-kit/jwt/v2) is the full reference.
 
 ## Installation
 
@@ -39,8 +39,7 @@ go get github.com/a-novel-kit/jwt/v2
 A release that requires action from consumers comes with a
 [migration guide](docs/migrations/README.md).
 
-A producer issues tokens and a recipient consumes them. This example signs a token with HMAC, then
-verifies it and validates its registered claims before decoding the payload.
+A producer issues tokens, and a recipient verifies and decodes them.
 
 ```go
 ctx := context.Background()
@@ -104,8 +103,8 @@ if err := recipient.Consume(ctx, token, &payload); err != nil {
 
 ### Keys
 
-`jwk.Key[T]` carries both the JSON Web Key and the native Go key. `Key()` returns the native key, and
-`json.Marshal` turns the wrapper back into interoperable JWK JSON.
+A `jwk.Key[T]` pairs a JSON Web Key with its native Go key and marshals back to interoperable JWK
+JSON.
 
 ```go
 privateKey, publicKey, err := jwk.GenerateECDSA(jwk.ES256)
@@ -128,7 +127,7 @@ preset expects. The JWK `"alg"` of a content encryption key holds the `"enc"` va
 
 Producer plugins run in order, after the static plugins. A static plugin only amends the header. A
 transforming plugin sets its header fields, then transforms the serialized token. Signers and
-encrypters each claim the `"alg"` header, so a producer takes one of them, and a second fails with
+encrypters each claim the `"alg"` header, so a producer takes one of them. A second one fails with
 `jwt.ErrConflictingHeader`.
 
 Recipient plugins also run in order. A plugin that does not recognize the token returns
