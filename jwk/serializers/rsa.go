@@ -134,41 +134,14 @@ func DecodeRSA(src *RSAPayload) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 		},
 	}
 
-	if len(src.Oth) > 0 {
-		key.Precomputed.CRTValues = make([]rsa.CRTValue, len(src.Oth)+2) //nolint:staticcheck
-
-		key.Precomputed.CRTValues[0] = rsa.CRTValue{ //nolint:staticcheck
-			Exp:   new(big.Int).SetBytes(dp),
-			Coeff: new(big.Int).SetBytes(qi),
+	// crypto/rsa derives the CRT values of the third and later primes itself. Only their factors are read.
+	for i, oth := range src.Oth {
+		prime, err := base64.RawURLEncoding.DecodeString(oth.R)
+		if err != nil {
+			return nil, nil, fmt.Errorf("decode rsa private key other prime factor %d: %w", i, err)
 		}
 
-		key.Precomputed.CRTValues[1] = rsa.CRTValue{ //nolint:staticcheck
-			Exp:   new(big.Int).SetBytes(dq),
-			Coeff: new(big.Int).SetBytes(qi),
-		}
-
-		for i, oth := range src.Oth {
-			prime, err := base64.RawURLEncoding.DecodeString(oth.R)
-			if err != nil {
-				return nil, nil, fmt.Errorf("decode rsa private key other prime factor %d: %w", i, err)
-			}
-
-			exponent, err := base64.RawURLEncoding.DecodeString(oth.D)
-			if err != nil {
-				return nil, nil, fmt.Errorf("decode rsa private key other prime factor %d CRT exponent: %w", i, err)
-			}
-
-			coefficient, err := base64.RawURLEncoding.DecodeString(oth.T)
-			if err != nil {
-				return nil, nil, fmt.Errorf("decode rsa private key other prime factor %d CRT coefficient: %w", i, err)
-			}
-
-			key.Precomputed.CRTValues[i+2] = rsa.CRTValue{ //nolint:staticcheck
-				R:     new(big.Int).SetBytes(prime),
-				Exp:   new(big.Int).SetBytes(exponent),
-				Coeff: new(big.Int).SetBytes(coefficient),
-			}
-		}
+		key.Primes = append(key.Primes, new(big.Int).SetBytes(prime))
 	}
 
 	return key, keyPub, nil
@@ -199,16 +172,15 @@ func EncodeRSA[Key *rsa.PublicKey | *rsa.PrivateKey](key Key) *RSAPayload {
 		QI: base64.RawURLEncoding.EncodeToString(privKey.Precomputed.Qinv.Bytes()),
 	}
 
-	if len(privKey.Precomputed.CRTValues) > 0 { //nolint:staticcheck
-		payload.Oth = make([]RSAOtherPrime, len(privKey.Precomputed.CRTValues)-2) //nolint:staticcheck
+	// Precompute keeps one CRTValues entry per prime after the second, in the order of Primes.
+	for i, prime := range privKey.Primes[2:] {
+		crt := privKey.Precomputed.CRTValues[i] //nolint:staticcheck
 
-		for i, crt := range privKey.Precomputed.CRTValues[2:] { //nolint:staticcheck
-			payload.Oth[i] = RSAOtherPrime{
-				R: base64.RawURLEncoding.EncodeToString(crt.R.Bytes()),
-				D: base64.RawURLEncoding.EncodeToString(crt.Exp.Bytes()),
-				T: base64.RawURLEncoding.EncodeToString(crt.Coeff.Bytes()),
-			}
-		}
+		payload.Oth = append(payload.Oth, RSAOtherPrime{
+			R: base64.RawURLEncoding.EncodeToString(prime.Bytes()),
+			D: base64.RawURLEncoding.EncodeToString(crt.Exp.Bytes()),
+			T: base64.RawURLEncoding.EncodeToString(crt.Coeff.Bytes()),
+		})
 	}
 
 	return payload
