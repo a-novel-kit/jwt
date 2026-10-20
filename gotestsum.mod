@@ -1,11 +1,11 @@
 module github.com/a-novel-kit/jwt/v2/gotestsum
 
-go 1.27.2
+go 1.27.3
 
 tool gotest.tools/gotestsum
 
 require (
-	github.com/a-novel-kit/jwt/v2 v2.4.0
+	github.com/a-novel-kit/jwt/v2 v2.4.2
 	github.com/google/uuid v1.6.0
 	github.com/samber/lo v1.53.0
 	github.com/stretchr/testify v1.12.1
