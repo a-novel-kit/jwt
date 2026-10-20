@@ -82,6 +82,10 @@ func (signer *ECDSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH,
 
 	header.Alg = signer.alg
 
+	if signer.secretKey == nil {
+		return nil, fmt.Errorf("(ECDSASigner.Header) %w: nil ECDSA key", jwt.ErrInvalidSecretKey)
+	}
+
 	if signer.secretKey.Curve.Params().Name != signer.crv.Params().Name {
 		return nil, fmt.Errorf("(ECDSASigner.Header) %w: key curve does not match the preset", jwt.ErrInvalidSecretKey)
 	}

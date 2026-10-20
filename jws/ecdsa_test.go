@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwk"
 	"github.com/a-novel-kit/jwt/v2/jws"
 	"github.com/a-novel-kit/jwt/v2/testutils"
@@ -109,6 +110,13 @@ func TestECDSA(t *testing.T) {
 
 				err = recipient.Consume(t.Context(), otherToken, &recipientClaims)
 				require.ErrorIs(t, err, jws.ErrInvalidSignature)
+			})
+
+			t.Run("NilKey", func(t *testing.T) {
+				t.Parallel()
+
+				_, err := jws.NewECDSASigner(nil, testCase.preset).Header(t.Context(), &jwa.JWH{})
+				require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 			})
 		})
 	}

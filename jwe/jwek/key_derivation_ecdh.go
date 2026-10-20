@@ -251,6 +251,10 @@ func ephemeralAgreement(header *jwa.JWH, recipientKey *ecdh.PublicKey) ([]byte, 
 // recipientAgreement reads the ephemeral public key a header's "epk" carries and returns the shared
 // secret Z it agrees on with recipientKey, the counterpart of ephemeralAgreement.
 func recipientAgreement(header *jwa.JWH, recipientKey *ecdh.PrivateKey) ([]byte, error) {
+	if recipientKey == nil {
+		return nil, fmt.Errorf("%w: no recipient key", jwt.ErrInvalidSecretKey)
+	}
+
 	if header.EPK == nil {
 		return nil, fmt.Errorf("%w: missing EPK field", jwt.ErrUnsupportedTokenFormat)
 	}
