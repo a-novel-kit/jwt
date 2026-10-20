@@ -25,42 +25,60 @@ func TestGenerateRSA(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name   string
-		preset jwk.RSAPreset
+		name          string
+		preset        jwk.RSAPreset
+		privateKeyOps jwa.KeyOps
+		publicKeyOps  jwa.KeyOps
 	}{
 		{
-			name:   "RS256",
-			preset: jwk.RS256,
+			name:          "RS256",
+			preset:        jwk.RS256,
+			privateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+			publicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		},
 		{
-			name:   "RS384",
-			preset: jwk.RS384,
+			name:          "RS384",
+			preset:        jwk.RS384,
+			privateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+			publicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		},
 		{
-			name:   "RS512",
-			preset: jwk.RS512,
-		},
-
-		{
-			name:   "PS256",
-			preset: jwk.PS256,
-		},
-		{
-			name:   "PS384",
-			preset: jwk.PS384,
-		},
-		{
-			name:   "PS512",
-			preset: jwk.PS512,
+			name:          "RS512",
+			preset:        jwk.RS512,
+			privateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+			publicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		},
 
 		{
-			name:   "RSAOAEP",
-			preset: jwk.RSAOAEP,
+			name:          "PS256",
+			preset:        jwk.PS256,
+			privateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+			publicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 		},
 		{
-			name:   "RSAOAEP256",
-			preset: jwk.RSAOAEP256,
+			name:          "PS384",
+			preset:        jwk.PS384,
+			privateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+			publicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
+		},
+		{
+			name:          "PS512",
+			preset:        jwk.PS512,
+			privateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
+			publicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
+		},
+
+		{
+			name:          "RSAOAEP",
+			preset:        jwk.RSAOAEP,
+			privateKeyOps: jwa.KeyOps{jwa.KeyOpUnwrapKey},
+			publicKeyOps:  jwa.KeyOps{jwa.KeyOpWrapKey},
+		},
+		{
+			name:          "RSAOAEP256",
+			preset:        jwk.RSAOAEP256,
+			privateKeyOps: jwa.KeyOps{jwa.KeyOpUnwrapKey},
+			publicKeyOps:  jwa.KeyOps{jwa.KeyOpWrapKey},
 		},
 	}
 
@@ -74,7 +92,7 @@ func TestGenerateRSA(t *testing.T) {
 			require.True(t, privateKey.MatchPreset(jwa.JWKCommon{
 				KTY:    jwa.KTYRSA,
 				Use:    testCase.preset.Use,
-				KeyOps: testCase.preset.PrivateKeyOps,
+				KeyOps: testCase.privateKeyOps,
 				Alg:    testCase.preset.Alg,
 			}))
 			require.NotEmpty(t, privateKey.KID)
@@ -82,7 +100,7 @@ func TestGenerateRSA(t *testing.T) {
 			require.True(t, publicKey.MatchPreset(jwa.JWKCommon{
 				KTY:    jwa.KTYRSA,
 				Use:    testCase.preset.Use,
-				KeyOps: testCase.preset.PublicKeyOps,
+				KeyOps: testCase.publicKeyOps,
 				Alg:    testCase.preset.Alg,
 			}))
 			require.Equal(t, privateKey.KID, publicKey.KID)

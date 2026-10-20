@@ -83,16 +83,16 @@ var (
 	RSAOAEP = RSAPreset{
 		Alg:           jwa.RSAOAEP,
 		Use:           jwa.UseEnc,
-		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpEncrypt},
-		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpDecrypt},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpUnwrapKey},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpWrapKey},
 		KeySize:       4096,
 	}
 	// RSAOAEP256 generates or matches a 4096-bit key for RSAES-OAEP with SHA-256.
 	RSAOAEP256 = RSAPreset{
 		Alg:           jwa.RSAOAEP256,
 		Use:           jwa.UseEnc,
-		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpEncrypt},
-		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpDecrypt},
+		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpUnwrapKey},
+		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpWrapKey},
 		KeySize:       4096,
 	}
 )
