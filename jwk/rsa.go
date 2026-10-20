@@ -114,23 +114,6 @@ func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey],
 	privatePayload := serializers.EncodeRSA(privateKey)
 	publicPayload := serializers.EncodeRSA(publicKey)
 
-	kid := uuid.NewString()
-
-	privateHeader := jwa.JWKCommon{
-		KTY:    jwa.KTYRSA,
-		Use:    preset.Use,
-		KeyOps: preset.PrivateKeyOps,
-		Alg:    preset.Alg,
-		KID:    kid,
-	}
-	publicHeader := jwa.JWKCommon{
-		KTY:    jwa.KTYRSA,
-		Use:    preset.Use,
-		KeyOps: preset.PublicKeyOps,
-		Alg:    preset.Alg,
-		KID:    kid,
-	}
-
 	privateSerialized, err := json.Marshal(privatePayload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateRSA) serialize private key: %w", err)
@@ -141,16 +124,14 @@ func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey],
 		return nil, nil, fmt.Errorf("(GenerateRSA) serialize public key: %w", err)
 	}
 
-	privateJSONKey := &jwa.JWK{
-		JWKCommon: privateHeader,
-		Payload:   privateSerialized,
-	}
-	publicJSONKey := &jwa.JWK{
-		JWKCommon: publicHeader,
-		Payload:   publicSerialized,
-	}
+	kid := uuid.NewString()
+	privateHeader := rsaHeader(preset, preset.PrivateKeyOps)
+	publicHeader := rsaHeader(preset, preset.PublicKeyOps)
+	privateHeader.KID, publicHeader.KID = kid, kid
 
-	return &Key[*rsa.PrivateKey]{privateJSONKey, privateKey}, &Key[*rsa.PublicKey]{publicJSONKey, publicKey}, nil
+	return NewKey(&jwa.JWK{JWKCommon: privateHeader, Payload: privateSerialized}, privateKey),
+		NewKey(&jwa.JWK{JWKCommon: publicHeader, Payload: publicSerialized}, publicKey),
+		nil
 }
 
 // ConsumeRSA parses a JSON Web Key into an RSA key pair for signature or key-management
@@ -159,18 +140,8 @@ func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey],
 // It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
 // generate the key; see [GenerateRSA] for the available presets.
 func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey], error) {
-	matchPrivate := source.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYRSA,
-		Use:    preset.Use,
-		KeyOps: preset.PrivateKeyOps,
-		Alg:    preset.Alg,
-	})
-	matchPublic := source.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYRSA,
-		Use:    preset.Use,
-		KeyOps: preset.PublicKeyOps,
-		Alg:    preset.Alg,
-	})
+	matchPrivate := source.MatchPreset(rsaHeader(preset, preset.PrivateKeyOps))
+	matchPublic := source.MatchPreset(rsaHeader(preset, preset.PublicKeyOps))
 
 	if !matchPrivate && !matchPublic {
 		return nil, nil, fmt.Errorf("(ConsumeRSA) %w", ErrJWKMismatch)
@@ -188,18 +159,22 @@ func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[
 		return nil, nil, fmt.Errorf("(ConsumeRSA) decode payload: %w", err)
 	}
 
-	var (
-		privateKey *Key[*rsa.PrivateKey]
-		publicKey  *Key[*rsa.PublicKey]
-	)
+	var privateKey *Key[*rsa.PrivateKey]
 
 	if decodedPrivate != nil {
-		privateKey = NewKey[*rsa.PrivateKey](source, decodedPrivate)
+		privateKey = NewKey(source, decodedPrivate)
 	}
 
-	if decodedPublic != nil {
-		publicKey = NewKey[*rsa.PublicKey](source, decodedPublic)
-	}
+	return privateKey, NewKey(source, decodedPublic), nil
+}
 
-	return privateKey, publicKey, nil
+// rsaHeader returns the common parameters of the RSA key half that permits keyOps under preset.
+// GenerateRSA stamps them with a key ID, and ConsumeRSA requires them.
+func rsaHeader(preset RSAPreset, keyOps jwa.KeyOps) jwa.JWKCommon {
+	return jwa.JWKCommon{
+		KTY:    jwa.KTYRSA,
+		Use:    preset.Use,
+		KeyOps: keyOps,
+		Alg:    preset.Alg,
+	}
 }

@@ -11,14 +11,15 @@ import (
 // An EmbedKeyConfig configures how an [EmbedKey] advertises the signing key in a token's header: by
 // identifier, by URL, or by embedding the key itself.
 type EmbedKeyConfig struct {
-	// Source of keys resolved at signing time. When set, it supersedes Key.
+	// Source resolves the key at signing time. When set, it supersedes Key.
 	Source *jwk.Source
-	// JSON Web Key to embed directly. Ignored when Source is set.
+	// Key is the JSON Web Key to advertise. Ignored when Source is set.
 	Key *jwa.JWK
-	// Identifier of the key. With a Source set, it selects which key to fetch. Left empty, it is
+	// KID identifies the key. With a Source set, it selects which key to fetch. Left empty, it is
 	// filled from the resolved key.
 	KID string
-	// JWK Set URL recorded in the header's "jku" field, telling recipients where to fetch the key.
+	// URL is the JWK Set URL recorded in the header's "jku" field, telling recipients where to fetch
+	// the key.
 	URL string
 	// Embed writes the key itself into the header. When false, only the identifier is written, to
 	// keep the token small.

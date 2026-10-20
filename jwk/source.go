@@ -88,8 +88,7 @@ type Source struct {
 func NewSource(config SourceConfig) *Source {
 	return &Source{
 		config: config,
-		cached: nil,
-		mu:     new(sync.RWMutex),
+		mu:     &sync.RWMutex{},
 	}
 }
 
@@ -249,7 +248,7 @@ func (source *Source) fetchLocked(ctx context.Context) error {
 
 	keys, err := source.config.Fetch(ctx)
 	if err != nil {
-		source.lastErr = fmt.Errorf("(Source.fetch) fetch keys: %w", err)
+		source.lastErr = fmt.Errorf("(Source.fetchLocked) fetch keys: %w", err)
 		source.lastFailure = time.Now()
 
 		return source.lastErr

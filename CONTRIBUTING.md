@@ -40,8 +40,8 @@ consumers.
 ## Security
 
 Key metadata checks are part of the security model. The `jwk` Consume functions reject a key that
-does not declare compatible use, operations, and algorithm. Fix a malformed fixture instead of weakening those
-checks, or add an explicit compatibility path with tests that show why it is safe.
+does not declare compatible use, operations, and algorithm. Fix a malformed fixture instead of
+weakening those checks, or add an explicit compatibility path with tests that show why it is safe.
 
 Never log, trace, or return private keys, shared secrets, signed or encrypted tokens, or
 password-derived material. An error names the operation and the condition, without the credential.
@@ -59,8 +59,8 @@ a-novel test --type=go -y
 bash .github/scripts/lint-hash-registration.sh .
 ```
 
-`pnpm format` fixes what the linters can. The last command checks that every package naming a `crypto.Hash` imports the package that registers it, a gap the
-test suite cannot observe.
+`pnpm format` fixes what the linters can. The script checks that every package naming a
+`crypto.Hash` imports the package that registers it, a gap the test suite cannot observe.
 
 ## Questions?
 

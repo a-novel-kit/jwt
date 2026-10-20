@@ -11,7 +11,7 @@ func NewOct(keySize int) ([]byte, error) {
 
 	_, err := rand.Read(key)
 	if err != nil {
-		return nil, fmt.Errorf("(aesGenerator.Generate) generate key: %w", err)
+		return nil, fmt.Errorf("(NewOct) generate key: %w", err)
 	}
 
 	return key, nil

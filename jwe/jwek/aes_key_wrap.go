@@ -72,7 +72,7 @@ func NewAESKWManager(config *AESKWManagerConfig, preset KeyWrapPreset) *AESKWMan
 
 func (manager *AESKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(AESKW.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("(AESKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
 	header.Alg = manager.alg
@@ -92,7 +92,7 @@ func (manager *AESKWManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]b
 func (manager *AESKWManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byte) ([]byte, error) {
 	if len(manager.wrapKey) != manager.keyLen {
 		return nil, fmt.Errorf(
-			"(AESKW.EncryptCEK) invalid wrap key length: expected %d, got %d",
+			"(AESKWManager.EncryptCEK) invalid wrap key length: expected %d, got %d",
 			manager.keyLen, len(manager.wrapKey),
 		)
 	}

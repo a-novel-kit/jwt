@@ -10,6 +10,8 @@ import (
 // Adapted from go-jose:
 // https://github.com/go-jose/go-jose/blob/fdc2ceb0bbe2a29c582edfe07ea914c8dacd7e1b/cipher/key_wrap.go
 
+// defaultIV is the initial value RFC 3394 §2.2.3.1 fixes. Unwrapping recovers it only under the
+// right key, which makes it the integrity check.
 var defaultIV = []byte{0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6}
 
 // KeyWrap wraps the content encryption key cek under block using the AES Key Wrap algorithm

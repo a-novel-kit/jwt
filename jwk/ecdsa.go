@@ -62,23 +62,6 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 		return nil, nil, fmt.Errorf("(GenerateECDSA) encode public key: %w", err)
 	}
 
-	kid := uuid.NewString()
-
-	privateHeader := jwa.JWKCommon{
-		KTY:    jwa.KTYEC,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
-		Alg:    preset.Alg,
-		KID:    kid,
-	}
-	publicHeader := jwa.JWKCommon{
-		KTY:    jwa.KTYEC,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
-		Alg:    preset.Alg,
-		KID:    kid,
-	}
-
 	privateSerialized, err := json.Marshal(privatePayload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateECDSA) serialize private key: %w", err)
@@ -89,16 +72,14 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 		return nil, nil, fmt.Errorf("(GenerateECDSA) serialize public key: %w", err)
 	}
 
-	privateJSONKey := &jwa.JWK{
-		JWKCommon: privateHeader,
-		Payload:   privateSerialized,
-	}
-	publicJSONKey := &jwa.JWK{
-		JWKCommon: publicHeader,
-		Payload:   publicSerialized,
-	}
+	kid := uuid.NewString()
+	privateHeader := signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpSign)
+	publicHeader := signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpVerify)
+	privateHeader.KID, publicHeader.KID = kid, kid
 
-	return &Key[*ecdsa.PrivateKey]{privateJSONKey, privateKey}, &Key[*ecdsa.PublicKey]{publicJSONKey, publicKey}, nil
+	return NewKey(&jwa.JWK{JWKCommon: privateHeader, Payload: privateSerialized}, privateKey),
+		NewKey(&jwa.JWK{JWKCommon: publicHeader, Payload: publicSerialized}, publicKey),
+		nil
 }
 
 // ConsumeECDSA parses a JSON Web Key into an ECDSA signature key pair. When the key holds only a
@@ -107,18 +88,8 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 // It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
 // generate the key; see [GenerateECDSA] for the available presets.
 func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.PublicKey], error) {
-	matchPrivate := source.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYEC,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
-		Alg:    preset.Alg,
-	})
-	matchPublic := source.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYEC,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
-		Alg:    preset.Alg,
-	})
+	matchPrivate := source.MatchPreset(signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpSign))
+	matchPublic := source.MatchPreset(signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpVerify))
 
 	if !matchPrivate && !matchPublic {
 		return nil, nil, fmt.Errorf("(ConsumeECDSA) %w", ErrJWKMismatch)
@@ -138,40 +109,24 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 
 	// RFC 7518 §3.4 binds each algorithm to one curve, such as ES256 to P-256. The curve lives in the
 	// payload, where MatchPreset above cannot see it, so it is checked here.
-	var curve elliptic.Curve
-
-	switch {
-	case decodedPrivate != nil:
-		curve = decodedPrivate.Curve
-	case decodedPublic != nil:
-		curve = decodedPublic.Curve
-	}
-
-	if curve != preset.Curve {
+	if decodedPublic.Curve != preset.Curve {
 		return nil, nil, fmt.Errorf(
 			"(ConsumeECDSA) %w: key is on %s, preset %s requires %s",
-			ErrJWKMismatch, curveName(curve), preset.Alg, curveName(preset.Curve),
+			ErrJWKMismatch, curveName(decodedPublic.Curve), preset.Alg, curveName(preset.Curve),
 		)
 	}
 
-	var (
-		privateKey *Key[*ecdsa.PrivateKey]
-		publicKey  *Key[*ecdsa.PublicKey]
-	)
+	var privateKey *Key[*ecdsa.PrivateKey]
 
 	if decodedPrivate != nil {
-		privateKey = NewKey[*ecdsa.PrivateKey](source, decodedPrivate)
+		privateKey = NewKey(source, decodedPrivate)
 	}
 
-	if decodedPublic != nil {
-		publicKey = NewKey[*ecdsa.PublicKey](source, decodedPublic)
-	}
-
-	return privateKey, publicKey, nil
+	return privateKey, NewKey(source, decodedPublic), nil
 }
 
-// curveName reports a curve's standard name for an error message. A key whose payload names no
-// recognized curve decodes to a nil curve, which reads as "unknown".
+// curveName reports a curve's standard name for an error message. A hand-built preset that names
+// no curve reads as "unknown".
 func curveName(curve elliptic.Curve) string {
 	if curve == nil {
 		return "unknown"

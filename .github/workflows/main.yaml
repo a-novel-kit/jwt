@@ -20,8 +20,6 @@ jobs:
         with:
           modfile: gotestsum.mod
 
-  # A package that names a crypto.Hash without importing its registrar panics in a consumer that
-  # imports the library alone, a gap the test suite cannot observe. The script explains why.
   lint-hash-registration:
     runs-on: ubuntu-latest
     permissions:
@@ -64,7 +62,7 @@ jobs:
           # renovate: datasource=github-releases depName=koalaman/shellcheck
           version: "0.11.0"
 
-  # Structural conventions golangci-lint cannot express.
+  # A library's conventions sit with golangci-lint, so this job runs no ruleset.
   lint-semgrep:
     runs-on: ubuntu-latest
     permissions:
@@ -79,8 +77,6 @@ jobs:
           # renovate: datasource=docker depName=semgrep/semgrep
           version: "1.181.0"
 
-  # Replaces GitGuardian, which gated on a hosted service: when it saturated,
-  # every PR in the fleet became unmergeable. This runs offline.
   scan-secrets:
     runs-on: ubuntu-latest
     permissions:
@@ -94,8 +90,6 @@ jobs:
           # renovate: datasource=github-releases depName=gitleaks/gitleaks
           version: "8.30.1"
 
-  # Replaces CodeQL's actions analysis: excessive-permissions is the class it
-  # reported as actions/missing-workflow-permissions.
   lint-workflows:
     runs-on: ubuntu-latest
     permissions:

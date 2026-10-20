@@ -67,7 +67,7 @@ func NewAESGCMKWManager(
 
 func (manager *AESGCMKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(AESGCMKW.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("(AESGCMKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
 	header.Alg = manager.alg
@@ -87,41 +87,41 @@ func (manager *AESGCMKWManager) ComputeCEK(_ context.Context, header *jwa.JWH) (
 func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
 	if len(manager.wrapKey) != manager.keyLen {
 		return nil, fmt.Errorf(
-			"(AESGCMKW.EncryptCEK) invalid wrap key length: expected %d, got %d",
+			"(AESGCMKWManager.EncryptCEK) invalid wrap key length: expected %d, got %d",
 			manager.keyLen, len(manager.wrapKey),
 		)
 	}
 
 	block, err := aes.NewCipher(manager.wrapKey)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKW.EncryptCEK) create cipher: %w", err)
+		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) create cipher: %w", err)
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKW.EncryptCEK) create AEAD: %w", err)
+		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) create AEAD: %w", err)
 	}
 
 	iv := make([]byte, aesgcm.NonceSize())
 
 	_, err = io.ReadFull(rand.Reader, iv)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKW.EncryptCEK) generate IV: %w", err)
+		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) generate IV: %w", err)
 	}
 
-	ciphertextAndTag := aesgcm.Seal(nil, iv, cek, []byte{})
 	// Seal appends the authentication tag to the ciphertext, and the JWE header carries the tag
 	// separately.
+	ciphertextAndTag := aesgcm.Seal(nil, iv, cek, []byte{})
 	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
 	ciphertext := ciphertextAndTag[:cipherLen]
 	tag := ciphertextAndTag[cipherLen:]
 
 	if len(iv) != 12 {
-		return nil, fmt.Errorf("(AESGCMKW.EncryptCEK) invalid IV size: expected 12, got %d", len(iv))
+		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) invalid IV size: expected 12, got %d", len(iv))
 	}
 
 	if len(tag) != 16 {
-		return nil, fmt.Errorf("(AESGCMKW.EncryptCEK) invalid tag size: expected 16, got %d", len(tag))
+		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) invalid tag size: expected 16, got %d", len(tag))
 	}
 
 	header.JWHAESGCMKW = jwa.JWHAESGCMKW{

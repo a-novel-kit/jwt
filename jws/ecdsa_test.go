@@ -298,9 +298,8 @@ func TestECDSASourcedVerifier(t *testing.T) {
 	}
 }
 
-// The signer refuses a key off the preset's curve; the verifier accepted one and reported a plain
-// signature failure, which reads as "this token is bad" rather than "this verifier is misconfigured
-// and enforces nothing".
+// The verifier refuses a key off the preset's curve, as the signer does. It reports the
+// misconfiguration with jwt.ErrInvalidSecretKey, which a caller tells apart from a bad token.
 func TestECDSAVerifierRejectsAKeyOffThePresetCurve(t *testing.T) {
 	t.Parallel()
 

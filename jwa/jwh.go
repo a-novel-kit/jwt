@@ -6,9 +6,9 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa/internal"
 )
 
-// Typ is the "typ" (type) header parameter. It declares the media type of the
-// complete token, letting an application tell a JWT apart from other objects
-// that might appear in the same position. Optional.
+// Typ is the optional "typ" (type) header parameter. It declares the media type
+// of the complete token, letting an application tell a JWT apart from other
+// objects that might appear in the same position.
 //
 // https://datatracker.ietf.org/doc/html/rfc7519#section-5.1
 type Typ string
@@ -78,16 +78,15 @@ type JWHCommon struct {
 	// https://datatracker.ietf.org/doc/html/rfc7515#section-4.1.11
 	Crit []string `json:"crit,omitempty"`
 
-	// The following claims may be replicated from an encrypted token's payload
-	// into its header, so a recipient can act on them without first decrypting
-	// the body. When present, their values must match those in the payload.
+	// Iss replicates the payload's issuer claim, so a recipient can act on it
+	// before decrypting an encrypted token. When present, it must match the
+	// payload's value.
 	// https://datatracker.ietf.org/doc/html/rfc7519#section-5.3
-
-	// Iss mirrors the payload's issuer claim.
 	Iss string `json:"iss,omitempty"`
-	// Sub mirrors the payload's subject claim.
+	// Sub replicates the payload's subject claim, under the same rule as Iss.
 	Sub string `json:"sub,omitempty"`
-	// Aud mirrors the payload's audience claim. It is a string or an array of strings.
+	// Aud replicates the payload's audience claim, under the same rule as Iss. It
+	// is a string or an array of strings.
 	Aud Audience `json:"aud,omitempty"`
 }
 
@@ -128,9 +127,11 @@ type JWHKeyAgreement struct {
 // JWHPBES2 carries the salt and iteration count of the PBES2 password-based
 // key-derivation algorithms.
 type JWHPBES2 struct {
-	// P2S is the salt input to PBES2.
+	// P2S is the base64url-encoded salt input of PBES2.
+	// https://datatracker.ietf.org/doc/html/rfc7518#section-4.8.1.1
 	P2S string `json:"p2s,omitempty"`
 	// P2C is the PBES2 iteration count.
+	// https://datatracker.ietf.org/doc/html/rfc7518#section-4.8.1.2
 	P2C int `json:"p2c,omitempty"`
 }
 

@@ -13,7 +13,7 @@ import (
 func TestAesKeyWrap(t *testing.T) {
 	t.Parallel()
 
-	// Test vectors from: http://csrc.nist.gov/groups/ST/toolkit/documents/kms/key-wrap.pdf
+	// https://datatracker.ietf.org/doc/html/rfc3394#section-4
 	kek0, _ := hex.DecodeString("000102030405060708090A0B0C0D0E0F")
 	cek0, _ := hex.DecodeString("00112233445566778899AABBCCDDEEFF")
 

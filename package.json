@@ -12,10 +12,8 @@
     "lint:prettier": "prettier --check . --config prettier.config.js"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1",
     "prettier": "^3.6.2",
-    "prettier-plugin-packagejson": "^3.0.0",
-    "rollup": "^4.59.0"
+    "prettier-plugin-packagejson": "^3.0.0"
   },
   "packageManager": "pnpm@12.14.0"
 }

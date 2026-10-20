@@ -63,29 +63,13 @@ func GenerateMLDSA(preset MLDSAPreset) (*Key[*mldsa.PrivateKey], *Key[*mldsa.Pub
 	}
 
 	kid := uuid.NewString()
+	privateHeader := signatureHeader(jwa.KTYAKP, preset.Alg, jwa.KeyOpSign)
+	publicHeader := signatureHeader(jwa.KTYAKP, preset.Alg, jwa.KeyOpVerify)
+	privateHeader.KID, publicHeader.KID = kid, kid
 
-	privateJSONKey := &jwa.JWK{
-		JWKCommon: jwa.JWKCommon{
-			KTY:    jwa.KTYAKP,
-			Use:    jwa.UseSig,
-			KeyOps: jwa.KeyOps{jwa.KeyOpSign},
-			Alg:    preset.Alg,
-			KID:    kid,
-		},
-		Payload: privateSerialized,
-	}
-	publicJSONKey := &jwa.JWK{
-		JWKCommon: jwa.JWKCommon{
-			KTY:    jwa.KTYAKP,
-			Use:    jwa.UseSig,
-			KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
-			Alg:    preset.Alg,
-			KID:    kid,
-		},
-		Payload: publicSerialized,
-	}
-
-	return NewKey(privateJSONKey, privateKey), NewKey(publicJSONKey, publicKey), nil
+	return NewKey(&jwa.JWK{JWKCommon: privateHeader, Payload: privateSerialized}, privateKey),
+		NewKey(&jwa.JWK{JWKCommon: publicHeader, Payload: publicSerialized}, publicKey),
+		nil
 }
 
 // ConsumeMLDSA parses a JSON Web Key into an ML-DSA signature key pair. The key's "alg" selects the
@@ -106,18 +90,8 @@ func ConsumeMLDSA(source *jwa.JWK) (*Key[*mldsa.PrivateKey], *Key[*mldsa.PublicK
 		return nil, nil, fmt.Errorf("(ConsumeMLDSA) %w: %q is not an ML-DSA algorithm", ErrJWKMismatch, source.Alg)
 	}
 
-	matchPrivate := source.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYAKP,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
-		Alg:    source.Alg,
-	})
-	matchPublic := source.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYAKP,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
-		Alg:    source.Alg,
-	})
+	matchPrivate := source.MatchPreset(signatureHeader(jwa.KTYAKP, source.Alg, jwa.KeyOpSign))
+	matchPublic := source.MatchPreset(signatureHeader(jwa.KTYAKP, source.Alg, jwa.KeyOpVerify))
 
 	if !matchPrivate && !matchPublic {
 		return nil, nil, fmt.Errorf("(ConsumeMLDSA) %w", ErrJWKMismatch)

@@ -46,7 +46,7 @@ func pointFromAffine(curve elliptic.Curve, x, y *big.Int) ([]byte, error) {
 	if x.BitLen() > bitSize || y.BitLen() > bitSize {
 		return nil, errors.New("overflowing coordinate")
 	}
-	// Encode the coordinates and let [ecdsa.NewPublicKey] reject invalid points.
+	// Encode the coordinates and let ecdsa.ParseUncompressedPublicKey reject invalid points.
 	byteLen := (bitSize + 7) / 8
 	buf := make([]byte, 1+2*byteLen)
 	buf[0] = 4 // uncompressed point
@@ -74,6 +74,7 @@ func pointToAffine(curve elliptic.Curve, p []byte) (x, y *big.Int, err error) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+// parsePublicKeyParams returns the affine coordinates of key and the curve they lie on.
 func parsePublicKeyParams(key *ecdsa.PublicKey) (*big.Int, *big.Int, elliptic.Curve, error) {
 	raw, err := key.Bytes()
 	if err != nil {
@@ -158,42 +159,36 @@ func encodeCoordinate(curve elliptic.Curve, coordinate *big.Int) string {
 
 // EncodeEC builds the ECPayload representation of an ECDSA public or private key.
 func EncodeEC[Key *ecdsa.PublicKey | *ecdsa.PrivateKey](key Key) (*ECPayload, error) {
-	payload := new(ECPayload)
+	publicKey, ok := any(key).(*ecdsa.PublicKey)
 
-	pubKey, ok := any(key).(*ecdsa.PublicKey)
-	if ok {
-		x, y, crv, err := parsePublicKeyParams(pubKey)
-		if err != nil {
-			return nil, fmt.Errorf("parse public key params: %w", err)
-		}
-
-		payload.Crv = crv.Params().Name
-		payload.X = encodeCoordinate(crv, x)
-		payload.Y = encodeCoordinate(crv, y)
-
-		return payload, nil
-	}
-
-	privKey, ok := any(key).(*ecdsa.PrivateKey)
+	var privateKey *ecdsa.PrivateKey
 	if !ok {
-		return nil, fmt.Errorf("invalid key type: %T", key)
+		privateKey = any(key).(*ecdsa.PrivateKey)
+		publicKey = &privateKey.PublicKey
 	}
 
-	x, y, crv, err := parsePublicKeyParams(&privKey.PublicKey)
+	x, y, crv, err := parsePublicKeyParams(publicKey)
 	if err != nil {
 		return nil, fmt.Errorf("parse public key params: %w", err)
 	}
 
-	privKeyBytes, err := privKey.Bytes()
+	payload := &ECPayload{
+		Crv: crv.Params().Name,
+		X:   encodeCoordinate(crv, x),
+		Y:   encodeCoordinate(crv, y),
+	}
+
+	if privateKey == nil {
+		return payload, nil
+	}
+
+	privateKeyBytes, err := privateKey.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("serialize private key: %w", err)
 	}
 
-	payload.Crv = crv.Params().Name
-	payload.X = encodeCoordinate(crv, x)
-	payload.Y = encodeCoordinate(crv, y)
-	// privKey.Bytes is already fixed-length per SEC 1 §2.3.7, which is what RFC 7518 §6.2.2.1 wants.
-	payload.D = base64.RawURLEncoding.EncodeToString(privKeyBytes)
+	// PrivateKey.Bytes is already fixed-length per SEC 1 §2.3.7, which is what RFC 7518 §6.2.2.1 wants.
+	payload.D = base64.RawURLEncoding.EncodeToString(privateKeyBytes)
 
 	return payload, nil
 }

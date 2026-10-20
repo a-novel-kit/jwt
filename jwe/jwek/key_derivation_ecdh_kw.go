@@ -5,13 +5,11 @@ import (
 	"crypto/aes"
 	"crypto/ecdh"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe/internal"
-	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 var (
@@ -177,30 +175,9 @@ func (decoder *ECDHKeyAgrKWDecoder) ComputeCEK(_ context.Context, header *jwa.JW
 		)
 	}
 
-	if header.EPK == nil {
-		return nil, fmt.Errorf(
-			"(ECDHKeyAgrKWDecoder.ComputeCEK) %w: missing EPK field",
-			jwt.ErrUnsupportedTokenFormat,
-		)
-	}
-
-	var ecdhPayload serializers.ECDHPayload
-
-	err := json.Unmarshal(header.EPK.Payload, &ecdhPayload)
+	z, err := recipientAgreement(header, decoder.config.RecipientKey)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"(ECDHKeyAgrKWDecoder.ComputeCEK) %w: unmarshal payload: %w", jwt.ErrUnsupportedTokenFormat, err,
-		)
-	}
-
-	_, producerPublicKey, err := serializers.DecodeECDH(&ecdhPayload)
-	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) consume producer public key: %w", err)
-	}
-
-	z, err := decoder.config.RecipientKey.ECDH(producerPublicKey)
-	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) derive shared secret: %w", err)
+		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) %w", err)
 	}
 
 	apu, apv, err := agreementInfo(header)

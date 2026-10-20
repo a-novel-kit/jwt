@@ -24,23 +24,6 @@ func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error
 	privatePayload := serializers.EncodeED(privateKey)
 	publicPayload := serializers.EncodeED(publicKey)
 
-	kid := uuid.NewString()
-
-	privateHeader := jwa.JWKCommon{
-		KTY:    jwa.KTYOKP,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
-		Alg:    jwa.Ed25519,
-		KID:    kid,
-	}
-	publicHeader := jwa.JWKCommon{
-		KTY:    jwa.KTYOKP,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
-		Alg:    jwa.Ed25519,
-		KID:    kid,
-	}
-
 	privateSerialized, err := json.Marshal(privatePayload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(GenerateED25519) serialize private key: %w", err)
@@ -51,17 +34,13 @@ func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error
 		return nil, nil, fmt.Errorf("(GenerateED25519) serialize public key: %w", err)
 	}
 
-	privateJSONKey := &jwa.JWK{
-		JWKCommon: privateHeader,
-		Payload:   privateSerialized,
-	}
-	publicJSONKey := &jwa.JWK{
-		JWKCommon: publicHeader,
-		Payload:   publicSerialized,
-	}
+	kid := uuid.NewString()
+	privateHeader := signatureHeader(jwa.KTYOKP, jwa.Ed25519, jwa.KeyOpSign)
+	publicHeader := signatureHeader(jwa.KTYOKP, jwa.Ed25519, jwa.KeyOpVerify)
+	privateHeader.KID, publicHeader.KID = kid, kid
 
-	return NewKey[ed25519.PrivateKey](privateJSONKey, privateKey),
-		NewKey[ed25519.PublicKey](publicJSONKey, publicKey),
+	return NewKey(&jwa.JWK{JWKCommon: privateHeader, Payload: privateSerialized}, privateKey),
+		NewKey(&jwa.JWK{JWKCommon: publicHeader, Payload: publicSerialized}, publicKey),
 		nil
 }
 
@@ -76,47 +55,30 @@ func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.Pub
 		common.Alg = jwa.Ed25519
 	}
 
-	matchPrivate := common.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYOKP,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpSign},
-		Alg:    jwa.Ed25519,
-	})
-	matchPublic := common.MatchPreset(jwa.JWKCommon{
-		KTY:    jwa.KTYOKP,
-		Use:    jwa.UseSig,
-		KeyOps: jwa.KeyOps{jwa.KeyOpVerify},
-		Alg:    jwa.Ed25519,
-	})
+	matchPrivate := common.MatchPreset(signatureHeader(jwa.KTYOKP, jwa.Ed25519, jwa.KeyOpSign))
+	matchPublic := common.MatchPreset(signatureHeader(jwa.KTYOKP, jwa.Ed25519, jwa.KeyOpVerify))
 
 	if !matchPrivate && !matchPublic {
 		return nil, nil, fmt.Errorf("(ConsumeED25519) %w", ErrJWKMismatch)
 	}
 
-	var ed2519Payload serializers.EDPayload
+	var edPayload serializers.EDPayload
 
-	err := json.Unmarshal(source.Payload, &ed2519Payload)
+	err := json.Unmarshal(source.Payload, &edPayload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(ConsumeED25519) unmarshal payload: %w", err)
 	}
 
-	decodedPrivate, decodedPublic, err := serializers.DecodeED(&ed2519Payload)
+	decodedPrivate, decodedPublic, err := serializers.DecodeED(&edPayload)
 	if err != nil {
 		return nil, nil, fmt.Errorf("(ConsumeED25519) decode payload: %w", err)
 	}
 
-	var (
-		privateKey *Key[ed25519.PrivateKey]
-		publicKey  *Key[ed25519.PublicKey]
-	)
+	var privateKey *Key[ed25519.PrivateKey]
 
 	if decodedPrivate != nil {
-		privateKey = &Key[ed25519.PrivateKey]{source, decodedPrivate}
+		privateKey = NewKey(source, decodedPrivate)
 	}
 
-	if decodedPublic != nil {
-		publicKey = &Key[ed25519.PublicKey]{source, decodedPublic}
-	}
-
-	return privateKey, publicKey, nil
+	return privateKey, NewKey(source, decodedPublic), nil
 }

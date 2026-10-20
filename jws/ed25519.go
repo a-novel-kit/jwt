@@ -117,39 +117,35 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 
 // sourcedED25519Public decodes a raw JSON Web Key into an Ed25519 public key for verification,
 // skipping any that carry private material.
-func sourcedED25519Public() keyDecoder[ed25519.PublicKey] {
-	return func(key *jwa.JWK) (ed25519.PublicKey, error) {
-		privateKey, publicKey, err := jwk.ConsumeED25519(key)
-		if err != nil {
-			return nil, err
-		}
-
-		if privateKey != nil {
-			return nil, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
-		}
-
-		if publicKey == nil {
-			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
-		}
-
-		return publicKey.Key(), nil
+func sourcedED25519Public(key *jwa.JWK) (ed25519.PublicKey, error) {
+	privateKey, publicKey, err := jwk.ConsumeED25519(key)
+	if err != nil {
+		return nil, err
 	}
+
+	if privateKey != nil {
+		return nil, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
+	}
+
+	if publicKey == nil {
+		return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
+	}
+
+	return publicKey.Key(), nil
 }
 
 // sourcedED25519Private decodes a raw JSON Web Key into an Ed25519 private key for signing.
-func sourcedED25519Private() keyDecoder[ed25519.PrivateKey] {
-	return func(key *jwa.JWK) (ed25519.PrivateKey, error) {
-		privateKey, _, err := jwk.ConsumeED25519(key)
-		if err != nil {
-			return nil, err
-		}
-
-		if privateKey == nil {
-			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
-		}
-
-		return privateKey.Key(), nil
+func sourcedED25519Private(key *jwa.JWK) (ed25519.PrivateKey, error) {
+	privateKey, _, err := jwk.ConsumeED25519(key)
+	if err != nil {
+		return nil, err
 	}
+
+	if privateKey == nil {
+		return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
+	}
+
+	return privateKey.Key(), nil
 }
 
 // A SourcedED25519Signer signs like an [ED25519Signer] but resolves its key from a [jwk.Source] at
@@ -182,7 +178,7 @@ func NewSourcedEdDSASigner(source *jwk.Source) *SourcedED25519Signer {
 }
 
 func (signer *SourcedED25519Signer) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedED25519Private())
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedED25519Private)
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedED25519Signer.Header) %w", err)
 	}
@@ -196,7 +192,7 @@ func (signer *SourcedED25519Signer) Header(ctx context.Context, header *jwa.JWH)
 }
 
 func (signer *SourcedED25519Signer) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedED25519Private())
+	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedED25519Private)
 	if err != nil {
 		return "", fmt.Errorf("(SourcedED25519Signer.Transform) %w", err)
 	}
@@ -224,7 +220,7 @@ func NewSourcedED25519Verifier(source *jwk.Source) *SourcedED25519Verifier {
 func (verifier *SourcedED25519Verifier) Transform(
 	ctx context.Context, header *jwa.JWH, rawToken string,
 ) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedED25519Public(),
+	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedED25519Public,
 		func(key ed25519.PublicKey) jwt.RecipientPlugin {
 			return NewED25519Verifier(key)
 		})
