@@ -142,8 +142,8 @@ var (
 //
 // Call Key on the result for the native key, or marshal it into a JSON Web Key with json.Marshal.
 //
-// Pass one of the package's AES presets: the content-encryption presets, such as [A128GCM],
-// produce a CEK, and the key-wrapping presets, such as [A128KW], produce a KEK.
+// Pass one of the package's AES presets. A content-encryption preset, such as [A128GCM], produces a
+// CEK. A key-wrapping preset, such as [A128KW], produces a KEK.
 func GenerateAES(preset AESPreset) (*Key[[]byte], error) {
 	key, err := generators.NewOct(preset.KeySize)
 	if err != nil {

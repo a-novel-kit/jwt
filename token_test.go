@@ -8,6 +8,55 @@ import (
 	"github.com/a-novel-kit/jwt/v2"
 )
 
+func TestHeaderDecoder(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+
+		value string
+
+		expect    string
+		expectErr error
+	}{
+		{
+			name:   "Success",
+			value:  "header.payload",
+			expect: "header",
+		},
+		{
+			name:   "Success/ManySegments",
+			value:  "header.key.iv.ciphertext.tag",
+			expect: "header",
+		},
+		{
+			name:   "Success/EmptyHeader",
+			value:  ".payload",
+			expect: "",
+		},
+		{
+			name:      "Error/OneSegment",
+			value:     "header",
+			expectErr: jwt.ErrUnsupportedTokenFormat,
+		},
+		{
+			name:      "Error/Empty",
+			value:     "",
+			expectErr: jwt.ErrUnsupportedTokenFormat,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			header, err := jwt.DecodeToken(testCase.value, &jwt.HeaderDecoder{})
+			require.ErrorIs(t, err, testCase.expectErr)
+			require.Equal(t, testCase.expect, header)
+		})
+	}
+}
+
 func TestRawToken(t *testing.T) {
 	t.Parallel()
 

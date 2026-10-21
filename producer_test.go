@@ -26,6 +26,20 @@ func (fake *fakeProducerPlugin) Transform(_ context.Context, _ *jwa.JWH, token s
 	return fake.token(token), fake.tokenErr
 }
 
+// withPayload returns a token transform that swaps the payload segment of a "header.payload" token.
+func withPayload(payload string) func(string) string {
+	return func(tokenRaw string) string {
+		token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
+		if err != nil {
+			panic(err)
+		}
+
+		token.Payload = payload
+
+		return token.String()
+	}
+}
+
 func TestProducer(t *testing.T) {
 	t.Parallel()
 
@@ -82,14 +96,7 @@ func TestProducer(t *testing.T) {
 
 							return jwh
 						},
-						token: func(tokenRaw string) string {
-							token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
-							require.NoError(t, err)
-
-							token.Payload = "foobarqux"
-
-							return token.String()
-						},
+						token: withPayload("foobarqux"),
 					},
 					&fakeProducerPlugin{
 						header: func(jwh *jwa.JWH) *jwa.JWH {
@@ -97,15 +104,7 @@ func TestProducer(t *testing.T) {
 
 							return jwh
 						},
-
-						token: func(tokenRaw string) string {
-							token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
-							require.NoError(t, err)
-
-							token.Payload = "abcdefghi"
-
-							return token.String()
-						},
+						token: withPayload("abcdefghi"),
 					},
 				},
 			},
@@ -138,14 +137,7 @@ func TestProducer(t *testing.T) {
 					&fakeProducerPlugin{
 						header:    func(_ *jwa.JWH) *jwa.JWH { return nil },
 						headerErr: errFoo,
-						token: func(tokenRaw string) string {
-							token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
-							require.NoError(t, err)
-
-							token.Payload = "foobarqux"
-
-							return token.String()
-						},
+						token:     withPayload("foobarqux"),
 					},
 				},
 			},

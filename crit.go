@@ -59,8 +59,8 @@ func CheckCrit(data json.RawMessage, crit []string) error {
 
 // CheckCritUnderstood enforces the recipient's "crit" obligation (RFC 7515 §4.1.11). The token is
 // invalid unless every listed critical extension is understood by the recipient and present in data,
-// the decoded header. understood names the extensions the recipient is configured to process, and a
-// crit entry outside it, or one naming a registered JOSE parameter, is rejected.
+// the decoded header. understood names the extensions the recipient is configured to process. A crit
+// entry outside understood is rejected, and so is one naming a registered JOSE parameter.
 //
 // A present but empty crit list is itself invalid, so callers pass crit only when the header holds
 // the member.

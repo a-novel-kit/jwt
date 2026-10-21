@@ -56,8 +56,8 @@ type SourceConfig struct {
 	// a fetch. Non-positive selects DefaultUnknownKeyIDInterval. Ignored unless
 	// RefreshOnUnknownKeyID is set.
 	//
-	// The age check is the whole rate limit, and it holds regardless of input: a forced fetch resets
-	// the cache age, so every subsequent unknown ID within the interval finds the cache too young.
+	// The age check is the whole rate limit, and it holds for any input. A forced fetch resets the
+	// cache age, so every later unknown ID within the interval finds the cache too young.
 	// A flood of distinct forged key IDs therefore costs at most one upstream call per interval.
 	//
 	// The cost is latency: a genuinely new key ID arriving just after a forced fetch waits up to one
@@ -67,12 +67,12 @@ type SourceConfig struct {
 
 // A Source fetches and caches the raw JSON Web Keys used to sign or verify tokens, looked up by ID.
 //
-// It is algorithm-agnostic: one Source serves a mixed set (RSA, EC, HMAC, …), and the signer or
-// verifier that consumes it decodes the key material it needs and skips the rest. That is what lets
-// a recipient verify tokens across an algorithm rotation through one endpoint.
+// A Source is algorithm-agnostic, so one Source can serve a mixed set of RSA, EC, and HMAC keys.
+// Each signer or verifier that consumes it decodes the key material it needs and skips the rest. A
+// recipient can therefore verify tokens across an algorithm rotation through one endpoint.
 //
-// It refreshes lazily once the cached set is older than CacheDuration, and is safe for concurrent
-// use.
+// A Source refreshes lazily once the cached set is older than CacheDuration. It is safe for
+// concurrent use.
 type Source struct {
 	config SourceConfig
 
@@ -114,7 +114,7 @@ func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
 // returns ErrKeyNotFound when the source is empty or no key matches.
 //
 // With RefreshOnUnknownKeyID set, a named kid absent from the cache forces one bounded fetch before
-// the miss is reported, so a key the issuer has just rotated to is found without waiting out
+// the miss is reported. A key the issuer has just rotated to is then found without waiting out
 // CacheDuration. See UnknownKeyIDInterval for the bound.
 func (source *Source) Get(ctx context.Context, kid string) (*jwa.JWK, error) {
 	err := source.refresh(ctx)

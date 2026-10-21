@@ -15,12 +15,11 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jws"
 )
 
-// TestSourcedMixedRotation is the acceptance test for the raw source: one Source serves keys of two
-// families, and a single recipient configured with a verifier per accepted algorithm verifies
-// tokens of both, routing on the header's alg. That is the shape of an algorithm rotation: keep
-// verifiers for the old and new algorithms while both keys live. A token whose algorithm has no
-// configured verifier is rejected, so the header routes only among the verifiers the operator
-// pinned.
+// TestSourcedMixedRotation covers an algorithm rotation through one raw source. The Source serves
+// keys of two families. One recipient holds a verifier per accepted algorithm, and it verifies
+// tokens of both by routing on the header's alg. A rotation keeps verifiers for the old and new
+// algorithms while both keys live. A token whose algorithm has no configured verifier is rejected,
+// so the header routes only among the verifiers the operator pinned.
 func TestSourcedMixedRotation(t *testing.T) {
 	t.Parallel()
 

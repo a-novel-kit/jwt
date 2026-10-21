@@ -16,7 +16,7 @@ import (
 func TestAESGCM(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
+	presets := []struct {
 		name string
 
 		keyPreset jwk.AESPreset
@@ -39,233 +39,103 @@ func TestAESGCM(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
+	additionalData := []byte("additional-data")
 
-			key, err := jwk.GenerateAES(testCase.keyPreset)
-			require.NoError(t, err)
+	testCases := []struct {
+		name string
 
-			t.Run("WithEncKey", func(t *testing.T) {
+		// encrypted is the key material that travels with the token. Nil sends none.
+		encrypted []byte
+		// producerData and recipientData are the additional data each side authenticates.
+		producerData  []byte
+		recipientData []byte
+		// wrongCEK makes the recipient decrypt under a key other than the producer's.
+		wrongCEK bool
+
+		expectErr error
+	}{
+		{
+			name:          "Success/WithEncKey",
+			encrypted:     []byte("encrypted"),
+			producerData:  additionalData,
+			recipientData: additionalData,
+		},
+		{
+			name:          "Success/WithoutEncKey",
+			producerData:  additionalData,
+			recipientData: additionalData,
+		},
+		{
+			name:      "Success/NoAdditionalData",
+			encrypted: []byte("encrypted"),
+		},
+		{
+			name:          "Error/WrongCEK/WithEncKey",
+			encrypted:     []byte("encrypted"),
+			producerData:  additionalData,
+			recipientData: additionalData,
+			wrongCEK:      true,
+			expectErr:     jwe.ErrInvalidSecret,
+		},
+		{
+			name:          "Error/WrongCEK/WithoutEncKey",
+			producerData:  additionalData,
+			recipientData: additionalData,
+			wrongCEK:      true,
+			expectErr:     jwe.ErrInvalidSecret,
+		},
+		{
+			name:          "Error/WrongAdditionalData",
+			encrypted:     []byte("encrypted"),
+			producerData:  additionalData,
+			recipientData: []byte("fake-additional-data"),
+			expectErr:     jwe.ErrInvalidSecret,
+		},
+	}
+
+	for _, preset := range presets {
+		key, err := jwk.GenerateAES(preset.keyPreset)
+		require.NoError(t, err)
+
+		for _, testCase := range testCases {
+			t.Run(preset.name+"/"+testCase.name, func(t *testing.T) {
 				t.Parallel()
 
-				cekManager := &fakeCEKManager{
-					cek:       key.Key(),
-					encrypted: []byte("encrypted"),
-				}
-
 				encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
-					CEKManager:     cekManager,
-					AdditionalData: []byte("additional-data"),
-				}, testCase.preset)
+					CEKManager:     &fakeCEKManager{cek: key.Key(), encrypted: testCase.encrypted},
+					AdditionalData: testCase.producerData,
+				}, preset.preset)
 
-				producer := jwt.NewProducer(jwt.ProducerConfig{
-					Plugins: []jwt.ProducerPlugin{encrypter},
-				})
+				producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
 
 				producerClaims := map[string]any{"foo": "bar"}
 
 				token, err := producer.Issue(t.Context(), producerClaims, nil)
 				require.NoError(t, err)
 
-				t.Run("Success", func(t *testing.T) {
-					t.Parallel()
-
-					cekDecoder := &fakeCEKDecoder{
-						cek:       key.Key(),
-						encrypted: []byte("encrypted"),
-					}
-
-					decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-						CEKDecoder:     cekDecoder,
-						AdditionalData: []byte("additional-data"),
-					}, testCase.preset)
-
-					recipient := jwt.NewRecipient(jwt.RecipientConfig{
-						Plugins: []jwt.RecipientPlugin{decrypter},
-					})
-
-					var recipientClaims map[string]any
-
-					require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
-					require.Equal(t, producerClaims, recipientClaims)
-				})
-
-				t.Run("WrongCEK", func(t *testing.T) {
-					t.Parallel()
-
-					fakeKey, err := jwk.GenerateAES(testCase.keyPreset)
+				recipientKey := key
+				if testCase.wrongCEK {
+					recipientKey, err = jwk.GenerateAES(preset.keyPreset)
 					require.NoError(t, err)
-
-					cekDecoder := &fakeCEKDecoder{
-						cek:       fakeKey.Key(),
-						encrypted: []byte("encrypted"),
-					}
-
-					decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-						CEKDecoder:     cekDecoder,
-						AdditionalData: []byte("additional-data"),
-					}, testCase.preset)
-
-					recipient := jwt.NewRecipient(jwt.RecipientConfig{
-						Plugins: []jwt.RecipientPlugin{decrypter},
-					})
-
-					var recipientClaims map[string]any
-
-					require.Error(t, recipient.Consume(t.Context(), token, &recipientClaims))
-				})
-			})
-
-			t.Run("WithoutEncKey", func(t *testing.T) {
-				t.Parallel()
-
-				cekManager := &fakeCEKManager{
-					cek: key.Key(),
-				}
-
-				encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
-					CEKManager:     cekManager,
-					AdditionalData: []byte("additional-data"),
-				}, testCase.preset)
-
-				producer := jwt.NewProducer(jwt.ProducerConfig{
-					Plugins: []jwt.ProducerPlugin{encrypter},
-				})
-
-				producerClaims := map[string]any{"foo": "bar"}
-
-				token, err := producer.Issue(t.Context(), producerClaims, nil)
-				require.NoError(t, err)
-
-				t.Run("Success", func(t *testing.T) {
-					t.Parallel()
-
-					cekDecoder := &fakeCEKDecoder{
-						cek: key.Key(),
-					}
-
-					decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-						CEKDecoder:     cekDecoder,
-						AdditionalData: []byte("additional-data"),
-					}, testCase.preset)
-
-					recipient := jwt.NewRecipient(jwt.RecipientConfig{
-						Plugins: []jwt.RecipientPlugin{decrypter},
-					})
-
-					var recipientClaims map[string]any
-
-					require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
-					require.Equal(t, producerClaims, recipientClaims)
-				})
-
-				t.Run("WrongCEK", func(t *testing.T) {
-					t.Parallel()
-
-					fakeKey, err := jwk.GenerateAES(testCase.keyPreset)
-					require.NoError(t, err)
-
-					cekDecoder := &fakeCEKDecoder{
-						cek: fakeKey.Key(),
-					}
-
-					decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-						CEKDecoder:     cekDecoder,
-						AdditionalData: []byte("additional-data"),
-					}, testCase.preset)
-
-					recipient := jwt.NewRecipient(jwt.RecipientConfig{
-						Plugins: []jwt.RecipientPlugin{decrypter},
-					})
-
-					var recipientClaims map[string]any
-
-					require.Error(t, recipient.Consume(t.Context(), token, &recipientClaims))
-				})
-			})
-
-			t.Run("NoAdditionalData", func(t *testing.T) {
-				t.Parallel()
-
-				cekManager := &fakeCEKManager{
-					cek:       key.Key(),
-					encrypted: []byte("encrypted"),
-				}
-
-				encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
-					CEKManager: cekManager,
-				}, testCase.preset)
-
-				producer := jwt.NewProducer(jwt.ProducerConfig{
-					Plugins: []jwt.ProducerPlugin{encrypter},
-				})
-
-				producerClaims := map[string]any{"foo": "bar"}
-
-				token, err := producer.Issue(t.Context(), producerClaims, nil)
-				require.NoError(t, err)
-
-				cekDecoder := &fakeCEKDecoder{
-					cek:       key.Key(),
-					encrypted: []byte("encrypted"),
 				}
 
 				decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-					CEKDecoder: cekDecoder,
-				}, testCase.preset)
+					CEKDecoder:     &fakeCEKDecoder{cek: recipientKey.Key(), encrypted: testCase.encrypted},
+					AdditionalData: testCase.recipientData,
+				}, preset.preset)
 
-				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{decrypter},
-				})
-
-				var recipientClaims map[string]any
-
-				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
-				require.Equal(t, producerClaims, recipientClaims)
-			})
-
-			t.Run("WrongAdditionalData", func(t *testing.T) {
-				t.Parallel()
-
-				cekManager := &fakeCEKManager{
-					cek:       key.Key(),
-					encrypted: []byte("encrypted"),
-				}
-
-				encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
-					CEKManager:     cekManager,
-					AdditionalData: []byte("additional-data"),
-				}, testCase.preset)
-
-				producer := jwt.NewProducer(jwt.ProducerConfig{
-					Plugins: []jwt.ProducerPlugin{encrypter},
-				})
-
-				producerClaims := map[string]any{"foo": "bar"}
-
-				token, err := producer.Issue(t.Context(), producerClaims, nil)
-				require.NoError(t, err)
-
-				cekDecoder := &fakeCEKDecoder{
-					cek:       key.Key(),
-					encrypted: []byte("encrypted"),
-				}
-
-				decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-					CEKDecoder:     cekDecoder,
-					AdditionalData: []byte("fake-additional-data"),
-				}, testCase.preset)
-
-				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{decrypter},
-				})
+				recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
 
 				var recipientClaims map[string]any
 
-				require.Error(t, recipient.Consume(t.Context(), token, &recipientClaims))
+				err = recipient.Consume(t.Context(), token, &recipientClaims)
+				require.ErrorIs(t, err, testCase.expectErr)
+
+				if testCase.expectErr == nil {
+					require.Equal(t, producerClaims, recipientClaims)
+				}
 			})
-		})
+		}
 	}
 }
 

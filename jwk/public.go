@@ -8,9 +8,9 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
-// ErrPrivateKeyMaterial reports a key carrying members that must not leave the
-// signer: the RSA private exponent and its CRT factors, the EC and OKP private
-// scalar, the AKP private key, or the octet sequence a symmetric key consists of.
+// ErrPrivateKeyMaterial reports a key carrying a private member of RFC 7518 §6
+// or RFC 9964 §3. Those members must not leave the signer. A symmetric key
+// always carries one, since its octet sequence is the secret.
 var ErrPrivateKeyMaterial = errors.New("key carries private material")
 
 // privateMembers are the JWK members RFC 7518 §6 and RFC 9964 §3 define as
