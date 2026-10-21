@@ -14,6 +14,9 @@ import (
 // ErrReservedMember reports a custom payload naming a member of the registered
 // set. Every guard in this library reads the registered value, and a custom
 // member reaches the encoding only after those guards have passed.
+//
+// Names match without regard to case, as encoding/json matches them to struct
+// fields: "ALG" fills the alg field just as "alg" does.
 var ErrReservedMember = errors.New("custom payload may not set a registered member")
 
 // MarshalPartial encodes common and custom into one JSON object. A nil or "null"
@@ -51,10 +54,9 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 	var reserved []string
 
 	for name, value := range customMembers {
-		_, isDeclared := declared[name]
 		_, isEncoded := merged[name]
 
-		if isDeclared || isEncoded {
+		if isEncoded || reservedName(declared, name) {
 			reserved = append(reserved, name)
 
 			continue
@@ -64,11 +66,7 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 	}
 
 	if len(reserved) > 0 {
-		// Map iteration order is random, so the names are sorted to keep one
-		// input from producing several different messages.
-		sort.Strings(reserved)
-
-		return nil, fmt.Errorf("(MarshalPartial) %w: %s", ErrReservedMember, strings.Join(reserved, ", "))
+		return nil, errReserved("MarshalPartial", reserved)
 	}
 
 	mergedSerialized, err := json.Marshal(merged)
@@ -151,7 +149,8 @@ func declaredMembers(typ reflect.Type) map[string]struct{} {
 //
 // The members T declares are removed from that remainder, which makes this the
 // inverse of MarshalPartial: re-encoding the pair reproduces src without
-// tripping ErrReservedMember.
+// tripping ErrReservedMember. A src holding a case variant of a declared member
+// fails with ErrReservedMember.
 func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 	var common T
 
@@ -172,6 +171,21 @@ func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 		return common, nil, fmt.Errorf("(UnmarshalPartial) convert source to map: %w", err)
 	}
 
+	// A case variant of a declared name has filled that field too, and a parser
+	// that matches names exactly reads it apart from the field. The two would then
+	// disagree on the registered value, so the source is refused.
+	var reserved []string
+
+	for name := range members {
+		if _, isDeclared := declared[name]; !isDeclared && reservedName(declared, name) {
+			reserved = append(reserved, name)
+		}
+	}
+
+	if len(reserved) > 0 {
+		return common, nil, errReserved("UnmarshalPartial", reserved)
+	}
+
 	for name := range declared {
 		delete(members, name)
 	}
@@ -182,4 +196,30 @@ func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 	}
 
 	return common, custom, nil
+}
+
+// reservedName reports whether name matches a declared member, without regard to
+// case. strings.EqualFold folds case as encoding/json does when it matches a
+// member to a struct field.
+func reservedName(declared map[string]struct{}, name string) bool {
+	if _, found := declared[name]; found {
+		return true
+	}
+
+	for member := range declared {
+		if strings.EqualFold(member, name) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// errReserved reports the custom members of op that name registered ones. Map
+// iteration order is random, so the names are sorted to keep one input from
+// producing several different messages.
+func errReserved(op string, names []string) error {
+	sort.Strings(names)
+
+	return fmt.Errorf("(%s) %w: %s", op, ErrReservedMember, strings.Join(names, ", "))
 }

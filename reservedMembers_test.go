@@ -113,6 +113,25 @@ func TestIssueKeepsUnreservedCustomClaims(t *testing.T) {
 	require.NotZero(t, payload["exp"], "the producer's own exp must survive")
 }
 
+func TestConsumeRejectsACaseVariantHeader(t *testing.T) {
+	t.Parallel()
+
+	// A verifier routes on alg, and a parser that matches names exactly reads HS256 from this header.
+	// encoding/json alone would decode alg as none.
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","ALG":"none"}`))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"role":"admin"}`))
+
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()},
+	})
+
+	var claims map[string]any
+
+	err := recipient.Consume(t.Context(), header+"."+payload, &claims)
+	require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+	require.ErrorIs(t, err, jwa.ErrReservedMember)
+}
+
 func decodeSegment(t *testing.T, token string, index int) string {
 	t.Helper()
 

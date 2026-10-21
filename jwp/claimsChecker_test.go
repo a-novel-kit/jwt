@@ -112,6 +112,28 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwp.ErrInvalidClaims,
 		},
 		{
+			// encoding/json fills Iss from the last match, so the target check alone would accept these
+			// claims, whose iss is fake-issuer. The claims set is refused before any check runs.
+			name: "WithTarget/CaseVariantIssuer",
+
+			config: &jwp.ClaimsCheckerConfig{
+				Checks: []jwp.ClaimsCheck{
+					jwp.NewClaimsCheckTarget(jwt.TargetConfig{
+						Audience: jwa.Audience{"audience"},
+						Issuer:   "issuer",
+						Subject:  "subject",
+					}),
+				},
+			},
+
+			raw: json.RawMessage(`{"aud":"audience","iss":"fake-issuer","ISS":"issuer","sub":"subject"}`),
+
+			dst: map[string]any{},
+
+			expect:    map[string]any{},
+			expectErr: jwa.ErrReservedMember,
+		},
+		{
 			name: "WithTarget/InvalidIssuer",
 
 			config: &jwp.ClaimsCheckerConfig{
