@@ -310,10 +310,10 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	return plainText, nil
 }
 
-// cbcTag computes the AES_CBC_HMAC_SHA2 authentication tag (RFC 7518 §5.2.2.1): the HMAC, under
-// macKey, of the additional authenticated data, the IV, the ciphertext and AL, in the order the
-// spec fixes, truncated to tagLength octets. AL is the bit length of the additional authenticated
-// data as a big-endian uint64.
+// cbcTag computes the AES_CBC_HMAC_SHA2 authentication tag of RFC 7518 §5.2.2.1. The tag is the
+// HMAC of the additional authenticated data, the IV, the ciphertext and AL, in that order. The HMAC
+// is keyed with macKey and truncated to tagLength octets. AL is the bit length of the additional
+// authenticated data, as a big-endian uint64.
 func cbcTag(hash crypto.Hash, macKey, aadBytes, iv, cipherText []byte, tagLength int) []byte {
 	al := make([]byte, 8)
 	binary.BigEndian.PutUint64(al, uint64(len(aadBytes)*8))

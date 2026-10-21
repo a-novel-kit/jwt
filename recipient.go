@@ -44,8 +44,8 @@ type RecipientConfig struct {
 
 	// Typ is the media type a token's "typ" header must declare, such as "at+jwt" for OAuth access
 	// tokens. Distinct types keep one kind of token from being accepted as another. The comparison
-	// follows RFC 7515 §4.1.9: the type, subtype, and parameter names ignore case, parameter values
-	// keep it, and a value without any "/" stands for one under "application/". Empty skips the
+	// follows RFC 7515 §4.1.9. The type, subtype, and parameter names ignore case, and parameter
+	// values keep it. A value without any "/" stands for one under "application/". Empty skips the
 	// check.
 	Typ jwa.Typ
 }

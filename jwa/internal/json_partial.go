@@ -83,9 +83,9 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 var declaredMembersCache sync.Map // reflect.Type -> map[string]struct{}
 
 // declaredMembers returns the JSON member names a struct type declares,
-// including those promoted from embedded structs. A non-struct, such as a map or
-// the interface a caller reaches the generic parameter through, yields none, and
-// the encoded object alone then accounts for common's members.
+// including those promoted from embedded structs. A non-struct type yields none,
+// such as a map or an interface that T is instantiated with. The encoded object
+// alone then accounts for common's members.
 func declaredMembers(typ reflect.Type) map[string]struct{} {
 	for typ != nil && typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()

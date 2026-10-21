@@ -11,8 +11,8 @@ import (
 // direct shared key, key wrapping, or key agreement.
 //
 // Key management runs per token. ComputeCEK and EncryptCEK may record per-token
-// parameters in the header, such as an ephemeral key or a wrapping IV, so an
-// encryption plugin encodes the protected header only after both have run.
+// parameters in the header, such as an ephemeral key or a wrapping IV. An
+// encryption plugin therefore encodes the protected header only after both have run.
 type CEKManager interface {
 	// SetHeader adds the header fields known before the token is encrypted, such as
 	// the algorithm.

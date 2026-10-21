@@ -19,9 +19,9 @@ var ErrInvalidSecret = errors.New("invalid secret")
 // initialization vector or padding of the wrong length.
 var ErrInvalidToken = errors.New("invalid token")
 
-// encodeProtectedHeader returns the token's first segment. Key management records per-token
-// parameters, such as an ephemeral key, while the token is encrypted, so the header is encoded after
-// it runs rather than taken from the token the producer serialized.
+// encodeProtectedHeader returns the token's first segment. Key management can add per-token
+// parameters to the header, such as an ephemeral key, while the token is encrypted. The header is
+// therefore encoded after key management runs, and the producer's serialized header is discarded.
 func encodeProtectedHeader(header *jwa.JWH) (string, error) {
 	serialized, err := json.Marshal(header)
 	if err != nil {

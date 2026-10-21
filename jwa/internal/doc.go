@@ -1,4 +1,3 @@
-// Package internal provides JSON helpers for payloads that combine a fixed set of typed fields with
-// arbitrary caller-defined ones, letting a JWT carry both registered claims and custom extensions in
-// a single object.
+// Package internal provides JSON helpers for objects that mix a fixed set of typed fields with
+// caller-defined ones. They let a JWT carry registered claims and custom extensions in one object.
 package internal
