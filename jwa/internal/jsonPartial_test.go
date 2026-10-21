@@ -303,3 +303,106 @@ func TestPartialRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+// encoding/json fills a struct field from a member whose name matches the field's
+// without regard to case, so a case variant of a registered name is reserved as
+// the name itself is. The Kelvin sign case covers Unicode folding: encoding/json
+// folds "\u212aid" onto "kid".
+
+type caseVariantType struct {
+	Alg string `json:"alg,omitempty"`
+	KID string `json:"kid,omitempty"`
+}
+
+func TestMarshalPartialReservesCaseVariants(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+
+		extra json.RawMessage
+
+		expectNames string
+	}{
+		{
+			name:        "Error/UpperCase",
+			extra:       json.RawMessage(`{"ALG":"none"}`),
+			expectNames: "ALG",
+		},
+		{
+			name:        "Error/UnicodeFold",
+			extra:       json.RawMessage(`{"\u212aid":"attacker-kid"}`),
+			expectNames: "\u212aid",
+		},
+		{
+			name:  "Success/UnrelatedMember",
+			extra: json.RawMessage(`{"algorithm":"custom"}`),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := internal.MarshalPartial(caseVariantType{Alg: "HS256"}, testCase.extra)
+			if testCase.expectNames == "" {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.ErrorIs(t, err, internal.ErrReservedMember)
+			require.ErrorContains(t, err, testCase.expectNames)
+		})
+	}
+}
+
+func TestUnmarshalPartialRefusesCaseVariants(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+
+		src []byte
+
+		expectNames string
+	}{
+		{
+			// encoding/json keeps the last member it matches, so alg would decode as none here, while
+			// a parser matching names exactly reads ES256.
+			name:        "Error/Duplicate",
+			src:         []byte(`{"alg":"ES256","ALG":"none"}`),
+			expectNames: "ALG",
+		},
+		{
+			name:        "Error/VariantAlone",
+			src:         []byte(`{"Alg":"none"}`),
+			expectNames: "Alg",
+		},
+		{
+			name:        "Error/UnicodeFold",
+			src:         []byte(`{"kid":"kid-1","\u212aid":"attacker-kid"}`),
+			expectNames: "\u212aid",
+		},
+		{
+			name: "Success/ExactNames",
+			src:  []byte(`{"alg":"ES256","kid":"kid-1","algorithm":"custom"}`),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, _, err := internal.UnmarshalPartial[caseVariantType](testCase.src)
+			if testCase.expectNames == "" {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.ErrorIs(t, err, internal.ErrReservedMember)
+			require.ErrorContains(t, err, testCase.expectNames)
+		})
+	}
+}
