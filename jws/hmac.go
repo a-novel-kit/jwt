@@ -181,6 +181,7 @@ func sourcedHMACKey(alg jwa.Alg) keyDecoder[[]byte] {
 // call, so the plugin follows key rotation. Build one with [NewSourcedHMACSigner].
 type SourcedHMACSigner struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[[]byte]
 	preset HMACPreset
 }
 
@@ -192,12 +193,13 @@ type SourcedHMACSigner struct {
 func NewSourcedHMACSigner(source *jwk.Source, preset HMACPreset) *SourcedHMACSigner {
 	return &SourcedHMACSigner{
 		source: source,
+		keys:   signingKeys(source, sourcedHMACKey(preset.Alg)),
 		preset: preset,
 	}
 }
 
 func (signer *SourcedHMACSigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedHMACKey(signer.preset.Alg))
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedHMACSigner.Header) %w", err)
 	}
@@ -211,7 +213,7 @@ func (signer *SourcedHMACSigner) Header(ctx context.Context, header *jwa.JWH) (*
 }
 
 func (signer *SourcedHMACSigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedHMACKey(signer.preset.Alg))
+	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return "", fmt.Errorf("(SourcedHMACSigner.Transform) %w", err)
 	}
@@ -224,6 +226,7 @@ func (signer *SourcedHMACSigner) Transform(ctx context.Context, header *jwa.JWH,
 // it tries every secret in the source. Build one with [NewSourcedHMACVerifier].
 type SourcedHMACVerifier struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[[]byte]
 	preset HMACPreset
 }
 
@@ -234,12 +237,13 @@ type SourcedHMACVerifier struct {
 func NewSourcedHMACVerifier(source *jwk.Source, preset HMACPreset) *SourcedHMACVerifier {
 	return &SourcedHMACVerifier{
 		source: source,
+		keys:   verificationKeys(source, sourcedHMACKey(preset.Alg)),
 		preset: preset,
 	}
 }
 
 func (verifier *SourcedHMACVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedHMACKey(verifier.preset.Alg),
+	return verifyFromSource(ctx, verifier.source, header, rawToken, verifier.keys.Decode,
 		func(key []byte) jwt.RecipientPlugin {
 			return NewHMACVerifier(key, verifier.preset)
 		})

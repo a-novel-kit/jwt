@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -93,7 +94,9 @@ type SourceConfig struct {
 type Source struct {
 	config SourceConfig
 
-	cached      []*jwa.JWK
+	cached []*jwa.JWK
+	// generation counts the key sets fetched so far. A [Decoder] keeps its results per set.
+	generation  uint64
 	lastCached  time.Time
 	lastFailure time.Time
 	lastErr     error
@@ -204,6 +207,14 @@ func (source *Source) lookup(kid string) (*jwa.JWK, bool) {
 	}
 
 	return nil, false
+}
+
+// generationOf returns the generation of the cached key set, and reports whether key belongs to it.
+func (source *Source) generationOf(key *jwa.JWK) (uint64, bool) {
+	source.mu.RLock()
+	defer source.mu.RUnlock()
+
+	return source.generation, slices.Contains(source.cached, key)
 }
 
 // refreshForUnknownKeyID fetches when the cache is at least UnknownKeyIDInterval old, or joins the
@@ -371,6 +382,7 @@ func (source *Source) storeLocked(keys []*jwa.JWK, err error) error {
 	copy(cached, keys)
 
 	source.cached = cached
+	source.generation++
 	source.lastCached = time.Now()
 	source.lastErr = nil
 

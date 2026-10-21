@@ -243,6 +243,7 @@ func sourcedECDSAPrivate(preset ECDSAPreset) keyDecoder[*ecdsa.PrivateKey] {
 // call, so the plugin follows key rotation. Build one with [NewSourcedECDSASigner].
 type SourcedECDSASigner struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[*ecdsa.PrivateKey]
 	preset ECDSAPreset
 }
 
@@ -254,12 +255,13 @@ type SourcedECDSASigner struct {
 func NewSourcedECDSASigner(source *jwk.Source, preset ECDSAPreset) *SourcedECDSASigner {
 	return &SourcedECDSASigner{
 		source: source,
+		keys:   signingKeys(source, sourcedECDSAPrivate(preset)),
 		preset: preset,
 	}
 }
 
 func (signer *SourcedECDSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedECDSAPrivate(signer.preset))
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedECDSASigner.Header) %w", err)
 	}
@@ -273,7 +275,7 @@ func (signer *SourcedECDSASigner) Header(ctx context.Context, header *jwa.JWH) (
 }
 
 func (signer *SourcedECDSASigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedECDSAPrivate(signer.preset))
+	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return "", fmt.Errorf("(SourcedECDSASigner.Transform) %w", err)
 	}
@@ -286,6 +288,7 @@ func (signer *SourcedECDSASigner) Transform(ctx context.Context, header *jwa.JWH
 // every key in the source. Build one with [NewSourcedECDSAVerifier].
 type SourcedECDSAVerifier struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[*ecdsa.PublicKey]
 	preset ECDSAPreset
 }
 
@@ -297,12 +300,13 @@ type SourcedECDSAVerifier struct {
 func NewSourcedECDSAVerifier(source *jwk.Source, preset ECDSAPreset) *SourcedECDSAVerifier {
 	return &SourcedECDSAVerifier{
 		source: source,
+		keys:   verificationKeys(source, sourcedECDSAPublic(preset)),
 		preset: preset,
 	}
 }
 
 func (verifier *SourcedECDSAVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedECDSAPublic(verifier.preset),
+	return verifyFromSource(ctx, verifier.source, header, rawToken, verifier.keys.Decode,
 		func(key *ecdsa.PublicKey) jwt.RecipientPlugin {
 			return NewECDSAVerifier(key, verifier.preset)
 		})

@@ -130,24 +130,30 @@ func (verifier *MLDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 }
 
 // sourcedMLDSAPublic decodes a raw JSON Web Key into an ML-DSA public key for verification under
-// alg, skipping keys of another parameter set and any that carry private material.
-func sourcedMLDSAPublic(alg jwa.Alg) keyDecoder[*mldsa.PublicKey] {
+// alg, skipping keys of another parameter set. keys decodes the keys that remain.
+func sourcedMLDSAPublic(alg jwa.Alg, keys *jwk.Decoder[*mldsa.PublicKey]) keyDecoder[*mldsa.PublicKey] {
 	return func(key *jwa.JWK) (*mldsa.PublicKey, error) {
 		if key.Alg != alg {
 			return nil, fmt.Errorf("%w: key is for %s", jwk.ErrJWKMismatch, key.Alg)
 		}
 
-		privateKey, publicKey, err := jwk.ConsumeMLDSA(key)
-		if err != nil {
-			return nil, err
-		}
-
-		if privateKey != nil {
-			return nil, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
-		}
-
-		return publicKey.Key(), nil
+		return keys.Decode(key)
 	}
+}
+
+// mldsaPublicKey decodes a raw JSON Web Key into an ML-DSA public key, skipping any that carry
+// private material.
+func mldsaPublicKey(key *jwa.JWK) (*mldsa.PublicKey, error) {
+	privateKey, publicKey, err := jwk.ConsumeMLDSA(key)
+	if err != nil {
+		return nil, err
+	}
+
+	if privateKey != nil {
+		return nil, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
+	}
+
+	return publicKey.Key(), nil
 }
 
 // sourcedMLDSAPrivate decodes a raw JSON Web Key into an ML-DSA private key for signing.
@@ -169,6 +175,7 @@ func sourcedMLDSAPrivate(key *jwa.JWK) (*mldsa.PrivateKey, error) {
 // source lists, whatever its level. Build one with [NewSourcedMLDSASigner].
 type SourcedMLDSASigner struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[*mldsa.PrivateKey]
 }
 
 // NewSourcedMLDSASigner returns a [jwt.ProducerPlugin] that signs tokens with ML-DSA, drawing the key
@@ -178,11 +185,12 @@ type SourcedMLDSASigner struct {
 func NewSourcedMLDSASigner(source *jwk.Source) *SourcedMLDSASigner {
 	return &SourcedMLDSASigner{
 		source: source,
+		keys:   signingKeys(source, sourcedMLDSAPrivate),
 	}
 }
 
 func (signer *SourcedMLDSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedMLDSAPrivate)
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedMLDSASigner.Header) %w", err)
 	}
@@ -196,7 +204,7 @@ func (signer *SourcedMLDSASigner) Header(ctx context.Context, header *jwa.JWH) (
 }
 
 func (signer *SourcedMLDSASigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedMLDSAPrivate)
+	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return "", fmt.Errorf("(SourcedMLDSASigner.Transform) %w", err)
 	}
@@ -209,6 +217,7 @@ func (signer *SourcedMLDSASigner) Transform(ctx context.Context, header *jwa.JWH
 // every key in the source bound to the token's algorithm. Build one with [NewSourcedMLDSAVerifier].
 type SourcedMLDSAVerifier struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[*mldsa.PublicKey]
 }
 
 // NewSourcedMLDSAVerifier returns a [jwt.RecipientPlugin] that verifies ML-DSA-signed tokens against
@@ -218,6 +227,7 @@ type SourcedMLDSAVerifier struct {
 func NewSourcedMLDSAVerifier(source *jwk.Source) *SourcedMLDSAVerifier {
 	return &SourcedMLDSAVerifier{
 		source: source,
+		keys:   verificationKeys(source, mldsaPublicKey),
 	}
 }
 
@@ -233,7 +243,7 @@ func (verifier *SourcedMLDSAVerifier) Transform(ctx context.Context, header *jwa
 		)
 	}
 
-	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedMLDSAPublic(header.Alg),
+	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedMLDSAPublic(header.Alg, verifier.keys),
 		func(key *mldsa.PublicKey) jwt.RecipientPlugin {
 			return NewMLDSAVerifier(key)
 		})

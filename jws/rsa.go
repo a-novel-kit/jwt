@@ -276,6 +276,7 @@ func sourcedRSAPrivate(alg jwa.Alg) keyDecoder[*rsa.PrivateKey] {
 // call, so the plugin follows key rotation. Build one with [NewSourcedRSASigner].
 type SourcedRSASigner struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[*rsa.PrivateKey]
 	preset RSAPreset
 }
 
@@ -287,12 +288,13 @@ type SourcedRSASigner struct {
 func NewSourcedRSASigner(source *jwk.Source, preset RSAPreset) *SourcedRSASigner {
 	return &SourcedRSASigner{
 		source: source,
+		keys:   signingKeys(source, sourcedRSAPrivate(preset.Alg)),
 		preset: preset,
 	}
 }
 
 func (signer *SourcedRSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedRSAPrivate(signer.preset.Alg))
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedRSASigner.Header) %w", err)
 	}
@@ -306,7 +308,7 @@ func (signer *SourcedRSASigner) Header(ctx context.Context, header *jwa.JWH) (*j
 }
 
 func (signer *SourcedRSASigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedRSAPrivate(signer.preset.Alg))
+	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return "", fmt.Errorf("(SourcedRSASigner.Transform) %w", err)
 	}
@@ -319,6 +321,7 @@ func (signer *SourcedRSASigner) Transform(ctx context.Context, header *jwa.JWH, 
 // every key in the source. Build one with [NewSourcedRSAVerifier].
 type SourcedRSAVerifier struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[*rsa.PublicKey]
 	preset RSAPreset
 }
 
@@ -330,6 +333,7 @@ type SourcedRSAVerifier struct {
 func NewSourcedRSAVerifier(source *jwk.Source, preset RSAPreset) *SourcedRSAVerifier {
 	return &SourcedRSAVerifier{
 		source: source,
+		keys:   verificationKeys(source, sourcedRSAPublic(preset.Alg)),
 		preset: preset,
 	}
 }
@@ -337,7 +341,7 @@ func NewSourcedRSAVerifier(source *jwk.Source, preset RSAPreset) *SourcedRSAVeri
 func (verifier *SourcedRSAVerifier) Transform(
 	ctx context.Context, header *jwa.JWH, rawToken string,
 ) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedRSAPublic(verifier.preset.Alg),
+	return verifyFromSource(ctx, verifier.source, header, rawToken, verifier.keys.Decode,
 		func(key *rsa.PublicKey) jwt.RecipientPlugin {
 			return NewRSAVerifier(key, verifier.preset)
 		})
