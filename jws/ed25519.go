@@ -152,6 +152,7 @@ func sourcedED25519Private(key *jwa.JWK) (ed25519.PrivateKey, error) {
 // each call, so the plugin follows key rotation. Build one with [NewSourcedED25519Signer].
 type SourcedED25519Signer struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[ed25519.PrivateKey]
 	alg    jwa.Alg
 }
 
@@ -162,6 +163,7 @@ type SourcedED25519Signer struct {
 func NewSourcedED25519Signer(source *jwk.Source) *SourcedED25519Signer {
 	return &SourcedED25519Signer{
 		source: source,
+		keys:   signingKeys(source, sourcedED25519Private),
 		alg:    jwa.Ed25519,
 	}
 }
@@ -173,12 +175,13 @@ func NewSourcedED25519Signer(source *jwk.Source) *SourcedED25519Signer {
 func NewSourcedEdDSASigner(source *jwk.Source) *SourcedED25519Signer {
 	return &SourcedED25519Signer{
 		source: source,
+		keys:   signingKeys(source, sourcedED25519Private),
 		alg:    jwa.EdDSA,
 	}
 }
 
 func (signer *SourcedED25519Signer) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, sourcedED25519Private)
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return nil, fmt.Errorf("(SourcedED25519Signer.Header) %w", err)
 	}
@@ -192,7 +195,7 @@ func (signer *SourcedED25519Signer) Header(ctx context.Context, header *jwa.JWH)
 }
 
 func (signer *SourcedED25519Signer) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, sourcedED25519Private)
+	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
 	if err != nil {
 		return "", fmt.Errorf("(SourcedED25519Signer.Transform) %w", err)
 	}
@@ -205,6 +208,7 @@ func (signer *SourcedED25519Signer) Transform(ctx context.Context, header *jwa.J
 // every key in the source. Build one with [NewSourcedED25519Verifier].
 type SourcedED25519Verifier struct {
 	source *jwk.Source
+	keys   *jwk.Decoder[ed25519.PublicKey]
 }
 
 // NewSourcedED25519Verifier returns a [jwt.RecipientPlugin] that verifies Ed25519-signed tokens
@@ -214,13 +218,14 @@ type SourcedED25519Verifier struct {
 func NewSourcedED25519Verifier(source *jwk.Source) *SourcedED25519Verifier {
 	return &SourcedED25519Verifier{
 		source: source,
+		keys:   verificationKeys(source, sourcedED25519Public),
 	}
 }
 
 func (verifier *SourcedED25519Verifier) Transform(
 	ctx context.Context, header *jwa.JWH, rawToken string,
 ) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, sourcedED25519Public,
+	return verifyFromSource(ctx, verifier.source, header, rawToken, verifier.keys.Decode,
 		func(key ed25519.PublicKey) jwt.RecipientPlugin {
 			return NewED25519Verifier(key)
 		})

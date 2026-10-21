@@ -16,6 +16,18 @@ import (
 // signFromSource skip in a mixed source.
 type keyDecoder[K any] func(key *jwa.JWK) (K, error)
 
+// signingKeys returns the Decoder a sourced signer draws its keys through: decode, restricted to keys
+// whose "key_ops" permit signing.
+func signingKeys[K any](source *jwk.Source, decode keyDecoder[K]) *jwk.Decoder[K] {
+	return jwk.NewDecoder(source, permitting(jwa.KeyOpSign, decode))
+}
+
+// verificationKeys returns the Decoder a sourced verifier draws its keys through: decode, restricted
+// to keys whose "key_ops" permit verification.
+func verificationKeys[K any](source *jwk.Source, decode keyDecoder[K]) *jwk.Decoder[K] {
+	return jwk.NewDecoder(source, permitting(jwa.KeyOpVerify, decode))
+}
+
 // permitting wraps decode so it refuses, as a key of another family, any key whose "key_ops" lack op.
 // The Consume functions accept a key labeled for either half of a pair and return whatever material
 // it carries, so a private key labeled for verification still decodes. The operation is checked
@@ -33,8 +45,9 @@ func permitting[K any](op jwa.KeyOp, decode keyDecoder[K]) keyDecoder[K] {
 }
 
 // verifyFromSource tries the keys that may have signed the token until one verifies it. decode
-// turns a raw key into this verifier's native type and rejects a key of another family with
-// jwk.ErrJWKMismatch, which the loop skips. newVerifier builds a single-key verifier.
+// turns a raw key into this verifier's native type. It rejects a key of another family, or one not
+// permitted to verify, with jwk.ErrJWKMismatch, which the loop skips. newVerifier builds a single-key
+// verifier.
 func verifyFromSource[K any](
 	ctx context.Context,
 	source *jwk.Source,
@@ -47,8 +60,6 @@ func verifyFromSource[K any](
 	if err != nil {
 		return nil, fmt.Errorf("(verifyFromSource) %w", err)
 	}
-
-	decode = permitting(jwa.KeyOpVerify, decode)
 
 	for _, candidate := range candidates {
 		key, err := decode(candidate)
@@ -108,7 +119,8 @@ func verificationCandidates(ctx context.Context, source *jwk.Source, kid string)
 }
 
 // signFromSource resolves the key a sourced signer should use: the one matching kid, or the first key
-// that decodes to this signer's family when kid is empty. It returns the decoded key and the
+// that decodes to this signer's family when kid is empty. decode rejects a key not permitted to sign
+// as one of another family. It returns the decoded key and the
 // resolved key's ID so the signer can stamp the header. Selection consults nothing in the token
 // header beyond an explicit kid, so the signer stays pinned to its own algorithm.
 func signFromSource[K any](
@@ -118,8 +130,6 @@ func signFromSource[K any](
 	decode keyDecoder[K],
 ) (K, string, error) {
 	var zero K
-
-	decode = permitting(jwa.KeyOpSign, decode)
 
 	if kid != "" {
 		candidate, err := source.Get(ctx, kid)
