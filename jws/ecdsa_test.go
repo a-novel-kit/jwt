@@ -269,13 +269,13 @@ func TestECDSASourcedVerifier(t *testing.T) {
 				_, newPublicKey, err := jwk.GenerateECDSA(testCase.keyPreset)
 				require.NoError(t, err)
 
-				source = testutils.NewStaticKeysSource(
+				rotatedSource := testutils.NewStaticKeysSource(
 					t,
 					append([]*jwk.Key[*ecdsa.PublicKey]{newPublicKey}, publicKeys...),
 				)
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedECDSAVerifier(source, testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewSourcedECDSAVerifier(rotatedSource, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
@@ -288,10 +288,10 @@ func TestECDSASourcedVerifier(t *testing.T) {
 				_, newPublicKey, err := jwk.GenerateECDSA(testCase.keyPreset)
 				require.NoError(t, err)
 
-				source = testutils.NewStaticKeysSource(t, []*jwk.Key[*ecdsa.PublicKey]{newPublicKey})
+				unrelatedSource := testutils.NewStaticKeysSource(t, []*jwk.Key[*ecdsa.PublicKey]{newPublicKey})
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedECDSAVerifier(source, testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewSourcedECDSAVerifier(unrelatedSource, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any

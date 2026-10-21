@@ -277,13 +277,13 @@ func TestRSASourcedVerifier(t *testing.T) {
 				_, newPublicKey, err := jwk.GenerateRSA(testCase.keyPreset)
 				require.NoError(t, err)
 
-				source = testutils.NewStaticKeysSource(
+				rotatedSource := testutils.NewStaticKeysSource(
 					t,
 					append([]*jwk.Key[*rsa.PublicKey]{newPublicKey}, publicKeys...),
 				)
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(rotatedSource, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any
@@ -298,10 +298,10 @@ func TestRSASourcedVerifier(t *testing.T) {
 				_, newPublicKey, err := jwk.GenerateRSA(testCase.keyPreset)
 				require.NoError(t, err)
 
-				source = testutils.NewStaticKeysSource(t, []*jwk.Key[*rsa.PublicKey]{newPublicKey})
+				unrelatedSource := testutils.NewStaticKeysSource(t, []*jwk.Key[*rsa.PublicKey]{newPublicKey})
 
 				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, testCase.preset)},
+					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(unrelatedSource, testCase.preset)},
 				})
 
 				var recipientClaims map[string]any

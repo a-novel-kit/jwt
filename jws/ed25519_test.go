@@ -247,13 +247,13 @@ func TestED25519SourcedVerifier(t *testing.T) {
 		_, newPublicKey, err := jwk.GenerateED25519()
 		require.NoError(t, err)
 
-		source = testutils.NewStaticKeysSource(
+		rotatedSource := testutils.NewStaticKeysSource(
 			t,
 			append([]*jwk.Key[ed25519.PublicKey]{newPublicKey}, publicKeys...),
 		)
 
 		recipient := jwt.NewRecipient(jwt.RecipientConfig{
-			Plugins: []jwt.RecipientPlugin{jws.NewSourcedED25519Verifier(source)},
+			Plugins: []jwt.RecipientPlugin{jws.NewSourcedED25519Verifier(rotatedSource)},
 		})
 
 		var recipientClaims map[string]any
@@ -268,10 +268,10 @@ func TestED25519SourcedVerifier(t *testing.T) {
 		_, newPublicKey, err := jwk.GenerateED25519()
 		require.NoError(t, err)
 
-		source = testutils.NewStaticKeysSource(t, []*jwk.Key[ed25519.PublicKey]{newPublicKey})
+		unrelatedSource := testutils.NewStaticKeysSource(t, []*jwk.Key[ed25519.PublicKey]{newPublicKey})
 
 		recipient := jwt.NewRecipient(jwt.RecipientConfig{
-			Plugins: []jwt.RecipientPlugin{jws.NewSourcedED25519Verifier(source)},
+			Plugins: []jwt.RecipientPlugin{jws.NewSourcedED25519Verifier(unrelatedSource)},
 		})
 
 		var recipientClaims map[string]any
