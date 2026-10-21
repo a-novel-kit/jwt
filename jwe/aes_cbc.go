@@ -280,6 +280,23 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
+	// The IV and ciphertext are attacker-supplied, and the CBC decrypter panics unless the IV is one
+	// block and the ciphertext whole blocks. A sender who knows the CEK passes the tag check with
+	// either, so the lengths are checked first.
+	if len(segments.iv) != aes.BlockSize {
+		return nil, fmt.Errorf(
+			"(AESCBCDecryption.Transform) %w: iv length %d, expected %d",
+			ErrInvalidToken, len(segments.iv), aes.BlockSize,
+		)
+	}
+
+	if len(segments.cipherText)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf(
+			"(AESCBCDecryption.Transform) %w: cipher text length %d is not a multiple of %d",
+			ErrInvalidToken, len(segments.cipherText), aes.BlockSize,
+		)
+	}
+
 	// MAC_KEY leads K and ENC_KEY trails it, as at encryption.
 	encKey := cek[dec.macKeyLength:]
 	macKey := cek[:dec.macKeyLength]

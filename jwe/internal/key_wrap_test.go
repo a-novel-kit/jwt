@@ -69,6 +69,15 @@ func TestAesKeyWrapInvalid(t *testing.T) {
 	_, err = internal.KeyUnwrap(block, input1)
 	require.Error(t, err, "key unwrap failed to detect truncated input")
 
+	// Invalid unwrap input (empty, or the integrity check value with no key block)
+	_, err = internal.KeyUnwrap(block, nil)
+	require.Error(t, err, "key unwrap accepted empty input")
+
+	integrityOnly, _ := hex.DecodeString("A6A6A6A6A6A6A6A6")
+
+	_, err = internal.KeyUnwrap(block, integrityOnly)
+	require.Error(t, err, "key unwrap accepted an integrity check value alone")
+
 	// Invalid wrap input (not multiple of 8)
 	input2, _ := hex.DecodeString("0123456789ABCD")
 

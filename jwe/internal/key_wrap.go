@@ -65,6 +65,11 @@ func KeyUnwrap(block cipher.Block, ciphertext []byte) ([]byte, error) {
 		return nil, errors.New("key wrap input must be 8 byte blocks")
 	}
 
+	// The first block is the integrity check value, so a wrapped key needs at least one more.
+	if len(ciphertext) < 16 {
+		return nil, errors.New("key wrap input must hold at least 2 blocks")
+	}
+
 	n := (len(ciphertext) / 8) - 1
 	r := make([][]byte, n)
 
