@@ -26,6 +26,9 @@ const DefaultRetryInterval = 30 * time.Second
 // RefreshOnUnknownKeyID is set and UnknownKeyIDInterval is not.
 const DefaultUnknownKeyIDInterval = 10 * time.Second
 
+// DefaultFetchTimeout bounds each Fetch call when the config leaves FetchTimeout unset.
+const DefaultFetchTimeout = 10 * time.Second
+
 // SourceConfig configures a [Source].
 type SourceConfig struct {
 	// CacheDuration is how long fetched keys are held before the next fetch.
@@ -33,7 +36,14 @@ type SourceConfig struct {
 	// Fetch retrieves the current keys. It runs whatever the caller wires in, often a call to a remote
 	// JWK Set endpoint, so preventing SSRF is the caller's responsibility. Pin the host or an
 	// allowlist, require HTTPS with verified certificates, and set timeouts inside Fetch.
+	//
+	// One Fetch call serves every caller waiting on the refresh, so it runs on its own goroutine,
+	// under a context that keeps the triggering caller's values but not its cancellation. Fetch must
+	// return once that context is done. A panic in Fetch is reported as a fetch error.
 	Fetch KeysFetcher
+	// FetchTimeout bounds each Fetch call. A caller stops waiting when its own context is done, while
+	// the fetch runs on for the callers that remain. Non-positive selects DefaultFetchTimeout.
+	FetchTimeout time.Duration
 	// RetryInterval bounds how often a failing Fetch is retried (negative caching), so a broken
 	// upstream is not hit on every request. Non-positive selects DefaultRetryInterval.
 	RetryInterval time.Duration
@@ -46,6 +56,13 @@ type SourceConfig struct {
 	// trusted until a fetch succeeds or the window closes. A JWK carries no expiry of its own, so
 	// derive the window from the issuer's key lifetime.
 	StaleIfError time.Duration
+	// StaleWhileRevalidate is how long past CacheDuration the cached keys keep serving while a fetch
+	// refreshes them, so callers do not wait on the upstream. It follows the stale-while-revalidate
+	// directive of RFC 5861. Zero makes every caller of an expired cache wait for the fetch.
+	//
+	// Off by default for the same reason as StaleIfError: a key the issuer has withdrawn stays
+	// trusted until the fetch completes, within the window.
+	StaleWhileRevalidate time.Duration
 	// RefreshOnUnknownKeyID lets a key ID absent from the cache force a fetch, so a verifier picks
 	// up a key the issuer has just rotated to without waiting out CacheDuration.
 	//
@@ -80,8 +97,26 @@ type Source struct {
 	lastCached  time.Time
 	lastFailure time.Time
 	lastErr     error
+	// inflight is the Fetch call that concurrent refreshes share, nil when none runs.
+	inflight *fetchCall
 
 	mu *sync.RWMutex
+}
+
+// A fetchCall is one run of Fetch. Every caller that needs the refreshed keys waits on it.
+type fetchCall struct {
+	done chan struct{}
+	err  error
+}
+
+// wait blocks until the call ends or ctx is done, and returns the call's error or the context's.
+func (call *fetchCall) wait(ctx context.Context) error {
+	select {
+	case <-call.done:
+		return call.err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // NewSource builds a [Source] from a config.
@@ -171,9 +206,25 @@ func (source *Source) lookup(kid string) (*jwa.JWK, bool) {
 	return nil, false
 }
 
-// refreshForUnknownKeyID fetches when the cache is at least UnknownKeyIDInterval old, reporting
-// whether it did.
+// refreshForUnknownKeyID fetches when the cache is at least UnknownKeyIDInterval old, or joins the
+// fetch in flight, reporting whether a fetch completed.
 func (source *Source) refreshForUnknownKeyID(ctx context.Context) (bool, error) {
+	call, err := source.startForcedFetch(ctx)
+	if call == nil || err != nil {
+		return false, err
+	}
+
+	err = call.wait(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+// startForcedFetch returns the Fetch call an unknown key ID waits on, or none when the cache is
+// younger than UnknownKeyIDInterval and no fetch runs.
+func (source *Source) startForcedFetch(ctx context.Context) (*fetchCall, error) {
 	interval := source.config.UnknownKeyIDInterval
 	if interval <= 0 {
 		interval = DefaultUnknownKeyIDInterval
@@ -182,59 +233,71 @@ func (source *Source) refreshForUnknownKeyID(ctx context.Context) (bool, error) 
 	source.mu.Lock()
 	defer source.mu.Unlock()
 
-	// Re-checked under the write lock, which collapses a burst of unknown IDs queued behind one
-	// another into a single call.
-	if time.Since(source.lastCached) < interval {
-		return false, nil
+	// Checked under the write lock, which collapses a burst of unknown IDs into a single call.
+	if source.inflight == nil && time.Since(source.lastCached) < interval {
+		return nil, nil
 	}
 
-	err := source.fetchLocked(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
+	return source.startFetchLocked(ctx)
 }
 
-// fresh reports whether the cache is populated and still within CacheDuration, under a read lock so
-// concurrent readers of a warm cache never serialize behind the write lock.
+// fresh reports whether the cache is populated and still within CacheDuration. It takes the read
+// lock only, so concurrent readers of a warm cache never serialize behind the write lock.
 func (source *Source) fresh() bool {
+	return source.servable(0)
+}
+
+// servable reports whether the cache is populated and no older than window past CacheDuration.
+func (source *Source) servable(window time.Duration) bool {
 	source.mu.RLock()
 	defer source.mu.RUnlock()
 
-	return source.cached != nil && time.Since(source.lastCached) < source.config.CacheDuration
+	return source.cached != nil && time.Since(source.lastCached) < source.config.CacheDuration+window
 }
 
-// refresh fetches the keys once the cache has expired. While Fetch fails, the cached keys stay in
-// service for StaleIfError past expiry.
+// refresh fetches the keys once the cache has expired. Within StaleWhileRevalidate past expiry, the
+// cached keys serve at once while the fetch runs. While Fetch fails, they stay in service for
+// StaleIfError past expiry.
 func (source *Source) refresh(ctx context.Context) error {
 	if source.fresh() {
 		return nil
 	}
 
-	source.mu.Lock()
-	defer source.mu.Unlock()
-
-	age := time.Since(source.lastCached)
-
-	// Another goroutine may have refreshed during the wait for the write lock.
-	if source.cached != nil && age < source.config.CacheDuration {
-		return nil
+	call, err := source.startFetch(ctx)
+	if call != nil && !source.servable(source.config.StaleWhileRevalidate) {
+		err = call.wait(ctx)
 	}
 
-	err := source.fetchLocked(ctx)
-	if err != nil && source.cached != nil && age < source.config.CacheDuration+source.config.StaleIfError {
+	if err != nil && source.servable(source.config.StaleIfError) {
 		return nil
 	}
 
 	return err
 }
 
-// fetchLocked replaces the cache from Fetch. The caller must hold the write lock.
+// startFetch returns the Fetch call an expired cache waits on. It returns none when another caller
+// refreshed the cache meanwhile.
+func (source *Source) startFetch(ctx context.Context) (*fetchCall, error) {
+	source.mu.Lock()
+	defer source.mu.Unlock()
+
+	if source.cached != nil && time.Since(source.lastCached) < source.config.CacheDuration {
+		return nil, nil
+	}
+
+	return source.startFetchLocked(ctx)
+}
+
+// startFetchLocked returns the Fetch call in flight, or starts one. It returns the last error
+// instead while the retry backoff holds. The caller must hold the write lock.
 //
 // Both refresh paths go through it, so the failure backoff applies whichever one reached it and an
 // unknown key ID stays subject to the negative caching that protects a broken upstream.
-func (source *Source) fetchLocked(ctx context.Context) error {
+func (source *Source) startFetchLocked(ctx context.Context) (*fetchCall, error) {
+	if source.inflight != nil {
+		return source.inflight, nil
+	}
+
 	retry := source.config.RetryInterval
 	if retry <= 0 {
 		retry = DefaultRetryInterval
@@ -243,12 +306,59 @@ func (source *Source) fetchLocked(ctx context.Context) error {
 	// The backoff runs from when the failure was observed, so a Fetch slower than retry still holds
 	// the next caller off for a full interval.
 	if source.lastErr != nil && time.Since(source.lastFailure) < retry {
-		return source.lastErr
+		return nil, source.lastErr
 	}
 
-	keys, err := source.config.Fetch(ctx)
+	source.inflight = &fetchCall{done: make(chan struct{})}
+
+	go source.fetch(context.WithoutCancel(ctx), source.inflight)
+
+	return source.inflight, nil
+}
+
+// fetch runs Fetch under FetchTimeout, stores its outcome, and ends call.
+func (source *Source) fetch(ctx context.Context, call *fetchCall) {
+	timeout := source.config.FetchTimeout
+	if timeout <= 0 {
+		timeout = DefaultFetchTimeout
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	var (
+		keys []*jwa.JWK
+		err  error
+	)
+
+	// Fetch runs on this goroutine alone, so a panic would take the process down and leave every
+	// waiting caller blocked. It is recorded as the call's error instead.
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("fetch panicked: %v", recovered)
+		}
+
+		source.finish(call, keys, err)
+	}()
+
+	keys, err = source.config.Fetch(ctx)
+}
+
+// finish stores the outcome of call and releases the callers waiting on it.
+func (source *Source) finish(call *fetchCall, keys []*jwa.JWK, err error) {
+	source.mu.Lock()
+	defer source.mu.Unlock()
+
+	source.inflight = nil
+	call.err = source.storeLocked(keys, err)
+	close(call.done)
+}
+
+// storeLocked records the outcome of a Fetch call and returns its error. The caller must hold the
+// write lock.
+func (source *Source) storeLocked(keys []*jwa.JWK, err error) error {
 	if err != nil {
-		source.lastErr = fmt.Errorf("(Source.fetchLocked) fetch keys: %w", err)
+		source.lastErr = fmt.Errorf("(Source.fetch) fetch keys: %w", err)
 		source.lastFailure = time.Now()
 
 		return source.lastErr

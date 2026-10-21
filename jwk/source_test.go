@@ -578,3 +578,342 @@ func TestSourceGetUnknownKeyIDHonoursBackoff(t *testing.T) {
 	require.ErrorIs(t, err, errUpstream)
 	require.EqualValues(t, 2, fetches.Load(), "the backoff must hold on the unknown-key-id path")
 }
+
+// Tests for the shared fetch: one Fetch call serves every caller of an expired cache, under a context
+// no single caller can cancel. They run in a synctest bubble, where synctest.Wait returns once every
+// goroutine is blocked, so each test knows when the callers wait on the fetch.
+
+func TestSourceFetchShared(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		var fetches atomic.Int64
+
+		release := make(chan struct{})
+		key := newPlaceholderKey[string](t, "kid-1").JWK
+
+		source := jwk.NewSource(jwk.SourceConfig{
+			CacheDuration: time.Hour,
+			Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+				fetches.Add(1)
+				<-release
+
+				return []*jwa.JWK{key}, nil
+			},
+		})
+
+		results := make(chan []*jwa.JWK, 10)
+
+		for range cap(results) {
+			go func() {
+				keys, _ := source.List(t.Context())
+				results <- keys
+			}()
+		}
+
+		synctest.Wait()
+		close(release)
+
+		for range cap(results) {
+			require.Equal(t, []*jwa.JWK{key}, <-results)
+		}
+
+		require.EqualValues(t, 1, fetches.Load())
+	})
+}
+
+func TestSourceFetchOutlivesCaller(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		var (
+			fetches  atomic.Int64
+			fetchErr error
+		)
+
+		release := make(chan struct{})
+		key := newPlaceholderKey[string](t, "kid-1").JWK
+
+		source := jwk.NewSource(jwk.SourceConfig{
+			CacheDuration: time.Hour,
+			Fetch: func(ctx context.Context) ([]*jwa.JWK, error) {
+				fetches.Add(1)
+				<-release
+
+				fetchErr = ctx.Err()
+
+				return []*jwa.JWK{key}, nil
+			},
+		})
+
+		ctx, cancel := context.WithCancel(t.Context())
+		callerErr := make(chan error, 1)
+
+		go func() {
+			_, err := source.List(ctx)
+			callerErr <- err
+		}()
+
+		// The caller that triggered the fetch gives up. It stops waiting at once.
+		synctest.Wait()
+		cancel()
+		require.ErrorIs(t, <-callerErr, context.Canceled)
+
+		// The fetch runs on and fills the cache for the next caller, with no failure to back off from.
+		close(release)
+		synctest.Wait()
+
+		keys, err := source.List(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, []*jwa.JWK{key}, keys)
+		require.NoError(t, fetchErr, "the caller's cancellation must not reach Fetch")
+		require.EqualValues(t, 1, fetches.Load())
+	})
+}
+
+func TestSourceFetchTimeout(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+
+		fetchTimeout time.Duration
+
+		expectElapsed time.Duration
+	}{
+		{
+			name:          "Error/Configured",
+			fetchTimeout:  time.Minute,
+			expectElapsed: time.Minute,
+		},
+		{
+			name:          "Error/Default",
+			expectElapsed: jwk.DefaultFetchTimeout,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			synctest.Test(t, func(t *testing.T) {
+				source := jwk.NewSource(jwk.SourceConfig{
+					FetchTimeout: testCase.fetchTimeout,
+					Fetch: func(ctx context.Context) ([]*jwa.JWK, error) {
+						<-ctx.Done()
+
+						return nil, ctx.Err()
+					},
+				})
+
+				start := time.Now()
+
+				_, err := source.List(t.Context())
+				require.ErrorIs(t, err, context.DeadlineExceeded)
+				require.Equal(t, testCase.expectElapsed, time.Since(start))
+			})
+		})
+	}
+}
+
+func TestSourceFetchPanic(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		var fetches atomic.Int64
+
+		source := jwk.NewSource(jwk.SourceConfig{
+			CacheDuration: time.Hour,
+			RetryInterval: time.Hour,
+			Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+				fetches.Add(1)
+
+				panic("upstream client bug")
+			},
+		})
+
+		// The panic surfaces as a fetch error, which the retry backoff then holds like any other.
+		_, err := source.List(t.Context())
+		require.ErrorContains(t, err, "upstream client bug")
+
+		_, err = source.List(t.Context())
+		require.ErrorContains(t, err, "upstream client bug")
+		require.EqualValues(t, 1, fetches.Load())
+	})
+}
+
+func TestSourceStaleWhileRevalidate(t *testing.T) {
+	t.Parallel()
+
+	oldKey := newPlaceholderKey[string](t, "kid-1").JWK
+	newKey := newPlaceholderKey[string](t, "kid-2").JWK
+
+	testCases := []struct {
+		name string
+
+		staleWhileRevalidate time.Duration
+		// elapsed is the cache age at which the refreshing fetch starts.
+		elapsed time.Duration
+
+		// expectWait reports whether the caller waits for the fetch instead of reading the cached set.
+		expectWait bool
+	}{
+		{
+			name:                 "Success/WithinWindow",
+			staleWhileRevalidate: time.Hour,
+			elapsed:              2*time.Hour - time.Nanosecond,
+		},
+		{
+			name:                 "Success/WindowElapsed",
+			staleWhileRevalidate: time.Hour,
+			elapsed:              2 * time.Hour,
+			expectWait:           true,
+		},
+		{
+			name:       "Success/Disabled",
+			elapsed:    time.Hour,
+			expectWait: true,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			synctest.Test(t, func(t *testing.T) {
+				var fetches atomic.Int64
+
+				release := make(chan struct{})
+
+				source := jwk.NewSource(jwk.SourceConfig{
+					CacheDuration:        time.Hour,
+					StaleWhileRevalidate: testCase.staleWhileRevalidate,
+					Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+						if fetches.Add(1) == 1 {
+							return []*jwa.JWK{oldKey}, nil
+						}
+
+						<-release
+
+						return []*jwa.JWK{newKey}, nil
+					},
+				})
+
+				_, err := source.List(t.Context())
+				require.NoError(t, err)
+
+				time.Sleep(testCase.elapsed)
+
+				results := make(chan []*jwa.JWK, 1)
+
+				go func() {
+					keys, _ := source.List(t.Context())
+					results <- keys
+				}()
+
+				synctest.Wait()
+
+				if !testCase.expectWait {
+					require.Equal(t, []*jwa.JWK{oldKey}, <-results, "the cached set serves while the fetch runs")
+				}
+
+				close(release)
+				synctest.Wait()
+
+				if testCase.expectWait {
+					require.Equal(t, []*jwa.JWK{newKey}, <-results)
+				}
+
+				keys, err := source.List(t.Context())
+				require.NoError(t, err)
+				require.Equal(t, []*jwa.JWK{newKey}, keys)
+				require.EqualValues(t, 2, fetches.Load())
+			})
+		})
+	}
+}
+
+func TestSourceStaleWhileRevalidateFailure(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		var fetches atomic.Int64
+
+		errUpstream := errors.New("upstream down")
+		key := newPlaceholderKey[string](t, "kid-1").JWK
+
+		source := jwk.NewSource(jwk.SourceConfig{
+			CacheDuration:        time.Hour,
+			StaleWhileRevalidate: time.Hour,
+			Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+				if fetches.Add(1) == 1 {
+					return []*jwa.JWK{key}, nil
+				}
+
+				return nil, errUpstream
+			},
+		})
+
+		_, err := source.List(t.Context())
+		require.NoError(t, err)
+
+		time.Sleep(time.Hour)
+
+		keys, err := source.List(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, []*jwa.JWK{key}, keys)
+
+		// Once the refresh has failed, only StaleIfError keeps the set in service, and it is unset.
+		synctest.Wait()
+
+		_, err = source.List(t.Context())
+		require.ErrorIs(t, err, errUpstream)
+		require.EqualValues(t, 2, fetches.Load())
+	})
+}
+
+func TestSourceGetUnknownKeyIDJoinsFetch(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		var fetches atomic.Int64
+
+		release := make(chan struct{})
+
+		source := jwk.NewSource(jwk.SourceConfig{
+			CacheDuration:         time.Hour,
+			StaleWhileRevalidate:  time.Hour,
+			RefreshOnUnknownKeyID: true,
+			UnknownKeyIDInterval:  time.Hour,
+			Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+				if fetches.Add(1) == 1 {
+					return []*jwa.JWK{newPlaceholderKey[string](t, "kid-1").JWK}, nil
+				}
+
+				<-release
+
+				return []*jwa.JWK{newPlaceholderKey[string](t, "kid-2").JWK}, nil
+			},
+		})
+
+		_, err := source.Get(t.Context(), "kid-1")
+		require.NoError(t, err)
+
+		time.Sleep(time.Hour)
+
+		// The expired cache still serves, so the refresh runs in the background. The unknown key ID
+		// waits on that fetch rather than starting a second one.
+		results := make(chan *jwa.JWK, 1)
+
+		go func() {
+			key, _ := source.Get(t.Context(), "kid-2")
+			results <- key
+		}()
+
+		synctest.Wait()
+		close(release)
+
+		require.Equal(t, "kid-2", (<-results).KID)
+		require.EqualValues(t, 2, fetches.Load())
+	})
+}
