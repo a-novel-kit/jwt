@@ -4,8 +4,10 @@ import (
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/binary"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -249,4 +251,94 @@ func TestAESCBCKeySplit(t *testing.T) {
 	decoded, err := decrypter.Transform(t.Context(), header, token)
 	require.NoError(t, err)
 	require.Equal(t, plainText, decoded)
+}
+
+// TestAESCBCMalformedLengths sends tokens whose IV or ciphertext has a length the CBC decrypter
+// cannot take. Each token carries a valid tag, as a sender who knows the CEK can produce.
+func TestAESCBCMalformedLengths(t *testing.T) {
+	t.Parallel()
+
+	preset := jwe.A256CBCHS512
+
+	key, err := jwk.GenerateAES(jwk.A256CBC)
+	require.NoError(t, err)
+
+	encrypter := jwe.NewAESCBCEncryption(&jwe.AESCBCEncryptionConfig{
+		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
+	}, preset)
+	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
+
+	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.NoError(t, err)
+
+	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+	require.NoError(t, err)
+
+	iv := mustDecodeBase64(t, parts.IV)
+	cipherText := mustDecodeBase64(t, parts.CipherText)
+
+	// The helper must reproduce the tag of an untouched token, or the cases below would only test the
+	// tag check.
+	require.Equal(t, mustDecodeBase64(t, parts.Tag), senderCBCTag(t, preset, key.Key(), parts.Header, iv, cipherText))
+
+	decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{
+		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},
+	}, preset)
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
+
+	testCases := []struct {
+		name string
+
+		iv         []byte
+		cipherText []byte
+	}{
+		{
+			name:       "Error/ShortIV",
+			iv:         make([]byte, 5),
+			cipherText: cipherText,
+		},
+		{
+			name:       "Error/LongIV",
+			iv:         make([]byte, aes.BlockSize+1),
+			cipherText: cipherText,
+		},
+		{
+			name:       "Error/PartialBlock",
+			iv:         iv,
+			cipherText: cipherText[:len(cipherText)-1],
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			malformed := *parts
+			malformed.IV = base64.RawURLEncoding.EncodeToString(testCase.iv)
+			malformed.CipherText = base64.RawURLEncoding.EncodeToString(testCase.cipherText)
+			malformed.Tag = base64.RawURLEncoding.EncodeToString(
+				senderCBCTag(t, preset, key.Key(), parts.Header, testCase.iv, testCase.cipherText),
+			)
+
+			var claims map[string]any
+			require.ErrorIs(t, recipient.Consume(t.Context(), malformed.String(), &claims), jwe.ErrInvalidToken)
+		})
+	}
+}
+
+// senderCBCTag computes the AES_CBC_HMAC_SHA2 tag that a sender holding cek attaches to a token
+// encrypted without additional data.
+func senderCBCTag(t *testing.T, preset jwe.AESCBCPreset, cek []byte, header string, iv, cipherText []byte) []byte {
+	t.Helper()
+
+	al := make([]byte, 8)
+	binary.BigEndian.PutUint64(al, uint64(len(header)*8))
+
+	mac := hmac.New(preset.Hash.New, cek[:preset.MACKeyLen])
+	mac.Write([]byte(header))
+	mac.Write(iv)
+	mac.Write(cipherText)
+	mac.Write(al)
+
+	return mac.Sum(nil)[:preset.TagLength]
 }
