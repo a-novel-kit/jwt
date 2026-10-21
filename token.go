@@ -23,15 +23,13 @@ type HeaderDecoder struct{}
 
 // Decode implements [TokenDecoder].
 func (decoder *HeaderDecoder) Decode(source string) (string, error) {
-	// SplitN caps the slice however many separators the input carries, so a dot-heavy token cannot
-	// force an unbounded allocation. Only the first segment is needed, so two suffices.
-	parts := strings.SplitN(source, ".", 2)
-	if len(parts) < 2 {
+	header, _, found := strings.Cut(source, ".")
+	if !found {
 		// The token is an untrusted bearer credential, so the error names the shape only.
 		return "", fmt.Errorf("(HeaderDecoder.Decode) %w: expected at least 2 segments", ErrUnsupportedTokenFormat)
 	}
 
-	return parts[0], nil
+	return header, nil
 }
 
 // A RawToken is an unsecured token: a header and payload with no signature or encryption.
@@ -44,7 +42,7 @@ type RawToken struct {
 
 // String returns the compact "header.payload" serialization.
 func (token RawToken) String() string {
-	return fmt.Sprintf("%s.%s", token.Header, token.Payload)
+	return token.Header + "." + token.Payload
 }
 
 // Bytes returns String as a byte slice.
@@ -82,7 +80,7 @@ type SignedToken struct {
 
 // String returns the compact "header.payload.signature" serialization.
 func (token SignedToken) String() string {
-	return fmt.Sprintf("%s.%s.%s", token.Header, token.Payload, token.Signature)
+	return token.Header + "." + token.Payload + "." + token.Signature
 }
 
 // Bytes returns String as a byte slice.
@@ -124,7 +122,7 @@ type EncryptedToken struct {
 
 // String returns the compact "header.key.iv.ciphertext.tag" serialization.
 func (token EncryptedToken) String() string {
-	return fmt.Sprintf("%s.%s.%s.%s.%s", token.Header, token.EncKey, token.IV, token.CipherText, token.Tag)
+	return token.Header + "." + token.EncKey + "." + token.IV + "." + token.CipherText + "." + token.Tag
 }
 
 // Bytes returns String as a byte slice.
