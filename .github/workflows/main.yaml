@@ -19,6 +19,7 @@ jobs:
         id: test
         with:
           modfile: gotestsum.mod
+          race: "true"
 
   lint-hash-registration:
     runs-on: ubuntu-latest
