@@ -192,12 +192,12 @@ func (decoder *HPKEKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 		encapsulated, privateKey, decoder.preset.KDF, decoder.preset.AEAD, recipientStructure(header.Enc),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) decapsulate: %w", err)
+		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: decapsulate: %w", jwt.ErrTokenRejected, err)
 	}
 
 	cek, err := recipient.Open(nil, encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) decrypt cek: %w", err)
+		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: decrypt cek: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

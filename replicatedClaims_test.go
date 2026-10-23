@@ -106,6 +106,8 @@ func TestProducerReplicatedClaims(t *testing.T) {
 
 			_, err := producer.Issue(t.Context(), testCase.claims, nil)
 			require.ErrorIs(t, err, testCase.expectErr)
+			// The producer's own configuration failed, so no token was rejected.
+			require.NotErrorIs(t, err, jwt.ErrTokenRejected)
 		})
 	}
 }
@@ -206,6 +208,7 @@ func TestRecipientReplicatedClaims(t *testing.T) {
 			require.ErrorIs(t, err, testCase.expectErr)
 
 			if testCase.expectErr != nil {
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 				require.Nil(t, claims, "a rejected token must not reach the deserializer")
 
 				return

@@ -13,8 +13,8 @@ import (
 
 // ErrInvalidClaims is returned by [ClaimsChecker.Unmarshal] when it rejects a token's claims: a
 // check fails, or the payload is JSON null. Callers detect a rejected token by identity, while the
-// wrapped error says what failed.
-var ErrInvalidClaims = errors.New("invalid claims")
+// wrapped error says what failed. It matches [jwt.ErrTokenRejected].
+var ErrInvalidClaims = fmt.Errorf("%w: invalid claims", jwt.ErrTokenRejected)
 
 // A RawClaimsCheck validates a token's payload from its raw JSON bytes, before any decoding. Use it
 // for custom claims that are not part of the registered [jwa.Claims] set. CheckRaw returns an error

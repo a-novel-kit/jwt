@@ -12,12 +12,13 @@ import (
 
 // ErrInvalidSecret is returned when the content encryption key resolved for a token
 // has the wrong length for the chosen algorithm, or when an authentication tag fails
-// to verify during decryption.
+// to verify during decryption. A failed tag also matches [jwt.ErrTokenRejected]. A key
+// of the wrong length does not, since a misconfigured direct key produces one.
 var ErrInvalidSecret = errors.New("invalid secret")
 
 // ErrInvalidToken is returned when an encrypted token is structurally malformed, such as an
-// initialization vector or padding of the wrong length.
-var ErrInvalidToken = errors.New("invalid token")
+// initialization vector or padding of the wrong length. It matches [jwt.ErrTokenRejected].
+var ErrInvalidToken = fmt.Errorf("%w: invalid token", jwt.ErrTokenRejected)
 
 // encodeProtectedHeader returns the token's first segment. Key management can add per-token
 // parameters to the header, such as an ephemeral key, while the token is encrypted. The header is

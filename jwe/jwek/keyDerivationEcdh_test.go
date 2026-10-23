@@ -188,7 +188,7 @@ func TestECDHKeyAgr(t *testing.T) {
 				}, testCase.preset)
 
 				_, err := decoder.ComputeCEK(t.Context(), header, []byte("fake-enc-key"))
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 		})
 	}

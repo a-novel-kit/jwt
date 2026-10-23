@@ -18,13 +18,22 @@ import (
 // well clear of a legitimate token, down to a JWE carrying an embedded certificate chain.
 const DefaultMaxTokenBytes = 1 << 18 // 256 KiB.
 
+// ErrTokenRejected matches every error with which a recipient rejects the token itself, such as a
+// malformed segment, a bad signature, a failed decryption or an invalid claim. The token's holder
+// resolves it by obtaining a new token. Any other error from [Recipient.Consume], such as an
+// unreachable key source or a misconfigured key, is the recipient's own fault.
+//
+// Test for it with errors.Is. The specific errors stay matchable alongside it. A custom
+// [RecipientPlugin] reports a rejection by wrapping ErrTokenRejected in the error it returns.
+var ErrTokenRejected = errors.New("token rejected")
+
 // ErrTokenTooLarge is returned by Consume and DecodeUnverified when a token exceeds the configured
-// size limit.
-var ErrTokenTooLarge = errors.New("token exceeds maximum size")
+// size limit. It matches [ErrTokenRejected].
+var ErrTokenTooLarge = fmt.Errorf("%w: token exceeds maximum size", ErrTokenRejected)
 
 // ErrUnexpectedTyp is returned by Consume when a token's "typ" header does not declare the media type
-// the recipient expects.
-var ErrUnexpectedTyp = errors.New("unexpected token type")
+// the recipient expects. It matches [ErrTokenRejected].
+var ErrUnexpectedTyp = fmt.Errorf("%w: unexpected token type", ErrTokenRejected)
 
 // RecipientConfig configures how a Recipient verifies, checks, and decodes a token.
 type RecipientConfig struct {
@@ -118,7 +127,7 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 
 		err = checkReplicatedClaims(header, rawClaims)
 		if err != nil {
-			return fmt.Errorf("(Recipient.Consume) %w", err)
+			return fmt.Errorf("(Recipient.Consume) %w: %w", ErrTokenRejected, err)
 		}
 
 		err = recipient.config.Deserializer(rawClaims, dst)
@@ -129,7 +138,9 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		return nil
 	}
 
-	return fmt.Errorf("(Recipient.Consume) %w: no compatible plugin found", ErrMismatchRecipientPlugin)
+	return fmt.Errorf(
+		"(Recipient.Consume) %w: %w: no compatible plugin found", ErrTokenRejected, ErrMismatchRecipientPlugin,
+	)
 }
 
 // DecodeUnverified decodes rawToken's claims into dst without verifying its signature. The result is

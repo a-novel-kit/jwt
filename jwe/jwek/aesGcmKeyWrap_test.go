@@ -105,7 +105,7 @@ func TestAESGCMKW(t *testing.T) {
 				)
 
 				_, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 		})
 	}

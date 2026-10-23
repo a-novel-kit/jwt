@@ -182,8 +182,8 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 
 	if header.Enc != decoder.enc {
 		return nil, fmt.Errorf(
-			"(ECDHKeyAgrDecoder.ComputeCEK) %w: invalid encryption %s, expected %s",
-			jwt.ErrConflictingHeader, header.Enc, decoder.enc,
+			"(ECDHKeyAgrDecoder.ComputeCEK) %w: %w: invalid encryption %s, expected %s",
+			jwt.ErrTokenRejected, jwt.ErrConflictingHeader, header.Enc, decoder.enc,
 		)
 	}
 
@@ -268,12 +268,12 @@ func recipientAgreement(header *jwa.JWH, recipientKey *ecdh.PrivateKey) ([]byte,
 
 	_, producerPublicKey, err := serializers.DecodeECDH(&ecdhPayload)
 	if err != nil {
-		return nil, fmt.Errorf("consume producer public key: %w", err)
+		return nil, fmt.Errorf("%w: consume producer public key: %w", jwt.ErrTokenRejected, err)
 	}
 
 	z, err := recipientKey.ECDH(producerPublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("derive shared secret: %w", err)
+		return nil, fmt.Errorf("%w: derive shared secret: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return z, nil

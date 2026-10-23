@@ -181,7 +181,7 @@ func TestHPKEKeyEncDecoderRejects(t *testing.T) {
 		_, err := decoder.ComputeCEK(
 			t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.HPKE0KE, JWHHPKE: jwa.JWHHPKE{EK: "AAAA"}}}, []byte("cek"),
 		)
-		require.Error(t, err)
+		require.ErrorIs(t, err, jwt.ErrTokenRejected)
 	})
 
 	t.Run("WrongKey", func(t *testing.T) {
@@ -199,7 +199,7 @@ func TestHPKEKeyEncDecoderRejects(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = decoder.ComputeCEK(t.Context(), header, encrypted)
-		require.Error(t, err)
+		require.ErrorIs(t, err, jwt.ErrTokenRejected)
 	})
 }
 

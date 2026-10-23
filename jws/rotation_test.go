@@ -3,6 +3,7 @@ package jws_test
 import (
 	"context"
 	"crypto/rsa"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -112,6 +113,39 @@ func TestSourcedVerifierSurfacesMalformedKey(t *testing.T) {
 	err = recipient.Consume(t.Context(), token, &got)
 	require.Error(t, err)
 	require.NotErrorIs(t, err, jws.ErrInvalidSignature)
+	require.NotErrorIs(t, err, jwt.ErrTokenRejected)
+}
+
+// TestSourcedVerifierSurfacesSourceFailure checks that a key source that cannot fetch its keys fails
+// the recipient without rejecting the token, so the holder keeps a token that may still be valid.
+func TestSourcedVerifierSurfacesSourceFailure(t *testing.T) {
+	t.Parallel()
+
+	errFetch := errors.New("fetch keys")
+
+	rsaPriv, _, err := jwk.GenerateRSA(jwk.RS256)
+	require.NoError(t, err)
+
+	source := jwk.NewSource(jwk.SourceConfig{
+		Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+			return nil, errFetch
+		},
+	})
+
+	token, err := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{jws.NewRSASigner(rsaPriv.Key(), jws.RS256)},
+	}).Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.NoError(t, err)
+
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, jws.RS256)},
+	})
+
+	var got map[string]any
+
+	err = recipient.Consume(t.Context(), token, &got)
+	require.ErrorIs(t, err, errFetch)
+	require.NotErrorIs(t, err, jwt.ErrTokenRejected)
 }
 
 // TestSourcedRotationUnknownKeyID is the acceptance test for RefreshOnUnknownKeyID on the path a

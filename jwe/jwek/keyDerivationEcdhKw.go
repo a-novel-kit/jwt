@@ -204,7 +204,7 @@ func (decoder *ECDHKeyAgrKWDecoder) ComputeCEK(_ context.Context, header *jwa.JW
 
 	cek, err := internal.KeyUnwrap(block, encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) unwrap key: %w", err)
+		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) %w: unwrap key: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

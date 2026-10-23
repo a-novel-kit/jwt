@@ -28,7 +28,7 @@ var cekSizes = map[jwa.Enc]int{
 func newCEK(header *jwa.JWH) ([]byte, error) {
 	size, ok := cekSizes[header.Enc]
 	if !ok {
-		return nil, fmt.Errorf("%w: no content encryption key size for enc %q", jwt.ErrUnsupportedTokenFormat, header.Enc)
+		return nil, fmt.Errorf("%w: no content encryption key size for enc %q", jwt.ErrInvalidSecretKey, header.Enc)
 	}
 
 	cek := make([]byte, size)

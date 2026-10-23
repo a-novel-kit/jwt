@@ -5,6 +5,7 @@ import (
 	"crypto/hpke"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"os"
 	"testing"
 
@@ -168,6 +169,8 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 		token     func(parts *jwt.EncryptedToken)
 
 		expectErr error
+		// expectRejected is whether the error matches jwt.ErrTokenRejected.
+		expectRejected bool
 	}{
 		{
 			name:      "OtherAlgorithm",
@@ -176,10 +179,11 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 			expectErr: jwt.ErrMismatchRecipientPlugin,
 		},
 		{
-			name:      "WrongKey",
-			decrypter: jwe.NewHPKEDecryption(&jwe.HPKEDecryptionConfig{RecipientKey: otherPrivateKey.Key()}, jwe.HPKE0),
-			header:    header,
-			expectErr: jwe.ErrInvalidSecret,
+			name:           "WrongKey",
+			decrypter:      jwe.NewHPKEDecryption(&jwe.HPKEDecryptionConfig{RecipientKey: otherPrivateKey.Key()}, jwe.HPKE0),
+			header:         header,
+			expectErr:      jwe.ErrInvalidSecret,
+			expectRejected: true,
 		},
 		{
 			name:      "KeyOffCurve",
@@ -188,33 +192,37 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 			expectErr: jwt.ErrInvalidSecretKey,
 		},
 		{
-			name:      "IV",
-			decrypter: decrypter,
-			header:    header,
-			token:     func(parts *jwt.EncryptedToken) { parts.IV = "AAAA" },
-			expectErr: jwe.ErrInvalidToken,
+			name:           "IV",
+			decrypter:      decrypter,
+			header:         header,
+			token:          func(parts *jwt.EncryptedToken) { parts.IV = "AAAA" },
+			expectErr:      jwe.ErrInvalidToken,
+			expectRejected: true,
 		},
 		{
 			// Valid base64url, but no encapsulated secret: decapsulation fails before any decryption.
-			name:      "Undecapsulable",
-			decrypter: decrypter,
-			header:    header,
-			token:     func(parts *jwt.EncryptedToken) { parts.EncKey = "AAAA" },
-			expectErr: jwe.ErrInvalidToken,
+			name:           "Undecapsulable",
+			decrypter:      decrypter,
+			header:         header,
+			token:          func(parts *jwt.EncryptedToken) { parts.EncKey = "AAAA" },
+			expectErr:      jwe.ErrInvalidToken,
+			expectRejected: true,
 		},
 		{
-			name:      "MalformedEncKey",
-			decrypter: decrypter,
-			header:    header,
-			token:     func(parts *jwt.EncryptedToken) { parts.EncKey = testutils.UndecodableSegment },
-			expectErr: jwt.ErrUnsupportedTokenFormat,
+			name:           "MalformedEncKey",
+			decrypter:      decrypter,
+			header:         header,
+			token:          func(parts *jwt.EncryptedToken) { parts.EncKey = testutils.UndecodableSegment },
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
 		},
 		{
-			name:      "MalformedCipherText",
-			decrypter: decrypter,
-			header:    header,
-			token:     func(parts *jwt.EncryptedToken) { parts.CipherText = testutils.UndecodableSegment },
-			expectErr: jwt.ErrUnsupportedTokenFormat,
+			name:           "MalformedCipherText",
+			decrypter:      decrypter,
+			header:         header,
+			token:          func(parts *jwt.EncryptedToken) { parts.CipherText = testutils.UndecodableSegment },
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
 		},
 	}
 
@@ -231,6 +239,7 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 
 			_, err = testCase.decrypter.Transform(t.Context(), testCase.header, parts.String())
 			require.ErrorIs(t, err, testCase.expectErr)
+			require.Equal(t, testCase.expectRejected, errors.Is(err, jwt.ErrTokenRejected))
 		})
 	}
 }

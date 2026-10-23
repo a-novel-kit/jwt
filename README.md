@@ -86,6 +86,17 @@ if err := recipient.Consume(ctx, token, &payload); err != nil {
 }
 ```
 
+A token the recipient refuses, such as one with a bad signature or an expired claim, fails with an
+error matching `jwt.ErrTokenRejected`, and its holder needs a new token. Any other error from
+`Consume` is the recipient's own fault, such as a key source it cannot reach.
+
+```go
+err := recipient.Consume(ctx, token, &payload)
+if errors.Is(err, jwt.ErrTokenRejected) {
+	// Ask the holder for a new token, for example with a 401 response.
+}
+```
+
 ## Sub-packages
 
 | Package           | Purpose                                                                                         |

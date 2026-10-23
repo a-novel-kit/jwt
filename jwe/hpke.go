@@ -204,7 +204,7 @@ func (dec *HPKEDecryption) Transform(_ context.Context, header *jwa.JWH, rawToke
 	plainText, err := recipient.Open([]byte(token.Header), cipherText)
 	if err != nil {
 		// An authenticated-decryption failure, like a bad AES-GCM tag.
-		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: %w", ErrInvalidSecret, err)
+		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: %w: %w", jwt.ErrTokenRejected, ErrInvalidSecret, err)
 	}
 
 	return plainText, nil

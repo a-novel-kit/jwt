@@ -93,7 +93,7 @@ func TestPBES2KeyEncKW(t *testing.T) {
 				)
 
 				_, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 
 			t.Run("MissingEncKey", func(t *testing.T) {
@@ -105,7 +105,7 @@ func TestPBES2KeyEncKW(t *testing.T) {
 				)
 
 				_, err := decoder.ComputeCEK(t.Context(), header, nil)
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 
 			t.Run("P2CTooLarge", func(t *testing.T) {
@@ -122,7 +122,7 @@ func TestPBES2KeyEncKW(t *testing.T) {
 				)
 
 				_, err := decoder.ComputeCEK(t.Context(), &hugeHeader, encryptedCEK)
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 		})
 	}
