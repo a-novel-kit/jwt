@@ -5,7 +5,7 @@ go 1.27.3
 tool gotest.tools/gotestsum
 
 require (
-	github.com/a-novel-kit/jwt/v2 v2.4.5
+	github.com/a-novel-kit/jwt/v2 v2.5.0
 	github.com/google/uuid v1.6.0
 	github.com/samber/lo v1.53.0
 	github.com/stretchr/testify v1.12.1
