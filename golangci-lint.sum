@@ -75,7 +75,7 @@ github.com/MirrexOne/unqueryvet v1.5.4 h1:38QOxShO7JmMWT+eCdDMbcUgGCOeJphVkzzRgy
 github.com/MirrexOne/unqueryvet v1.5.4/go.mod h1:fs9Zq6eh1LRIhsDIsxf9PONVUjYdFHdtkHIgZdJnyPU=
 github.com/OpenPeeDeeP/depguard/v2 v2.2.1 h1:vckeWVESWp6Qog7UZSARNqfu/cZqvki8zsuj3piCMx4=
 github.com/OpenPeeDeeP/depguard/v2 v2.2.1/go.mod h1:q4DKzC4UcVaAvcfd41CZh0PWpGgzrVxUYBlgKNGquUo=
-github.com/a-novel-kit/jwt/v2 v2.4.5/go.mod h1:pkDVhDrwshhk8U2FJiZciPHVh8zq5WYDJCMBKOmd1PQ=
+github.com/a-novel-kit/jwt/v2 v2.5.0/go.mod h1:pkDVhDrwshhk8U2FJiZciPHVh8zq5WYDJCMBKOmd1PQ=
 github.com/alecthomas/chroma/v2 v2.27.0 h1:FodwmyOBgJULFYmDqibcp9pvfDLWdtPRh9v/r5BXYZs=
 github.com/alecthomas/chroma/v2 v2.27.0/go.mod h1:NjJ3ciIgrqBNeIkWZ4e46nseoLDslxU1LmfCoL+wcY8=
 github.com/alecthomas/go-check-sumtype v0.5.1-0.20260828200218-ae6904d28606 h1:dXPJ+uOJLWb8rjlAuLX7JPiRJtZKw/53Ol+WxdDJ1Eo=
