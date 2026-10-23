@@ -114,6 +114,26 @@ func TestProducer(t *testing.T) {
 			expectToken: "eyJraWQiOiJzdGF0aWMta2V5LWlkIiwiY3R5IjoidGVzdCIsImFsZyI6InRlc3QtYWxnIn0.abcdefghi",
 		},
 		{
+			// A claim a plugin replicates in the header is checked like one from the header config.
+			name: "PluginReplicatedClaim",
+
+			config: jwt.ProducerConfig{
+				StaticPlugins: []jwt.ProducerStaticPlugin{
+					&fakeProducerPlugin{
+						header: func(jwh *jwa.JWH) *jwa.JWH {
+							jwh.Iss = "accounts"
+
+							return jwh
+						},
+					},
+				},
+			},
+
+			customClaims: map[string]any{"iss": "billing"},
+
+			expectErr: jwt.ErrReplicatedClaimMismatch,
+		},
+		{
 			name: "StaticPluginError",
 
 			config: jwt.ProducerConfig{
