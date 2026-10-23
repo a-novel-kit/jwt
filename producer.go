@@ -37,7 +37,8 @@ func NewProducer(config ProducerConfig) *Producer {
 }
 
 // Issue builds a token from customClaims and customHeader, then runs the configured plugins to
-// produce the final serialized JWT.
+// produce the final serialized JWT. It fails with [ErrReplicatedClaimMismatch] when the header
+// replicates a claim that customClaims holds with another value, or does not hold at all.
 func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader any) (string, error) {
 	header, err := producer.header.New(customHeader)
 	if err != nil {
@@ -63,6 +64,12 @@ func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader 
 	claimsSerialized, err := json.Marshal(customClaims)
 	if err != nil {
 		return "", fmt.Errorf("(Producer.Issue) serialize claims: %w", err)
+	}
+
+	// Every plugin has amended the header by now, so the check sees each replicated claim.
+	err = checkReplicatedClaims(header, claimsSerialized)
+	if err != nil {
+		return "", fmt.Errorf("(Producer.Issue) %w", err)
 	}
 
 	claimsEncoded := base64.RawURLEncoding.EncodeToString(claimsSerialized)

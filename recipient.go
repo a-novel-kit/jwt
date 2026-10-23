@@ -73,7 +73,8 @@ func NewRecipient(config RecipientConfig) *Recipient {
 }
 
 // Consume validates rawToken and decodes its claims into dst. It tries each plugin in order, uses
-// the first that recognizes the token, and fails if none do.
+// the first that recognizes the token, and fails if none do. A token whose header replicates a claim
+// its payload contradicts fails with [ErrReplicatedClaimMismatch].
 func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst any) error {
 	err := recipient.checkUntrusted(rawToken)
 	if err != nil {
@@ -115,6 +116,11 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 			return fmt.Errorf("(Recipient.Consume) transform token: %w", err)
 		}
 
+		err = checkReplicatedClaims(header, rawClaims)
+		if err != nil {
+			return fmt.Errorf("(Recipient.Consume) %w", err)
+		}
+
 		err = recipient.config.Deserializer(rawClaims, dst)
 		if err != nil {
 			return fmt.Errorf("(Recipient.Consume) unmarshal claims: %w", err)
@@ -132,7 +138,8 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 // verify and decode, use [Recipient.Consume].
 //
 // It reads the payload of a signed (JWS) token and cannot decrypt a JWE. The size limit still
-// applies, but no plugin runs and the header's crit list is not enforced.
+// applies, but no plugin runs, and neither the header's crit list nor its replicated claims are
+// checked.
 func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 	err := recipient.checkUntrusted(rawToken)
 	if err != nil {
