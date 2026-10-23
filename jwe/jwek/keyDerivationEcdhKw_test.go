@@ -82,7 +82,7 @@ func TestECDHKeyAgrKW(t *testing.T) {
 				}, testCase.preset)
 
 				_, err = decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 
 			t.Run("NoRecipientKey", func(t *testing.T) {
@@ -136,7 +136,7 @@ func TestECDHKeyAgrKW(t *testing.T) {
 				common.APU = base64.RawURLEncoding.EncodeToString([]byte("fake-producer"))
 
 				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 
 			t.Run("WrongRecipientInfo", func(t *testing.T) {
@@ -150,7 +150,7 @@ func TestECDHKeyAgrKW(t *testing.T) {
 				common.APV = base64.RawURLEncoding.EncodeToString([]byte("fake-recipient"))
 
 				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 
 			t.Run("MissingEPK", func(t *testing.T) {
@@ -175,7 +175,7 @@ func TestECDHKeyAgrKW(t *testing.T) {
 				}, testCase.preset)
 
 				_, err := decoder.ComputeCEK(t.Context(), header, nil)
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 		})
 	}

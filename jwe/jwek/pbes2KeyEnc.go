@@ -280,7 +280,7 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 
 	cek, err := internal.KeyUnwrap(block, encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) unwrap key: %w", err)
+		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) %w: unwrap key: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

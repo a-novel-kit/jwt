@@ -63,6 +63,8 @@ func TestRecipient(t *testing.T) {
 
 		expect    any
 		expectErr error
+		// expectRejected is whether the error matches jwt.ErrTokenRejected.
+		expectRejected bool
 	}{
 		{
 			name: "Minimalistic",
@@ -83,8 +85,9 @@ func TestRecipient(t *testing.T) {
 			token: token,
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrMismatchRecipientPlugin,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrMismatchRecipientPlugin,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 		{
 			name: "IllegalCharacter",
@@ -95,8 +98,9 @@ func TestRecipient(t *testing.T) {
 			token: token[:4] + "\n" + token[4:],
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrUnsupportedTokenFormat,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 		{
 			name: "Typ",
@@ -128,8 +132,9 @@ func TestRecipient(t *testing.T) {
 			token: issueTyped(`example;profile="Admin"`),
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrUnexpectedTyp,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrUnexpectedTyp,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 		{
 			// RFC 7515 §4.1.9: a value holding any "/" does not take the "application/" prefix.
@@ -140,8 +145,9 @@ func TestRecipient(t *testing.T) {
 			token: issueTyped(`example;part="1/2"`),
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrUnexpectedTyp,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrUnexpectedTyp,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 		{
 			name: "UnexpectedTyp",
@@ -151,8 +157,9 @@ func TestRecipient(t *testing.T) {
 			token: token,
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrUnexpectedTyp,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrUnexpectedTyp,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 		{
 			name: "CustomDeserializer",
@@ -219,8 +226,9 @@ func TestRecipient(t *testing.T) {
 			token: token,
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrMismatchRecipientPlugin,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrMismatchRecipientPlugin,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 		{
 			name: "MalformedHeader/NotBase64",
@@ -230,8 +238,9 @@ func TestRecipient(t *testing.T) {
 			token: testutils.UndecodableSegment + "." + tokenNotJSON.Payload,
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrUnsupportedTokenFormat,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 		{
 			name: "MalformedHeader/NotJSON",
@@ -241,8 +250,9 @@ func TestRecipient(t *testing.T) {
 			token: base64.RawURLEncoding.EncodeToString([]byte("not json")) + "." + tokenNotJSON.Payload,
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrUnsupportedTokenFormat,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 		{
 			name: "MalformedPayload",
@@ -253,8 +263,9 @@ func TestRecipient(t *testing.T) {
 			token: tokenNotJSON.Header + "." + testutils.UndecodableSegment,
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrUnsupportedTokenFormat,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 		{
 			name: "TokenTooLarge",
@@ -264,8 +275,9 @@ func TestRecipient(t *testing.T) {
 			token: token,
 			dst:   map[string]any{},
 
-			expectErr: jwt.ErrTokenTooLarge,
-			expect:    map[string]any{},
+			expectErr:      jwt.ErrTokenTooLarge,
+			expectRejected: true,
+			expect:         map[string]any{},
 		},
 	}
 
@@ -276,6 +288,7 @@ func TestRecipient(t *testing.T) {
 			recipient := jwt.NewRecipient(testCase.config)
 			err := recipient.Consume(t.Context(), testCase.token, &testCase.dst)
 			require.ErrorIs(t, err, testCase.expectErr)
+			require.Equal(t, testCase.expectRejected, errors.Is(err, jwt.ErrTokenRejected))
 			require.Equal(t, testCase.expect, testCase.dst)
 		})
 	}

@@ -2,6 +2,7 @@ package jwt_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -62,4 +63,38 @@ func Example() {
 
 	fmt.Println(payload["role"], payload["sub"])
 	// Output: admin user-123
+}
+
+// ExampleRecipient_Consume_rejected tells a rejected token apart from a failure on the recipient's
+// side. A token signed with another key fails with an error matching jwt.ErrTokenRejected, and the
+// specific error stays matchable.
+func ExampleRecipient_Consume_rejected() {
+	ctx := context.Background()
+
+	signingKey, err := jwk.GenerateHMAC(jwk.HS256)
+	if err != nil {
+		panic(err)
+	}
+
+	otherKey, err := jwk.GenerateHMAC(jwk.HS256)
+	if err != nil {
+		panic(err)
+	}
+
+	token, err := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{jws.NewHMACSigner(signingKey.Key(), jws.HS256)},
+	}).Issue(ctx, map[string]any{"role": "admin"}, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{jws.NewHMACVerifier(otherKey.Key(), jws.HS256)},
+	})
+
+	var payload map[string]any
+
+	err = recipient.Consume(ctx, token, &payload)
+	fmt.Println(errors.Is(err, jwt.ErrTokenRejected), errors.Is(err, jws.ErrInvalidSignature))
+	// Output: true true
 }

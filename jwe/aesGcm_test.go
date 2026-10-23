@@ -133,7 +133,12 @@ func TestAESGCM(t *testing.T) {
 
 				if testCase.expectErr == nil {
 					require.Equal(t, producerClaims, recipientClaims)
+
+					return
 				}
+
+				// A tag that fails to verify rejects the token.
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 		}
 	}

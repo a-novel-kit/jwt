@@ -1,15 +1,13 @@
 package jwt
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
 
 // ErrUnsupportedTokenFormat is returned when a recipient cannot parse a token, such as one with a
-// segment that is not base64url. It reports a malformed token, which a caller can reject as the
-// sender's error.
-var ErrUnsupportedTokenFormat = errors.New("unsupported token format")
+// segment that is not base64url. It reports a malformed token, and matches [ErrTokenRejected].
+var ErrUnsupportedTokenFormat = fmt.Errorf("%w: unsupported token format", ErrTokenRejected)
 
 // A TokenDecoder splits a compact serialized token into its typed segments. Each JOSE token shape,
 // whether unsecured, signed or encrypted, has its own decoder and segment type.

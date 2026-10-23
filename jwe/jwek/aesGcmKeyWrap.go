@@ -192,11 +192,15 @@ func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, e
 	}
 
 	if len(iv) != 12 {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) invalid IV size: expected 12, got %d", len(iv))
+		return nil, fmt.Errorf(
+			"(AESGCMKWDecoder.ComputeCEK) %w: invalid IV size: expected 12, got %d", jwt.ErrUnsupportedTokenFormat, len(iv),
+		)
 	}
 
 	if len(tag) != 16 {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) invalid tag size: expected 16, got %d", len(tag))
+		return nil, fmt.Errorf(
+			"(AESGCMKWDecoder.ComputeCEK) %w: invalid tag size: expected 16, got %d", jwt.ErrUnsupportedTokenFormat, len(tag),
+		)
 	}
 
 	block, err := aes.NewCipher(decoder.wrapKey)
@@ -211,7 +215,7 @@ func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, e
 
 	cek, err := aesgcm.Open(nil, iv, append(encKey, tag...), []byte{})
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) decrypt CEK: %w", err)
+		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) %w: decrypt CEK: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

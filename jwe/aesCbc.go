@@ -307,7 +307,9 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 
 	expect := cbcTag(dec.hash, macKey, aadBytes, segments.iv, segments.cipherText, dec.tagLength)
 	if !hmac.Equal(segments.tag, expect) {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: auth tag check failed", ErrInvalidSecret)
+		return nil, fmt.Errorf(
+			"(AESCBCDecryption.Transform) %w: %w: auth tag check failed", jwt.ErrTokenRejected, ErrInvalidSecret,
+		)
 	}
 
 	block, err := aes.NewCipher(encKey)

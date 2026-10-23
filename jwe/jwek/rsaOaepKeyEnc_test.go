@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
@@ -79,7 +80,7 @@ func TestRSAOAEPKeyEnc(t *testing.T) {
 				)
 
 				_, err = decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.Error(t, err)
+				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 		})
 	}

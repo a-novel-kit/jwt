@@ -167,7 +167,7 @@ func (decoder *AESKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encK
 
 	cek, err := internal.KeyUnwrap(block, encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(AESKWDecoder.ComputeCEK) unwrap key: %w", err)
+		return nil, fmt.Errorf("(AESKWDecoder.ComputeCEK) %w: unwrap key: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

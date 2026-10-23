@@ -274,7 +274,7 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	if err != nil {
 		// An authenticated-decryption failure is the GCM analogue of a bad HMAC tag, so it surfaces
 		// the same sentinel as the CBC path.
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: %w", ErrInvalidSecret, err)
+		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: %w: %w", jwt.ErrTokenRejected, ErrInvalidSecret, err)
 	}
 
 	return plainText, nil

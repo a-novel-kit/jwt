@@ -146,7 +146,7 @@ func (decoder *RSAOAEPKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.J
 
 	cek, err := decoder.encKey.Decrypt(nil, encKey, &rsa.OAEPOptions{Hash: decoder.hash})
 	if err != nil {
-		return nil, fmt.Errorf("(RSAOAEPKeyEncDecoder.ComputeCEK) decrypt: %w", err)
+		return nil, fmt.Errorf("(RSAOAEPKeyEncDecoder.ComputeCEK) %w: decrypt: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

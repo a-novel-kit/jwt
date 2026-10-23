@@ -2,18 +2,18 @@ package jwt
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 )
 
 // ErrMissingCritHeader is returned when the "crit" list names a header parameter that is absent
-// from the header being checked.
-var ErrMissingCritHeader = errors.New("missing crit header value")
+// from the header being checked. It matches [ErrTokenRejected].
+var ErrMissingCritHeader = fmt.Errorf("%w: missing crit header value", ErrTokenRejected)
 
 // ErrUnsupportedCritHeader is returned when the "crit" list names an extension the recipient is not
 // configured to understand, or a registered JOSE parameter that a producer must not mark critical.
-var ErrUnsupportedCritHeader = errors.New("unsupported crit header")
+// It matches [ErrTokenRejected].
+var ErrUnsupportedCritHeader = fmt.Errorf("%w: unsupported crit header", ErrTokenRejected)
 
 // reservedHeaderParams are the header parameters defined by the JWS/JWE/JWA/JWT specifications. A
 // producer must not mark any of them critical (RFC 7515 §4.1.11), so a recipient rejects a crit list

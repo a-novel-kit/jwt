@@ -305,7 +305,9 @@ func TestKeyManagementRejects(t *testing.T) {
 		manager := jwek.NewAESKWManager(&jwek.AESKWManagerConfig{WrapKey: wrapKey.Key()}, jwek.A256KW)
 
 		_, err := manager.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: "C20P"}})
-		require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+		// The producer's own configuration failed, so no token was rejected.
+		require.NotErrorIs(t, err, jwt.ErrTokenRejected)
 	})
 
 	t.Run("NoRecipientKey", func(t *testing.T) {
@@ -315,5 +317,6 @@ func TestKeyManagementRejects(t *testing.T) {
 
 		_, err := manager.ComputeCEK(t.Context(), &jwa.JWH{})
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+		require.NotErrorIs(t, err, jwt.ErrTokenRejected)
 	})
 }
