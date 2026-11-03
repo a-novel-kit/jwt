@@ -63,7 +63,7 @@ func TestProducer(t *testing.T) {
 
 			customClaims: map[string]any{"foo": "bar"},
 
-			expectToken: "eyJhbGciOiJub25lIn0.eyJmb28iOiJiYXIifQ",
+			expectToken: "eyJhbGciOiJub25lIn0.eyJmb28iOiJiYXIifQ.",
 		},
 		{
 			name: "CustomHeader",
@@ -73,7 +73,7 @@ func TestProducer(t *testing.T) {
 			customClaims: map[string]any{"foo": "bar"},
 			customHeader: map[string]any{"test": true},
 
-			expectToken: "eyJhbGciOiJub25lIiwidGVzdCI6dHJ1ZX0.eyJmb28iOiJiYXIifQ",
+			expectToken: "eyJhbGciOiJub25lIiwidGVzdCI6dHJ1ZX0.eyJmb28iOiJiYXIifQ.",
 		},
 		{
 			name: "Plugins",

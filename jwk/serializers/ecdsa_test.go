@@ -71,8 +71,8 @@ func TestEC(t *testing.T) {
 //
 // The fixture is a P-256 key whose x coordinate falls below 2^248, so its minimal encoding is 31
 // bytes, one short of the fixed 32. Roughly one coordinate in 256 is like this, so a randomly
-// generated key almost never exercises it. DecodeEC reads through big.Int.SetBytes, which accepts
-// any length, so only a consumer in another runtime rejects the short value.
+// generated key almost never exercises it. DecodeEC rejects the short value, as spec-compliant
+// consumers in other runtimes do.
 func TestECCoordinateWidth(t *testing.T) {
 	t.Parallel()
 
@@ -124,4 +124,20 @@ func TestECCoordinateWidth(t *testing.T) {
 			require.Len(t, y, p256ByteLen, "y must be padded to the curve's coordinate size")
 		})
 	}
+
+	t.Run("Error/ShortCoordinate", func(t *testing.T) {
+		t.Parallel()
+
+		payload, err := serializers.EncodeEC(&privateKey.PublicKey)
+		require.NoError(t, err)
+
+		x, err := base64.RawURLEncoding.DecodeString(payload.X)
+		require.NoError(t, err)
+
+		// The minimal encoding drops the leading zero octet the full size keeps.
+		payload.X = base64.RawURLEncoding.EncodeToString(x[1:])
+
+		_, _, err = serializers.DecodeEC(payload)
+		require.ErrorIs(t, err, serializers.ErrInvalidECKey)
+	})
 }

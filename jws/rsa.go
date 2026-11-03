@@ -201,8 +201,11 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 	return decoded, nil
 }
 
-// verify checks the RSA signature over digest using the scheme its algorithm denotes. PSS accepts
-// any salt length (PSSSaltLengthAuto), so it interoperates with signers that pad differently.
+// verify checks the RSA signature over digest using the scheme its algorithm denotes.
+//
+// RFC 7518 §3.5 sets the PSS salt to the hash size, which the signer uses. The verifier deliberately
+// accepts any salt length (PSSSaltLengthAuto), so it interoperates with signers that pad differently.
+// The salt length does not weaken PSS.
 func (verifier *RSAVerifier) verify(digest, sig []byte) error {
 	pss, err := algIsPSS(verifier.alg)
 	if err != nil {

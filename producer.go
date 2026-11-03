@@ -91,5 +91,11 @@ func (producer *Producer) Issue(ctx context.Context, customClaims, customHeader 
 		}
 	}
 
+	// Without a transforming plugin the token is an unsecured JWS, which keeps its third segment, the
+	// empty signature (RFC 7515 §7.1, RFC 7519 §6.1).
+	if len(producer.config.Plugins) == 0 {
+		token += "."
+	}
+
 	return token, nil
 }

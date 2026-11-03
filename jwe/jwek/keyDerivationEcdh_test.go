@@ -136,6 +136,42 @@ func TestECDHKeyAgr(t *testing.T) {
 				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 			})
 
+			t.Run("PrivateEPK", func(t *testing.T) {
+				t.Parallel()
+
+				decoder := jwek.NewECDHKeyAgrDecoder(&jwek.ECDHKeyAgrDecoderConfig{
+					RecipientKey: recipientPrivateKey.Key(),
+				}, testCase.preset)
+
+				// RFC 7518 §4.6.1.1: the ephemeral key holds public parameters only.
+				epk := *header.EPK
+				epk.Payload = recipientPrivateKey.Payload
+
+				common := header.JWHCommon
+				common.EPK = &epk
+
+				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, nil)
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+			})
+
+			t.Run("EPKKeyTypeMismatch", func(t *testing.T) {
+				t.Parallel()
+
+				decoder := jwek.NewECDHKeyAgrDecoder(&jwek.ECDHKeyAgrDecoderConfig{
+					RecipientKey: recipientPrivateKey.Key(),
+				}, testCase.preset)
+
+				// RFC 8037 §2: an X25519 key is an "OKP" key.
+				epk := *header.EPK
+				epk.KTY = jwa.KTYEC
+
+				common := header.JWHCommon
+				common.EPK = &epk
+
+				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, nil)
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+			})
+
 			t.Run("WrongProducerInfo", func(t *testing.T) {
 				t.Parallel()
 

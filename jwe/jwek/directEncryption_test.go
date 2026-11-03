@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
@@ -34,4 +35,8 @@ func TestDirectEncryption(t *testing.T) {
 	decodedCEK, err := decoder.ComputeCEK(t.Context(), header, nil)
 	require.NoError(t, err)
 	require.Equal(t, cek.Key(), decodedCEK)
+
+	// RFC 7518 §4.5: a direct encryption token carries an empty encrypted key.
+	_, err = decoder.ComputeCEK(t.Context(), header, []byte("unexpected"))
+	require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 }

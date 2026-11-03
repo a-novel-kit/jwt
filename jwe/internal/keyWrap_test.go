@@ -83,4 +83,16 @@ func TestAesKeyWrapInvalid(t *testing.T) {
 
 	_, err = internal.KeyWrap(block, input2)
 	require.Error(t, err, "key wrap accepted invalid input")
+
+	// RFC 3394 §2: the key data holds at least two 64-bit blocks, so one block neither wraps nor
+	// unwraps.
+	oneBlock, _ := hex.DecodeString("0011223344556677")
+
+	_, err = internal.KeyWrap(block, oneBlock)
+	require.Error(t, err, "key wrap accepted a single block")
+
+	oneBlockWrapped, _ := hex.DecodeString("A6A6A6A6A6A6A6A60011223344556677")
+
+	_, err = internal.KeyUnwrap(block, oneBlockWrapped)
+	require.Error(t, err, "key unwrap accepted a single wrapped block")
 }

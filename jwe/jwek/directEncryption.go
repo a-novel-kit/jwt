@@ -65,11 +65,18 @@ func NewDirectKeyDecoder(config *DirectKeyDecoderConfig) *DirectKeyDecoder {
 	}
 }
 
-func (decoder *DirectKeyDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, _ []byte) ([]byte, error) {
+func (decoder *DirectKeyDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
 	if header.Alg != jwa.DIR {
 		return nil, fmt.Errorf(
 			"(DirectKeyDecoder.ComputeCEK) %w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, jwa.DIR,
+		)
+	}
+
+	// RFC 7518 §4.5 and RFC 7516 §5.2 step 10: direct encryption carries an empty encrypted key.
+	if len(encKey) != 0 {
+		return nil, fmt.Errorf(
+			"(DirectKeyDecoder.ComputeCEK) %w: unexpected enc key (should be empty)", jwt.ErrUnsupportedTokenFormat,
 		)
 	}
 

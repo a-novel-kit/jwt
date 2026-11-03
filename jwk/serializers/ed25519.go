@@ -32,7 +32,7 @@ var ErrInvalidEDKey = errors.New("invalid EdDSA key")
 
 // DecodeED decodes the Ed25519 key an EDPayload carries.
 //
-// Besides the 32-byte private key RFC 8037 specifies, "d" may hold the 64-byte seed-and-public-key
+// Besides the 32-byte private key RFC 8037 §2 specifies, "d" may hold the 64-byte seed-and-public-key
 // form of ed25519.PrivateKey, so keys serialized from that form keep loading.
 func DecodeED(src *EDPayload) (ed25519.PrivateKey, ed25519.PublicKey, error) {
 	if src.Crv != jwa.CrvEd25519 {
