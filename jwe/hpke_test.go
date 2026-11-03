@@ -80,10 +80,10 @@ func TestHPKE(t *testing.T) {
 			require.NoError(t, recipient.Consume(t.Context(), first, &recipientClaims))
 			require.Equal(t, producerClaims, recipientClaims)
 
-			firstToken, err := jwt.DecodeToken(first, &jwt.EncryptedTokenDecoder{})
+			firstToken, err := (&jwt.EncryptedTokenDecoder{}).Decode(first)
 			require.NoError(t, err)
 
-			secondToken, err := jwt.DecodeToken(second, &jwt.EncryptedTokenDecoder{})
+			secondToken, err := (&jwt.EncryptedTokenDecoder{}).Decode(second)
 			require.NoError(t, err)
 
 			// Integrated Encryption carries the encapsulated secret as the encrypted key, leaves the IV and
@@ -230,7 +230,7 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+			parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 			require.NoError(t, err)
 
 			if testCase.token != nil {

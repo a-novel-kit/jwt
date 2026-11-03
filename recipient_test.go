@@ -38,7 +38,7 @@ func TestRecipient(t *testing.T) {
 	token, err := producer.Issue(t.Context(), map[string]interface{}{"foo": "bar"}, nil)
 	require.NoError(t, err)
 
-	tokenNotJSON, err := jwt.DecodeToken(token, &jwt.RawTokenDecoder{})
+	tokenNotJSON, err := (&jwt.RawTokenDecoder{}).Decode(token)
 	require.NoError(t, err)
 
 	tokenNotJSON.Payload = base64.RawURLEncoding.EncodeToString([]byte("qux"))

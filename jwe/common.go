@@ -38,14 +38,15 @@ func encodeProtectedHeader(header *jwa.JWH) (string, error) {
 // Both encryption and decryption derive it from the transmitted header, so a tampered header fails
 // the integrity check.
 func aad(encodedHeader string, additionalData []byte) []byte {
-	out := []byte(encodedHeader)
 	if len(additionalData) == 0 {
-		return out
+		return []byte(encodedHeader)
 	}
 
+	out := make([]byte, 0, len(encodedHeader)+1+base64.RawURLEncoding.EncodedLen(len(additionalData)))
+	out = append(out, encodedHeader...)
 	out = append(out, '.')
 
-	return append(out, base64.RawURLEncoding.EncodeToString(additionalData)...)
+	return base64.RawURLEncoding.AppendEncode(out, additionalData)
 }
 
 // encryptedSegments holds the decoded binary segments of a JWE compact token.

@@ -1,18 +1,24 @@
 package internal
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 )
 
-// PKCS7Padding appends PKCS#7 padding to bring plainText up to a whole multiple of blockSize. A full
-// block is added when the input is already aligned, so the padding is always removable.
+// PKCS7Padding returns plainText followed by PKCS#7 padding, up to a whole multiple of blockSize. A
+// full block is added when the input is already aligned, so the padding is always removable. The
+// result is a new slice: plainText is left untouched.
 func PKCS7Padding(plainText []byte, blockSize int) []byte {
 	padding := blockSize - len(plainText)%blockSize
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 
-	return append(plainText, padtext...)
+	padded := make([]byte, len(plainText)+padding)
+	copy(padded, plainText)
+
+	for i := len(plainText); i < len(padded); i++ {
+		padded[i] = byte(padding)
+	}
+
+	return padded
 }
 
 // PKCS7UnPadding strips the PKCS#7 padding that PKCS7Padding added, returning the original

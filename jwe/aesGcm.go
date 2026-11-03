@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"slices"
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
@@ -95,7 +96,7 @@ func (enc *AESGCMEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 }
 
 func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	token, err := jwt.DecodeToken(rawToken, &jwt.RawTokenDecoder{})
+	token, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return "", fmt.Errorf("(AESGCMEncryption.Transform) split token: %w", err)
 	}
@@ -219,7 +220,7 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	token, err := jwt.DecodeToken(rawToken, &jwt.EncryptedTokenDecoder{})
+	token, err := (&jwt.EncryptedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMDecryption.Transform) split token: %w", err)
 	}
@@ -269,7 +270,7 @@ func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}
 
 	plainText, err := aesgcm.Open(
-		nil, segments.iv, append(segments.cipherText, segments.tag...), aad(token.Header, dec.additionalData),
+		nil, segments.iv, slices.Concat(segments.cipherText, segments.tag), aad(token.Header, dec.additionalData),
 	)
 	if err != nil {
 		// An authenticated-decryption failure is the GCM analogue of a bad HMAC tag, so it surfaces

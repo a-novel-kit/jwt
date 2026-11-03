@@ -42,7 +42,7 @@ func (plugin *DefaultRecipientPlugin) Transform(_ context.Context, header *jwa.J
 		)
 	}
 
-	token, err := DecodeToken(rawToken, &RawTokenDecoder{})
+	token, err := (&RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(DefaultRecipientPlugin.Transform) decode token: %w", err)
 	}

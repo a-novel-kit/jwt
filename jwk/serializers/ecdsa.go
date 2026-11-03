@@ -60,40 +60,7 @@ func pointFromAffine(curve elliptic.Curve, x, y *big.Int) ([]byte, error) {
 	return buf, nil
 }
 
-// pointToAffine splits uncompressed point bytes back into their affine x and y coordinates.
-//
-//nolint:nonamedreturns
-func pointToAffine(curve elliptic.Curve, p []byte) (x, y *big.Int, err error) {
-	if len(p) == 1 && p[0] == 0 {
-		// This is the encoding of the point at infinity.
-		return nil, nil, errors.New("ecdsa: public key point is the infinity")
-	}
-
-	byteLen := (curve.Params().BitSize + 7) / 8
-	x = new(big.Int).SetBytes(p[1 : 1+byteLen])
-	y = new(big.Int).SetBytes(p[1+byteLen:])
-
-	return x, y, nil
-}
-
 // ---------------------------------------------------------------------------------------------------------------------
-
-// parsePublicKeyParams returns the affine coordinates of key and the curve they lie on.
-func parsePublicKeyParams(key *ecdsa.PublicKey) (*big.Int, *big.Int, elliptic.Curve, error) {
-	raw, err := key.Bytes()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("parse public key params: %w", err)
-	}
-
-	crv := key.Curve
-
-	x, y, err := pointToAffine(crv, raw)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("parse public key params: %w", err)
-	}
-
-	return x, y, crv, nil
-}
 
 // DecodeEC reconstructs the ECDSA key carried by an ECPayload, returning the private key when the payload holds one.
 func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
@@ -152,20 +119,6 @@ func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	return keyPriv, keyPub, nil
 }
 
-// encodeCoordinate renders an affine coordinate at the curve's full octet length, as RFC 7518
-// §6.2.1.2 requires. [big.Int.Bytes] drops leading zero bytes, which roughly one coordinate in 256
-// has, and spec-compliant consumers such as WebCrypto importKey reject the short value. [DecodeEC]
-// reads through [big.Int.SetBytes] and accepts any length.
-//
-// FillBytes panics on a value too large for the buffer. Callers pass coordinates read off a parsed
-// key, which lie on the curve and therefore fit.
-func encodeCoordinate(curve elliptic.Curve, coordinate *big.Int) string {
-	buf := make([]byte, (curve.Params().BitSize+7)/8)
-	coordinate.FillBytes(buf)
-
-	return base64.RawURLEncoding.EncodeToString(buf)
-}
-
 // EncodeEC builds the ECPayload representation of an ECDSA public or private key.
 func EncodeEC[Key *ecdsa.PublicKey | *ecdsa.PrivateKey](key Key) (*ECPayload, error) {
 	publicKey, ok := any(key).(*ecdsa.PublicKey)
@@ -176,15 +129,19 @@ func EncodeEC[Key *ecdsa.PublicKey | *ecdsa.PrivateKey](key Key) (*ECPayload, er
 		publicKey = &privateKey.PublicKey
 	}
 
-	x, y, crv, err := parsePublicKeyParams(publicKey)
+	// Bytes returns the uncompressed point 0x04 || X || Y, each coordinate at the curve's full octet
+	// length, as RFC 7518 §6.2.1.2 and §6.2.1.3 require. big.Int.Bytes would drop leading zero bytes.
+	point, err := publicKey.Bytes()
 	if err != nil {
-		return nil, fmt.Errorf("parse public key params: %w", err)
+		return nil, fmt.Errorf("serialize public key: %w", err)
 	}
 
+	size := (len(point) - 1) / 2
+
 	payload := &ECPayload{
-		Crv: crv.Params().Name,
-		X:   encodeCoordinate(crv, x),
-		Y:   encodeCoordinate(crv, y),
+		Crv: publicKey.Curve.Params().Name,
+		X:   base64.RawURLEncoding.EncodeToString(point[1 : 1+size]),
+		Y:   base64.RawURLEncoding.EncodeToString(point[1+size:]),
 	}
 
 	if privateKey == nil {

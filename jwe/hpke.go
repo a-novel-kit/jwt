@@ -84,7 +84,7 @@ func (enc *HPKEEncryption) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH,
 }
 
 func (enc *HPKEEncryption) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
-	token, err := jwt.DecodeToken(rawToken, &jwt.RawTokenDecoder{})
+	token, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return "", fmt.Errorf("(HPKEEncryption.Transform) split token: %w", err)
 	}
@@ -158,7 +158,7 @@ func (dec *HPKEDecryption) Transform(_ context.Context, header *jwa.JWH, rawToke
 		)
 	}
 
-	token, err := jwt.DecodeToken(rawToken, &jwt.EncryptedTokenDecoder{})
+	token, err := (&jwt.EncryptedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(HPKEDecryption.Transform) split token: %w", err)
 	}

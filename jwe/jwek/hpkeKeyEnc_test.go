@@ -102,7 +102,7 @@ func TestHPKEKeyEnc(t *testing.T) {
 
 			var header jwa.JWH
 
-			parts, err := jwt.DecodeToken(vector.Compact, &jwt.EncryptedTokenDecoder{})
+			parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(vector.Compact)
 			require.NoError(t, err)
 			require.NoError(t, json.Unmarshal(mustDecode(t, parts.Header), &header))
 

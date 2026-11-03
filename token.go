@@ -149,6 +149,9 @@ func (decoder *EncryptedTokenDecoder) Decode(source string) (*EncryptedToken, er
 
 // DecodeToken runs decoder over source and returns the typed segments, inferring the segment type
 // from the decoder passed in.
+//
+// Deprecated: call the decoder directly, as in (&SignedTokenDecoder{}).Decode(source). Its Decode
+// method already returns the typed segments.
 func DecodeToken[R any](source string, decoder TokenDecoder[R]) (R, error) {
 	return decoder.Decode(source)
 }

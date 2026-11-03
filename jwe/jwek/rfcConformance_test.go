@@ -195,10 +195,10 @@ func TestKeyManagementPerToken(t *testing.T) {
 			require.NoError(t, recipient.Consume(t.Context(), first, &decoded))
 			require.Equal(t, claims, decoded)
 
-			firstToken, err := jwt.DecodeToken(first, &jwt.EncryptedTokenDecoder{})
+			firstToken, err := (&jwt.EncryptedTokenDecoder{}).Decode(first)
 			require.NoError(t, err)
 
-			secondToken, err := jwt.DecodeToken(second, &jwt.EncryptedTokenDecoder{})
+			secondToken, err := (&jwt.EncryptedTokenDecoder{}).Decode(second)
 			require.NoError(t, err)
 
 			// Every token carries its own key material: a wrapped CEK, an ephemeral key, or both.

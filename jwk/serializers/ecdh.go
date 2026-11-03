@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
@@ -73,7 +74,7 @@ func DecodeECDH(src *ECDHPayload) (*ecdh.PrivateKey, *ecdh.PublicKey, error) {
 			return nil, nil, fmt.Errorf("%w: x and y differ in size", ErrInvalidECDHKey)
 		}
 
-		publicKey = append(append([]byte{4}, publicKey...), y...)
+		publicKey = slices.Concat([]byte{4}, publicKey, y)
 	}
 
 	ecdhPubKey, err := curve.NewPublicKey(publicKey)
