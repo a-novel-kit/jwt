@@ -83,21 +83,18 @@ func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw stri
 		return "", fmt.Errorf("(HMACSigner.Transform) %w", err)
 	}
 
-	token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
+	// The decoder checks the shape only: the token is already the "header.payload" signing input.
+	_, err = (&jwt.RawTokenDecoder{}).Decode(tokenRaw)
 	if err != nil {
 		return "", fmt.Errorf("(HMACSigner.Transform) split token: %w", err)
 	}
 
 	hasher := hmac.New(signer.hash.New, signer.secretKey)
-	hasher.Write(token.Bytes())
+	hasher.Write([]byte(tokenRaw))
 
 	signature := hasher.Sum(nil)
 
-	return jwt.SignedToken{
-		Header:    token.Header,
-		Payload:   token.Payload,
-		Signature: base64.RawURLEncoding.EncodeToString(signature),
-	}.String(), nil
+	return tokenRaw + "." + base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
 // An HMACVerifier verifies HMAC-signed tokens as a [jwt.RecipientPlugin]. Build one with
@@ -135,12 +132,13 @@ func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawT
 		return nil, fmt.Errorf("(HMACVerifier.Transform) %w", err)
 	}
 
-	token, err := jwt.DecodeToken(rawToken, &jwt.SignedTokenDecoder{})
+	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(HMACVerifier.Transform) split token: %w", err)
 	}
 
-	unsignedToken := jwt.RawToken{Header: token.Header, Payload: token.Payload}
+	// The signing input is the token up to the dot before its signature.
+	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {
@@ -148,7 +146,7 @@ func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawT
 	}
 
 	hasher := hmac.New(verifier.hash.New, verifier.secretKey)
-	hasher.Write(unsignedToken.Bytes())
+	hasher.Write(signingInput)
 
 	if !hmac.Equal(sigBytes, hasher.Sum(nil)) {
 		return nil, fmt.Errorf("(HMACVerifier.Transform) %w", ErrInvalidSignature)

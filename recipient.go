@@ -90,7 +90,7 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 		return fmt.Errorf("(Recipient.Consume) %w", err)
 	}
 
-	rawHeader, err := DecodeToken(rawToken, &HeaderDecoder{})
+	rawHeader, err := (&HeaderDecoder{}).Decode(rawToken)
 	if err != nil {
 		return fmt.Errorf("(Recipient.Consume) decode token: %w", err)
 	}
@@ -157,7 +157,7 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 		return fmt.Errorf("(Recipient.DecodeUnverified) %w", err)
 	}
 
-	token, err := DecodeToken(rawToken, &SignedTokenDecoder{})
+	token, err := (&SignedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return fmt.Errorf("(Recipient.DecodeUnverified) decode token: %w", err)
 	}

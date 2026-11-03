@@ -57,22 +57,19 @@ func (signer *MLDSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH,
 }
 
 func (signer *MLDSASigner) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
-	token, err := jwt.DecodeToken(rawToken, &jwt.RawTokenDecoder{})
+	// The decoder checks the shape only: the token is already the "header.payload" signing input.
+	_, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return "", fmt.Errorf("(MLDSASigner.Transform) split token: %w", err)
 	}
 
 	// Nil options sign the message itself with an empty context, as RFC 9964 requires.
-	signature, err := signer.secretKey.Sign(nil, token.Bytes(), nil)
+	signature, err := signer.secretKey.Sign(nil, []byte(rawToken), nil)
 	if err != nil {
 		return "", fmt.Errorf("(MLDSASigner.Transform) %w", err)
 	}
 
-	return jwt.SignedToken{
-		Header:    token.Header,
-		Payload:   token.Payload,
-		Signature: base64.RawURLEncoding.EncodeToString(signature),
-	}.String(), nil
+	return rawToken + "." + base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
 // An MLDSAVerifier verifies ML-DSA-signed tokens as a [jwt.RecipientPlugin]. It accepts only the
@@ -104,19 +101,20 @@ func (verifier *MLDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	token, err := jwt.DecodeToken(rawToken, &jwt.SignedTokenDecoder{})
+	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(MLDSAVerifier.Transform) split source: %w", err)
 	}
 
-	unsignedToken := jwt.RawToken{Header: token.Header, Payload: token.Payload}
+	// The signing input is the token up to the dot before its signature.
+	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {
 		return nil, fmt.Errorf("(MLDSAVerifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
-	err = mldsa.Verify(verifier.publicKey, unsignedToken.Bytes(), sigBytes, nil)
+	err = mldsa.Verify(verifier.publicKey, signingInput, sigBytes, nil)
 	if err != nil {
 		return nil, fmt.Errorf("(MLDSAVerifier.Transform) %w", ErrInvalidSignature)
 	}

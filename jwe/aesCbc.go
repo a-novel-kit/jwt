@@ -128,7 +128,7 @@ func (enc *AESCBCEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.
 }
 
 func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	token, err := jwt.DecodeToken(rawToken, &jwt.RawTokenDecoder{})
+	token, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return "", fmt.Errorf("(AESCBCEncryption.Transform) split token: %w", err)
 	}
@@ -173,9 +173,9 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	}
 
 	blockMode := cipher.NewCBCEncrypter(block, iv)
-	origData := internal.PKCS7Padding(plainText, block.BlockSize())
-	cipherText := make([]byte, len(origData))
-	blockMode.CryptBlocks(cipherText, origData)
+	// CBC encrypts in place, over the fresh slice the padding returns.
+	cipherText := internal.PKCS7Padding(plainText, block.BlockSize())
+	blockMode.CryptBlocks(cipherText, cipherText)
 
 	aadBytes := aad(encodedHeader, enc.additionalData)
 	tag := cbcTag(enc.hash, macKey, aadBytes, iv, cipherText, enc.tagLength)
@@ -258,7 +258,7 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	token, err := jwt.DecodeToken(rawToken, &jwt.EncryptedTokenDecoder{})
+	token, err := (&jwt.EncryptedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) split token: %w", err)
 	}
@@ -317,11 +317,11 @@ func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, raw
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) new cipher: %w", err)
 	}
 
+	// The decoded ciphertext belongs to this call, so CBC decrypts it in place.
 	blockMode := cipher.NewCBCDecrypter(block, segments.iv)
-	origData := make([]byte, len(segments.cipherText))
-	blockMode.CryptBlocks(origData, segments.cipherText)
+	blockMode.CryptBlocks(segments.cipherText, segments.cipherText)
 
-	plainText, err := internal.PKCS7UnPadding(origData)
+	plainText, err := internal.PKCS7UnPadding(segments.cipherText)
 	if err != nil {
 		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: %w", ErrInvalidToken, err)
 	}

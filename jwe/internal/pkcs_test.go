@@ -46,6 +46,18 @@ func TestPKCS7Padding(t *testing.T) {
 			require.Equal(t, testCase.expected, result)
 		})
 	}
+
+	t.Run("Success/KeepsInput", func(t *testing.T) {
+		t.Parallel()
+
+		// Spare capacity would let an append write the padding into the caller's backing array.
+		backing := []byte("testXXXX")
+		input := backing[:4]
+
+		result := internal.PKCS7Padding(input, 8)
+		require.Equal(t, []byte("test\x04\x04\x04\x04"), result)
+		require.Equal(t, []byte("testXXXX"), backing)
+	})
 }
 
 func TestPKCS7UnPadding(t *testing.T) {

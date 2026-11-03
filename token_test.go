@@ -50,7 +50,7 @@ func TestHeaderDecoder(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			header, err := jwt.DecodeToken(testCase.value, &jwt.HeaderDecoder{})
+			header, err := (&jwt.HeaderDecoder{}).Decode(testCase.value)
 			require.ErrorIs(t, err, testCase.expectErr)
 			require.Equal(t, testCase.expect, header)
 		})
@@ -88,7 +88,7 @@ func TestRawToken(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			token, err := jwt.DecodeToken(testCase.value, &jwt.RawTokenDecoder{})
+			token, err := (&jwt.RawTokenDecoder{}).Decode(testCase.value)
 
 			if testCase.expect == nil {
 				require.Error(t, err)
@@ -126,7 +126,7 @@ func TestSignedToken(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			token, err := jwt.DecodeToken(testCase.value, &jwt.SignedTokenDecoder{})
+			token, err := (&jwt.SignedTokenDecoder{}).Decode(testCase.value)
 
 			if testCase.expect == nil {
 				require.Error(t, err)
@@ -164,7 +164,7 @@ func TestEncryptedToken(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			token, err := jwt.DecodeToken(testCase.value, &jwt.EncryptedTokenDecoder{})
+			token, err := (&jwt.EncryptedTokenDecoder{}).Decode(testCase.value)
 
 			if testCase.expect == nil {
 				require.Error(t, err)
@@ -175,4 +175,12 @@ func TestEncryptedToken(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDecodeToken(t *testing.T) {
+	t.Parallel()
+
+	token, err := jwt.DecodeToken("header.payload.signature", &jwt.SignedTokenDecoder{})
+	require.NoError(t, err)
+	require.Equal(t, &jwt.SignedToken{Header: "header", Payload: "payload", Signature: "signature"}, token)
 }

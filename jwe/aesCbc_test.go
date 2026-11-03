@@ -194,7 +194,7 @@ func TestAESCBCMalformedSegment(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+			parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 			require.NoError(t, err)
 
 			testCase.malform(parts)
@@ -238,7 +238,7 @@ func TestAESCBCKeySplit(t *testing.T) {
 	token, err := encrypter.Transform(t.Context(), header, rawToken.String())
 	require.NoError(t, err)
 
-	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 	require.NoError(t, err)
 
 	block, err := aes.NewCipher(cek[preset.MACKeyLen:])
@@ -276,7 +276,7 @@ func TestAESCBCMalformedLengths(t *testing.T) {
 	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
 	require.NoError(t, err)
 
-	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 	require.NoError(t, err)
 
 	iv := mustDecodeBase64(t, parts.IV)

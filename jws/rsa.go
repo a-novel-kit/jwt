@@ -97,24 +97,21 @@ func (signer *RSASigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw strin
 		return "", fmt.Errorf("(RSASigner.Transform) %w", err)
 	}
 
-	token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
+	// The decoder checks the shape only: the token is already the "header.payload" signing input.
+	_, err = (&jwt.RawTokenDecoder{}).Decode(tokenRaw)
 	if err != nil {
 		return "", fmt.Errorf("(RSASigner.Transform) split token: %w", err)
 	}
 
 	hasher := signer.hash.New()
-	hasher.Write(token.Bytes())
+	hasher.Write([]byte(tokenRaw))
 
 	signature, err := signer.sign(hasher.Sum(nil))
 	if err != nil {
 		return "", fmt.Errorf("(RSASigner.Transform) %w", err)
 	}
 
-	return jwt.SignedToken{
-		Header:    token.Header,
-		Payload:   token.Payload,
-		Signature: base64.RawURLEncoding.EncodeToString(signature),
-	}.String(), nil
+	return tokenRaw + "." + base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
 // sign produces the RSA signature over digest using the scheme its algorithm denotes. PSS uses a
@@ -171,15 +168,16 @@ func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawTo
 		return nil, fmt.Errorf("(RSAVerifier.Transform) %w", err)
 	}
 
-	token, err := jwt.DecodeToken(rawToken, &jwt.SignedTokenDecoder{})
+	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(RSAVerifier.Transform) split token: %w", err)
 	}
 
-	unsignedToken := jwt.RawToken{Header: token.Header, Payload: token.Payload}
+	// The signing input is the token up to the dot before its signature.
+	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
 
 	hasher := verifier.hash.New()
-	hasher.Write(unsignedToken.Bytes())
+	hasher.Write(signingInput)
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {

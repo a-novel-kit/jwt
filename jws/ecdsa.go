@@ -94,13 +94,14 @@ func (signer *ECDSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH,
 }
 
 func (signer *ECDSASigner) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
-	token, err := jwt.DecodeToken(rawToken, &jwt.RawTokenDecoder{})
+	// The decoder checks the shape only: the token is already the "header.payload" signing input.
+	_, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return "", fmt.Errorf("(ECDSASigner.Transform) split source: %w", err)
 	}
 
 	hasher := signer.hash.New()
-	hasher.Write(token.Bytes())
+	hasher.Write([]byte(rawToken))
 
 	r, s, err := ecdsa.Sign(rand.Reader, signer.secretKey, hasher.Sum(nil))
 	if err != nil {
@@ -116,11 +117,7 @@ func (signer *ECDSASigner) Transform(_ context.Context, _ *jwa.JWH, rawToken str
 	r.FillBytes(signature[0:keyBytes])
 	s.FillBytes(signature[keyBytes:])
 
-	return jwt.SignedToken{
-		Header:    token.Header,
-		Payload:   token.Payload,
-		Signature: base64.RawURLEncoding.EncodeToString(signature),
-	}.String(), nil
+	return rawToken + "." + base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
 // An ECDSAVerifier verifies ECDSA-signed tokens as a [jwt.RecipientPlugin]. Build one with
@@ -163,12 +160,13 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 		)
 	}
 
-	token, err := jwt.DecodeToken(rawToken, &jwt.SignedTokenDecoder{})
+	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDSAVerifier.Transform) split source: %w", err)
 	}
 
-	unsignedToken := jwt.RawToken{Header: token.Header, Payload: token.Payload}
+	// The signing input is the token up to the dot before its signature.
+	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {
@@ -184,7 +182,7 @@ func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 	s := big.NewInt(0).SetBytes(sigBytes[keyBytes:])
 
 	hasher := verifier.hash.New()
-	hasher.Write(unsignedToken.Bytes())
+	hasher.Write(signingInput)
 
 	if !ecdsa.Verify(verifier.publicKey, hasher.Sum(nil), r, s) {
 		return nil, fmt.Errorf("(ECDSAVerifier.Transform) %w", ErrInvalidSignature)

@@ -142,10 +142,7 @@ func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
 
 	// Return a copy so a caller that reorders or appends to the result cannot mutate the shared
 	// cache other goroutines read.
-	out := make([]*jwa.JWK, len(source.cached))
-	copy(out, source.cached)
-
-	return out, nil
+	return slices.Clone(source.cached), nil
 }
 
 // Get returns the key with the given ID. An empty kid returns the first (highest-priority) key. It

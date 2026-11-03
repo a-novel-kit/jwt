@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
@@ -213,7 +214,7 @@ func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, e
 		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) create AEAD: %w", err)
 	}
 
-	cek, err := aesgcm.Open(nil, iv, append(encKey, tag...), []byte{})
+	cek, err := aesgcm.Open(nil, iv, slices.Concat(encKey, tag), []byte{})
 	if err != nil {
 		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) %w: decrypt CEK: %w", jwt.ErrTokenRejected, err)
 	}

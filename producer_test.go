@@ -29,7 +29,7 @@ func (fake *fakeProducerPlugin) Transform(_ context.Context, _ *jwa.JWH, token s
 // withPayload returns a token transform that swaps the payload segment of a "header.payload" token.
 func withPayload(payload string) func(string) string {
 	return func(tokenRaw string) string {
-		token, err := jwt.DecodeToken(tokenRaw, &jwt.RawTokenDecoder{})
+		token, err := (&jwt.RawTokenDecoder{}).Decode(tokenRaw)
 		if err != nil {
 			panic(err)
 		}

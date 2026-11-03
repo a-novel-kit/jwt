@@ -52,18 +52,15 @@ func (signer *ED25519Signer) Header(_ context.Context, header *jwa.JWH) (*jwa.JW
 }
 
 func (signer *ED25519Signer) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
-	token, err := jwt.DecodeToken(rawToken, &jwt.RawTokenDecoder{})
+	// The decoder checks the shape only: the token is already the "header.payload" signing input.
+	_, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return "", fmt.Errorf("(ED25519Signer.Transform) split token: %w", err)
 	}
 
-	signature := ed25519.Sign(signer.secretKey, token.Bytes())
+	signature := ed25519.Sign(signer.secretKey, []byte(rawToken))
 
-	return jwt.SignedToken{
-		Header:    token.Header,
-		Payload:   token.Payload,
-		Signature: base64.RawURLEncoding.EncodeToString(signature),
-	}.String(), nil
+	return rawToken + "." + base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
 // An ED25519Verifier verifies Ed25519-signed tokens as a [jwt.RecipientPlugin]. It accepts the
@@ -91,19 +88,20 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 		)
 	}
 
-	token, err := jwt.DecodeToken(rawToken, &jwt.SignedTokenDecoder{})
+	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(ED25519Verifier.Transform) split source: %w", err)
 	}
 
-	unsignedToken := jwt.RawToken{Header: token.Header, Payload: token.Payload}
+	// The signing input is the token up to the dot before its signature.
+	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
 	if err != nil {
 		return nil, fmt.Errorf("(ED25519Verifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
-	if !ed25519.Verify(verifier.publicKey, unsignedToken.Bytes(), sigBytes) {
+	if !ed25519.Verify(verifier.publicKey, signingInput, sigBytes) {
 		return nil, fmt.Errorf("(ED25519Verifier.Transform) %w", ErrInvalidSignature)
 	}
 

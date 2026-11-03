@@ -159,7 +159,7 @@ func TestAESGCMBadIV(t *testing.T) {
 	require.NoError(t, err)
 
 	// gcm.Open panics on a wrong-length nonce; a tampered IV must instead yield an error.
-	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 	require.NoError(t, err)
 
 	parts.IV = base64.RawURLEncoding.EncodeToString([]byte("short"))
@@ -188,7 +188,7 @@ func TestAESGCMBadTag(t *testing.T) {
 	require.NoError(t, err)
 
 	// A wrong-length tag is a malformed token, distinct from an authentication failure.
-	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 	require.NoError(t, err)
 
 	parts.Tag = base64.RawURLEncoding.EncodeToString([]byte("shorttag"))
@@ -218,7 +218,7 @@ func TestAESGCMHeaderBound(t *testing.T) {
 
 	// The protected header is bound as AAD, so swapping it for a different but still enc-valid header
 	// fails decryption.
-	parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 	require.NoError(t, err)
 
 	parts.Header = base64.RawURLEncoding.EncodeToString([]byte(`{"enc":"A256GCM","x":1}`))
@@ -278,7 +278,7 @@ func TestAESGCMMalformedSegment(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			parts, err := jwt.DecodeToken(token, &jwt.EncryptedTokenDecoder{})
+			parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 			require.NoError(t, err)
 
 			testCase.malform(parts)
