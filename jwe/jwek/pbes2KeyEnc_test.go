@@ -1,6 +1,7 @@
 package jwek_test
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -84,6 +85,22 @@ func TestPBES2KeyEncKW(t *testing.T) {
 				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 			})
 
+			t.Run("ShortSalt", func(t *testing.T) {
+				t.Parallel()
+
+				decoder := jwek.NewPBES2KeyEncKWDecoder(
+					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
+					testCase.preset,
+				)
+
+				// RFC 7518 §4.8.1.1: the Salt Input holds 8 or more octets.
+				common := header.JWHCommon
+				common.P2S = base64.RawURLEncoding.EncodeToString([]byte("1234567"))
+
+				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+			})
+
 			t.Run("WrongSecret", func(t *testing.T) {
 				t.Parallel()
 
@@ -152,5 +169,22 @@ func TestPBES2KeyEncKWDecoderAlgMismatch(t *testing.T) {
 
 	// The decoder rejects a token whose alg is not the one it manages.
 	_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}}, []byte("enc"))
+	require.Error(t, err)
+}
+
+func TestPBES2KeyEncKWManagerShortSalt(t *testing.T) {
+	t.Parallel()
+
+	manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
+		Iterations: 1000,
+		SaltSize:   7,
+		Secret:     "password",
+	}, jwek.PBES2A256KW)
+
+	header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
+	require.NoError(t, err)
+
+	// RFC 7518 §4.8.1.1: a Salt Input shorter than 8 octets fails issuance.
+	_, err = manager.EncryptCEK(t.Context(), header, make([]byte, 32))
 	require.Error(t, err)
 }

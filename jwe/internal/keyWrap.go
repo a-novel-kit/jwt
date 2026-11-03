@@ -15,10 +15,15 @@ import (
 var defaultIV = []byte{0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6}
 
 // KeyWrap wraps the content encryption key cek under block using the AES Key Wrap algorithm
-// (RFC 3394). The cek length must be a multiple of 8 bytes.
+// (RFC 3394). The cek length must be a multiple of 8 bytes, and at least 16: RFC 3394 §2 wraps two
+// 64-bit blocks or more.
 func KeyWrap(block cipher.Block, cek []byte) ([]byte, error) {
 	if len(cek)%8 != 0 {
 		return nil, errors.New("key wrap input must be 8 byte blocks")
+	}
+
+	if len(cek) < 16 {
+		return nil, errors.New("key wrap input must hold at least 2 blocks")
 	}
 
 	n := len(cek) / 8
@@ -65,9 +70,10 @@ func KeyUnwrap(block cipher.Block, ciphertext []byte) ([]byte, error) {
 		return nil, errors.New("key wrap input must be 8 byte blocks")
 	}
 
-	// The first block is the integrity check value, so a wrapped key needs at least one more.
-	if len(ciphertext) < 16 {
-		return nil, errors.New("key wrap input must hold at least 2 blocks")
+	// The first block is the integrity check value, and the wrapped key holds at least two more
+	// (RFC 3394 §2).
+	if len(ciphertext) < 24 {
+		return nil, errors.New("key unwrap input must hold at least 3 blocks")
 	}
 
 	n := (len(ciphertext) / 8) - 1

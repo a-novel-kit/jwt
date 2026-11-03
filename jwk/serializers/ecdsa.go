@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"math/big"
+	"slices"
 )
 
 // An ECPayload holds the key members of an "EC" JSON Web Key carrying an ECDSA key.
@@ -31,36 +31,9 @@ type ECPayload struct {
 	D string `json:"d,omitempty"`
 }
 
-// ErrInvalidECKey is returned when the private key of a decoded ECDSA key does not match its public
-// point.
+// ErrInvalidECKey is returned when a decoded ECDSA key has a coordinate shorter or longer than its
+// curve requires, or a private key that does not match its public point.
 var ErrInvalidECKey = errors.New("invalid ECDSA key")
-
-// ---------------------------------------------------------------------------------------------------------------------
-// Reimplemented from crypto/ecdsa internals, which the standard library does not export.
-
-// pointFromAffine encodes affine coordinates into the uncompressed point bytes
-// that ecdsa.ParseUncompressedPublicKey expects.
-func pointFromAffine(curve elliptic.Curve, x, y *big.Int) ([]byte, error) {
-	bitSize := curve.Params().BitSize
-	// Reject values that do not encode correctly.
-	if x.Sign() < 0 || y.Sign() < 0 {
-		return nil, errors.New("negative coordinate")
-	}
-
-	if x.BitLen() > bitSize || y.BitLen() > bitSize {
-		return nil, errors.New("overflowing coordinate")
-	}
-	// Encode the coordinates and let ecdsa.ParseUncompressedPublicKey reject invalid points.
-	byteLen := (bitSize + 7) / 8
-	buf := make([]byte, 1+2*byteLen)
-	buf[0] = 4 // uncompressed point
-	x.FillBytes(buf[1 : 1+byteLen])
-	y.FillBytes(buf[1+byteLen : 1+2*byteLen])
-
-	return buf, nil
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
 
 // DecodeEC reconstructs the ECDSA key carried by an ECPayload, returning the private key when the payload holds one.
 func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
@@ -87,12 +60,14 @@ func DecodeEC(src *ECPayload) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 		return nil, nil, fmt.Errorf("decode y: %w", err)
 	}
 
-	rawKey, err := pointFromAffine(curve, new(big.Int).SetBytes(x), new(big.Int).SetBytes(y))
-	if err != nil {
-		return nil, nil, fmt.Errorf("parse public key params: %w", err)
+	// RFC 7518 §6.2.1.2 and §6.2.1.3: each coordinate is the full size of a coordinate on the curve,
+	// leading zero octets included.
+	size := (curve.Params().BitSize + 7) / 8
+	if len(x) != size || len(y) != size {
+		return nil, nil, fmt.Errorf("%w: coordinates must be %d octets each", ErrInvalidECKey, size)
 	}
 
-	keyPub, err := ecdsa.ParseUncompressedPublicKey(curve, rawKey)
+	keyPub, err := ecdsa.ParseUncompressedPublicKey(curve, slices.Concat([]byte{4}, x, y))
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse uncompressed public key: %w", err)
 	}

@@ -1,6 +1,8 @@
 package jwek_test
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -84,4 +86,24 @@ func TestRSAOAEPKeyEnc(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestRSAOAEPKeyEncShortKey(t *testing.T) {
+	t.Parallel()
+
+	// RFC 7518 §4.3: RSA-OAEP needs a key of 2048 bits or more, at both ends.
+	shortKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	require.NoError(t, err)
+
+	header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RSAOAEP256, Enc: jwa.A256GCM}}
+
+	manager := jwek.NewRSAOAEPKeyEncManager(&jwek.RSAOAEPKeyEncManagerConfig{EncKey: &shortKey.PublicKey}, jwek.RSAOAEP256)
+
+	_, err = manager.EncryptCEK(t.Context(), header, make([]byte, 32))
+	require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+
+	decoder := jwek.NewRSAOAEPKeyEncDecoder(&jwek.RSAOAEPKeyEncDecoderConfig{EncKey: shortKey}, jwek.RSAOAEP256)
+
+	_, err = decoder.ComputeCEK(t.Context(), header, []byte("encrypted"))
+	require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 }

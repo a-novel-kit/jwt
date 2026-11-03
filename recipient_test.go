@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 
@@ -38,7 +39,7 @@ func TestRecipient(t *testing.T) {
 	token, err := producer.Issue(t.Context(), map[string]interface{}{"foo": "bar"}, nil)
 	require.NoError(t, err)
 
-	tokenNotJSON, err := (&jwt.RawTokenDecoder{}).Decode(token)
+	tokenNotJSON, err := (&jwt.SignedTokenDecoder{}).Decode(token)
 	require.NoError(t, err)
 
 	tokenNotJSON.Payload = base64.RawURLEncoding.EncodeToString([]byte("qux"))
@@ -52,6 +53,9 @@ func TestRecipient(t *testing.T) {
 	}
 
 	unsecured := []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()}
+
+	encode := base64.RawURLEncoding.EncodeToString
+	claimsSegment := encode([]byte(`{"foo":"bar"}`))
 
 	testCases := []struct {
 		name string
@@ -96,6 +100,69 @@ func TestRecipient(t *testing.T) {
 
 			// The base64 decoder skips line breaks, so only the alphabet check rejects this one.
 			token: token[:4] + "\n" + token[4:],
+			dst:   map[string]any{},
+
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
+			expect:         map[string]any{},
+		},
+		{
+			// Releases up to v2.6.0 issued unsecured tokens without the empty signature segment.
+			name: "LegacyUnsecured",
+
+			config: jwt.RecipientConfig{Plugins: unsecured},
+
+			token: strings.TrimSuffix(token, "."),
+			dst:   map[string]any{},
+
+			expect: map[string]any{"foo": "bar"},
+		},
+		{
+			// RFC 7518 §3.6: the signature of an unsecured JWS is the empty octet sequence.
+			name: "UnsecuredWithSignature",
+
+			config: jwt.RecipientConfig{Plugins: unsecured},
+
+			token: token + "c2ln",
+			dst:   map[string]any{},
+
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
+			expect:         map[string]any{},
+		},
+		{
+			// RFC 7515 §4.1.1: "alg" is required, so its absence does not read as "none".
+			name: "MissingAlg",
+
+			config: jwt.RecipientConfig{Plugins: unsecured},
+
+			token: encode([]byte(`{}`)) + "." + claimsSegment + ".",
+			dst:   map[string]any{},
+
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
+			expect:         map[string]any{},
+		},
+		{
+			// RFC 7515 §5.2 step 3: the header is UTF-8.
+			name: "InvalidUTF8Header",
+
+			config: jwt.RecipientConfig{Plugins: unsecured},
+
+			token: encode([]byte("{\"alg\":\"none\",\"x\":\"\xff\"}")) + "." + claimsSegment + ".",
+			dst:   map[string]any{},
+
+			expectErr:      jwt.ErrUnsupportedTokenFormat,
+			expectRejected: true,
+			expect:         map[string]any{},
+		},
+		{
+			// RFC 7519 §7.2 step 10: the claims set is UTF-8.
+			name: "InvalidUTF8Claims",
+
+			config: jwt.RecipientConfig{Plugins: unsecured},
+
+			token: encode([]byte(`{"alg":"none"}`)) + "." + encode([]byte("{\"foo\":\"\xff\"}")) + ".",
 			dst:   map[string]any{},
 
 			expectErr:      jwt.ErrUnsupportedTokenFormat,

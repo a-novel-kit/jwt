@@ -145,3 +145,33 @@ func TestPublicOnAnAlreadyPublicKey(t *testing.T) {
 	require.NoError(t, err)
 	require.JSONEq(t, string(ecPublic.Payload), string(public.Payload))
 }
+
+func TestPublicCaseVariantMember(t *testing.T) {
+	t.Parallel()
+
+	// encoding/json decodes a "D" member into the private scalar, so it counts as private and is
+	// stripped like "d".
+	ecPrivate, _, err := jwk.GenerateECDSA(jwk.ES256)
+	require.NoError(t, err)
+
+	payload := members(t, ecPrivate.JWK)
+	payload["D"] = payload["d"]
+	delete(payload, "d")
+
+	serialized, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	variant := &jwa.JWK{JWKCommon: ecPrivate.JWKCommon, Payload: serialized}
+
+	hasPrivate, err := jwk.HasPrivateMaterial(variant)
+	require.NoError(t, err)
+	require.True(t, hasPrivate)
+
+	public, err := jwk.Public(variant)
+	require.NoError(t, err)
+	require.NotContains(t, members(t, public), "D")
+
+	// The projection owns its slices, so editing them leaves the input untouched.
+	public.KeyOps[0] = jwa.KeyOpVerify
+	require.Equal(t, jwa.KeyOps{jwa.KeyOpSign}, variant.KeyOps)
+}

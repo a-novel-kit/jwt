@@ -63,8 +63,8 @@ type PBES2KeyEncKWManagerConfig struct {
 	// attack on the password, and RFC 7518 recommends at least 1000. Non-positive selects
 	// DefaultPBES2Iterations.
 	Iterations int
-	// SaltSize is the salt length in bytes. A salt of 128 bits or more is
-	// recommended. Non-positive selects DefaultPBES2SaltSize.
+	// SaltSize is the salt length in bytes. A salt of 128 bits or more is recommended, and a size
+	// below 8 fails issuance (RFC 7518 §4.8.1.1). Non-positive selects DefaultPBES2SaltSize.
 	SaltSize int
 
 	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
@@ -115,8 +115,14 @@ func NewPBES2KeyEncKWManager(config *PBES2KeyEncKWManagerConfig, preset PBES2Key
 	}
 }
 
+// minPBES2SaltSize is the shortest Salt Input RFC 7518 §4.8.1.1 allows: "A Salt Input value
+// containing 8 or more octets MUST be used".
+const minPBES2SaltSize = 8
+
 // pbes2Salt builds the PBKDF2 salt RFC 7518 §4.8.1.1 mandates: UTF8(Alg), a zero octet, then the
-// Salt Input. The Salt Input is the decoded p2s, which the header carries base64url-encoded.
+// Salt Input. The Salt Input is the decoded p2s, which the header carries base64url-encoded, and
+// holds at least minPBES2SaltSize octets. Issuance and decryption both build the salt here, so a
+// short salt fails either way.
 //
 // Binding the algorithm into the salt keeps one password reused across two PBES2 algorithms from
 // deriving related wrap keys.
@@ -126,6 +132,10 @@ func pbes2Salt(alg jwa.Alg, p2s string) ([]byte, error) {
 	saltInput, err := base64.RawURLEncoding.DecodeString(p2s)
 	if err != nil {
 		return nil, fmt.Errorf("decode p2s: %w", err)
+	}
+
+	if len(saltInput) < minPBES2SaltSize {
+		return nil, fmt.Errorf("p2s holds %d octets, need at least %d", len(saltInput), minPBES2SaltSize)
 	}
 
 	salt := make([]byte, 0, len(alg)+1+len(saltInput))

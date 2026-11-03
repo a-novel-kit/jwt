@@ -35,6 +35,26 @@ var (
 	}
 )
 
+// minRSAOAEPKeyBits is the smallest RSA modulus the RSA-OAEP algorithms accept, per RFC 7518 §4.3: "A
+// key of size 2048 bits or larger MUST be used with these algorithms". Enforced at both ends.
+const minRSAOAEPKeyBits = 2048
+
+// checkRSAOAEPKey fails unless key is an RSA public key with a positive modulus of at least
+// minRSAOAEPKeyBits.
+func checkRSAOAEPKey(key *rsa.PublicKey) error {
+	if key == nil || key.N == nil || key.N.Sign() <= 0 {
+		return fmt.Errorf("%w: RSA key has no valid modulus", jwt.ErrInvalidSecretKey)
+	}
+
+	if key.N.BitLen() < minRSAOAEPKeyBits {
+		return fmt.Errorf(
+			"%w: RSA key is %d bits, need at least %d", jwt.ErrInvalidSecretKey, key.N.BitLen(), minRSAOAEPKeyBits,
+		)
+	}
+
+	return nil
+}
+
 // RSAOAEPKeyEncManagerConfig configures NewRSAOAEPKeyEncManager.
 type RSAOAEPKeyEncManagerConfig struct {
 	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
@@ -91,6 +111,11 @@ func (manager *RSAOAEPKeyEncManager) ComputeCEK(_ context.Context, header *jwa.J
 }
 
 func (manager *RSAOAEPKeyEncManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byte) ([]byte, error) {
+	err := checkRSAOAEPKey(manager.encKey)
+	if err != nil {
+		return nil, fmt.Errorf("(RSAOAEPKeyEncManager.EncryptCEK) %w", err)
+	}
+
 	encoded, err := rsa.EncryptOAEPWithOptions(rand.Reader, manager.encKey, cek, &rsa.OAEPOptions{Hash: manager.hash})
 	if err != nil {
 		return nil, fmt.Errorf("(RSAOAEPKeyEncManager.EncryptCEK) encrypt: %w", err)
@@ -142,6 +167,15 @@ func (decoder *RSAOAEPKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.J
 			"(RSAOAEPKeyEncDecoder.ComputeCEK) %w: missing enc key",
 			jwt.ErrUnsupportedTokenFormat,
 		)
+	}
+
+	if decoder.encKey == nil {
+		return nil, fmt.Errorf("(RSAOAEPKeyEncDecoder.ComputeCEK) %w: nil RSA key", jwt.ErrInvalidSecretKey)
+	}
+
+	err := checkRSAOAEPKey(&decoder.encKey.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("(RSAOAEPKeyEncDecoder.ComputeCEK) %w", err)
 	}
 
 	cek, err := decoder.encKey.Decrypt(nil, encKey, &rsa.OAEPOptions{Hash: decoder.hash})

@@ -44,25 +44,28 @@ func NewClaimsCheckTarget(target jwt.TargetConfig) *ClaimsCheckTarget {
 
 func (claimsCheck *ClaimsCheckTarget) CheckClaims(claims *jwa.Claims) error {
 	// RFC 7519 §4.1.3: the recipient identifies with a value in the token's audience. The check
-	// passes when any configured audience appears in the token's aud; an empty target audience opts
-	// out of the check.
+	// passes when any configured audience appears in the token's aud. Two deliberate deviations: a
+	// token without aud fails a recipient that expects one, as RFC 8725 §3.9 advises, and an empty
+	// target audience opts out of the check, accepting any aud.
+	//
+	// The token is untrusted, so its values are quoted, which escapes any control character.
 	if len(claimsCheck.target.Audience) > 0 && !audienceContainsAny(claims.Aud, claimsCheck.target.Audience) {
 		return fmt.Errorf(
-			"invalid audience %v, expected one of %v",
+			"invalid audience %q, expected one of %q",
 			claims.Aud, claimsCheck.target.Audience,
 		)
 	}
 
 	if claimsCheck.target.Issuer != claims.Iss {
 		return fmt.Errorf(
-			"invalid issuer %s, expected %s",
+			"invalid issuer %q, expected %q",
 			claims.Iss, claimsCheck.target.Issuer,
 		)
 	}
 
 	if claimsCheck.target.Subject != claims.Sub {
 		return fmt.Errorf(
-			"invalid subject %s, expected %s",
+			"invalid subject %q, expected %q",
 			claims.Sub, claimsCheck.target.Subject,
 		)
 	}
@@ -97,9 +100,10 @@ func (claimsCheck *ClaimsCheckTimestamp) CheckClaims(claims *jwa.Claims) error {
 	now := time.Now()
 
 	// Exp == 0 means the token has no expiry. Any other value is a bound, so a negative Exp reads as
-	// long expired.
+	// long expired. RFC 7519 §4.1.4 accepts the token only while the current time is before exp, so
+	// the instant exp + leeway itself is already expired.
 	exp := time.Unix(claims.Exp, 0)
-	if claims.Exp != 0 && exp.Before(now.Add(-claimsCheck.leeway)) {
+	if claims.Exp != 0 && !now.Before(exp.Add(claimsCheck.leeway)) {
 		return fmt.Errorf("token expired at %s", exp.String())
 	}
 

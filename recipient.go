@@ -9,6 +9,7 @@ import (
 	"maps"
 	"mime"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
@@ -125,6 +126,12 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 			return fmt.Errorf("(Recipient.Consume) transform token: %w", err)
 		}
 
+		// RFC 7519 §7.2 step 10: the claims set is a JSON object in UTF-8, and encoding/json would
+		// otherwise replace an invalid sequence instead of failing.
+		if !utf8.Valid(rawClaims) {
+			return fmt.Errorf("(Recipient.Consume) %w: claims are not valid UTF-8", ErrUnsupportedTokenFormat)
+		}
+
 		err = checkReplicatedClaims(header, rawClaims)
 		if err != nil {
 			return fmt.Errorf("(Recipient.Consume) %w: %w", ErrTokenRejected, err)
@@ -173,6 +180,10 @@ func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 		return fmt.Errorf("(Recipient.DecodeUnverified) %w: decode payload: %w", ErrUnsupportedTokenFormat, err)
 	}
 
+	if !utf8.Valid(rawClaims) {
+		return fmt.Errorf("(Recipient.DecodeUnverified) %w: claims are not valid UTF-8", ErrUnsupportedTokenFormat)
+	}
+
 	err = recipient.config.Deserializer(rawClaims, dst)
 	if err != nil {
 		return fmt.Errorf("(Recipient.DecodeUnverified) unmarshal claims: %w", err)
@@ -194,10 +205,18 @@ func (recipient *Recipient) checkUntrusted(rawToken string) error {
 
 // decodeHeader decodes the base64url header segment of a compact token. It returns the header and
 // its JSON form, which the "crit" checks read for the extension members.
+//
+// The header must be a UTF-8 JSON object (RFC 7515 §5.2 step 3) holding "alg", which every JWS and
+// JWE requires (RFC 7515 §4.1.1, RFC 7516 §4.1.1). encoding/json replaces an invalid UTF-8 sequence
+// instead of failing, so the bytes are checked first.
 func decodeHeader(rawHeader string) (*jwa.JWH, []byte, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(rawHeader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: decode header: %w", ErrUnsupportedTokenFormat, err)
+	}
+
+	if !utf8.Valid(decoded) {
+		return nil, nil, fmt.Errorf("%w: header is not valid UTF-8", ErrUnsupportedTokenFormat)
 	}
 
 	var header *jwa.JWH
@@ -210,6 +229,10 @@ func decodeHeader(rawHeader string) (*jwa.JWH, []byte, error) {
 	// A header segment of JSON "null" unmarshals into a nil pointer without error.
 	if header == nil {
 		return nil, nil, fmt.Errorf("%w: null header", ErrUnsupportedTokenFormat)
+	}
+
+	if header.Alg == "" {
+		return nil, nil, fmt.Errorf("%w: missing alg header", ErrUnsupportedTokenFormat)
 	}
 
 	return header, decoded, nil

@@ -250,6 +250,9 @@ func ephemeralAgreement(header *jwa.JWH, recipientKey *ecdh.PublicKey) ([]byte, 
 
 // recipientAgreement reads the ephemeral public key a header's "epk" carries and returns the shared
 // secret Z it agrees on with recipientKey, the counterpart of ephemeralAgreement.
+//
+// The key holds public parameters only (RFC 7518 §4.6.1.1), under the key type its curve takes: "OKP"
+// for X25519 (RFC 8037 §2) and "EC" otherwise (RFC 7518 §6.2).
 func recipientAgreement(header *jwa.JWH, recipientKey *ecdh.PrivateKey) ([]byte, error) {
 	if recipientKey == nil {
 		return nil, fmt.Errorf("%w: no recipient key", jwt.ErrInvalidSecretKey)
@@ -266,9 +269,17 @@ func recipientAgreement(header *jwa.JWH, recipientKey *ecdh.PrivateKey) ([]byte,
 		return nil, fmt.Errorf("%w: unmarshal payload: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
+	if ecdhPayload.D != "" {
+		return nil, fmt.Errorf("%w: EPK carries a private key", jwt.ErrUnsupportedTokenFormat)
+	}
+
 	_, producerPublicKey, err := serializers.DecodeECDH(&ecdhPayload)
 	if err != nil {
 		return nil, fmt.Errorf("%w: consume producer public key: %w", jwt.ErrTokenRejected, err)
+	}
+
+	if header.EPK.KTY != serializers.ECDHKeyType(producerPublicKey.Curve()) {
+		return nil, fmt.Errorf("%w: EPK key type %q does not match its curve", jwt.ErrUnsupportedTokenFormat, header.EPK.KTY)
 	}
 
 	z, err := recipientKey.ECDH(producerPublicKey)

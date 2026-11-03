@@ -221,7 +221,7 @@ func TestAESGCMHeaderBound(t *testing.T) {
 	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 	require.NoError(t, err)
 
-	parts.Header = base64.RawURLEncoding.EncodeToString([]byte(`{"enc":"A256GCM","x":1}`))
+	parts.Header = base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"dir","enc":"A256GCM","x":1}`))
 
 	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
 		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},

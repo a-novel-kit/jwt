@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
@@ -34,6 +37,13 @@ var privateMembers = []string{
 	"priv", // AKP private key, such as an ML-DSA seed
 }
 
+// privateMember reports whether name is one of privateMembers, without regard to case. encoding/json
+// matches member names to struct fields that way, so a "D" member decodes as the private scalar and
+// counts as private here too.
+func privateMember(name string) bool {
+	return slices.ContainsFunc(privateMembers, func(member string) bool { return strings.EqualFold(member, name) })
+}
+
 // HasPrivateMaterial reports whether key carries any member that must stay with
 // the signer. A symmetric key always does.
 func HasPrivateMaterial(key *jwa.JWK) (bool, error) {
@@ -50,8 +60,8 @@ func HasPrivateMaterial(key *jwa.JWK) (bool, error) {
 		return false, err
 	}
 
-	for _, name := range privateMembers {
-		if _, ok := members[name]; ok {
+	for name := range members {
+		if privateMember(name) {
 			return true, nil
 		}
 	}
@@ -78,17 +88,18 @@ func Public(key *jwa.JWK) (*jwa.JWK, error) {
 		return nil, err
 	}
 
-	for _, name := range privateMembers {
-		delete(members, name)
-	}
+	maps.DeleteFunc(members, func(name string, _ json.RawMessage) bool { return privateMember(name) })
 
 	payload, err := json.Marshal(members)
 	if err != nil {
 		return nil, fmt.Errorf("(Public) serialize payload: %w", err)
 	}
 
+	// The copy gets its own slices, so a caller editing its key_ops or x5c leaves the original intact.
 	out := *key
 	out.Payload = payload
+	out.KeyOps = slices.Clone(key.KeyOps)
+	out.X5C = slices.Clone(key.X5C)
 
 	return &out, nil
 }
