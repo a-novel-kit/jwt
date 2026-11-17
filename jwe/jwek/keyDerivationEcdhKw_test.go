@@ -1,182 +1,50 @@
 package jwek_test
 
 import (
-	"encoding/base64"
+	"crypto/ecdh"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwe"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-func TestECDHKeyAgrKW(t *testing.T) {
+func TestECDHKeyAgrKWDecoder(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		name string
+	recipientKey, recipientPublicKey, err := jwk.GenerateECDHKey(jwk.ECDHESX25519)
+	require.NoError(t, err)
 
-		preset jwek.KeyWrapPreset
-	}{
-		{
-			name:   "ECDHESA128KW",
-			preset: jwek.ECDHESA128KW,
-		},
-		{
-			name:   "ECDHESA192KW",
-			preset: jwek.ECDHESA192KW,
-		},
-		{
-			name:   "ECDHESA256KW",
-			preset: jwek.ECDHESA256KW,
-		},
+	manager := jwek.NewECDHKeyAgrKWManager(&jwek.ECDHKeyAgrKWManagerConfig{
+		RecipientKey:  recipientPublicKey.Key(),
+		ProducerInfo:  "producer",
+		RecipientInfo: "recipient",
+	}, jwek.ECDHESA128KW)
+
+	header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
+	require.NoError(t, err)
+
+	cek, err := manager.ComputeCEK(t.Context(), header)
+	require.NoError(t, err)
+
+	encryptedKey, err := manager.EncryptCEK(t.Context(), header, cek)
+	require.NoError(t, err)
+
+	newDecoder := func(key *ecdh.PrivateKey) jwe.CEKDecoder {
+		return jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{RecipientKey: key}, jwek.ECDHESA128KW)
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
+	// A mismatched apu or apv derives another key-wrapping key, which fails to unwrap the CEK.
+	runAgreementFaults(t, newDecoder, recipientKey, header, encryptedKey, cek, jwt.ErrTokenRejected)
 
-			recipientPrivateKey, recipientPublicKey, err := jwk.GenerateECDHKey(jwk.ECDHESX25519)
-			require.NoError(t, err)
+	t.Run("Error/MissingEncKey", func(t *testing.T) {
+		t.Parallel()
 
-			manager := jwek.NewECDHKeyAgrKWManager(&jwek.ECDHKeyAgrKWManagerConfig{
-				RecipientKey:  recipientPublicKey.Key(),
-				ProducerInfo:  "producer",
-				RecipientInfo: "recipient",
-			}, testCase.preset)
-
-			header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
-			require.NoError(t, err)
-
-			computedCEK, err := manager.ComputeCEK(t.Context(), header)
-			require.NoError(t, err)
-			require.Len(t, computedCEK, 32)
-
-			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, computedCEK)
-			require.NoError(t, err)
-			require.NotNil(t, encryptedCEK)
-			require.NotEqual(t, computedCEK, encryptedCEK)
-
-			t.Run("OK", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
-					RecipientKey: recipientPrivateKey.Key(),
-				}, testCase.preset)
-
-				decodedCEK, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.NoError(t, err)
-				require.Equal(t, computedCEK, decodedCEK)
-			})
-
-			t.Run("WrongRecipientKey", func(t *testing.T) {
-				t.Parallel()
-
-				fakeRecipientPrivateKey, _, err := jwk.GenerateECDHKey(jwk.ECDHESX25519)
-				require.NoError(t, err)
-
-				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
-					RecipientKey: fakeRecipientPrivateKey.Key(),
-				}, testCase.preset)
-
-				_, err = decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrTokenRejected)
-			})
-
-			t.Run("NoRecipientKey", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{}, testCase.preset)
-
-				_, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
-			})
-
-			t.Run("MalformedAgreementInfo", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
-					RecipientKey: recipientPrivateKey.Key(),
-				}, testCase.preset)
-
-				common := header.JWHCommon
-				common.APU = "!!!"
-
-				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-			})
-
-			t.Run("MalformedEPK", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
-					RecipientKey: recipientPrivateKey.Key(),
-				}, testCase.preset)
-
-				epk := *header.EPK
-				epk.Payload = []byte("not json")
-
-				common := header.JWHCommon
-				common.EPK = &epk
-
-				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-			})
-
-			t.Run("WrongProducerInfo", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
-					RecipientKey: recipientPrivateKey.Key(),
-				}, testCase.preset)
-
-				common := header.JWHCommon
-				common.APU = base64.RawURLEncoding.EncodeToString([]byte("fake-producer"))
-
-				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrTokenRejected)
-			})
-
-			t.Run("WrongRecipientInfo", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
-					RecipientKey: recipientPrivateKey.Key(),
-				}, testCase.preset)
-
-				common := header.JWHCommon
-				common.APV = base64.RawURLEncoding.EncodeToString([]byte("fake-recipient"))
-
-				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrTokenRejected)
-			})
-
-			t.Run("MissingEPK", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
-					RecipientKey: recipientPrivateKey.Key(),
-				}, testCase.preset)
-
-				common := header.JWHCommon
-				common.EPK = nil
-
-				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-			})
-
-			t.Run("MissingEncKey", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewECDHKeyAgrKWDecoder(&jwek.ECDHKeyAgrKWDecoderConfig{
-					RecipientKey: recipientPrivateKey.Key(),
-				}, testCase.preset)
-
-				_, err := decoder.ComputeCEK(t.Context(), header, nil)
-				require.ErrorIs(t, err, jwt.ErrTokenRejected)
-			})
-		})
-	}
+		_, err := newDecoder(recipientKey.Key()).ComputeCEK(t.Context(), header, nil)
+		require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+	})
 }
