@@ -6,7 +6,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"math/big"
 
@@ -76,48 +75,32 @@ func NewECDSASigner(secretKey *ecdsa.PrivateKey, preset ECDSAPreset) *ECDSASigne
 }
 
 func (signer *ECDSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(ECDSASigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
-	}
-
-	header.Alg = signer.alg
-
-	if signer.secretKey == nil {
-		return nil, fmt.Errorf("(ECDSASigner.Header) %w: nil ECDSA key", jwt.ErrInvalidSecretKey)
-	}
-
-	if signer.secretKey.Curve.Params().Name != signer.crv.Params().Name {
-		return nil, fmt.Errorf("(ECDSASigner.Header) %w: key curve does not match the preset", jwt.ErrInvalidSecretKey)
-	}
-
-	return header, nil
+	return signHeader(header, signer.alg, checkECDSAPrivateKey(signer.secretKey, signer.crv))
 }
 
 func (signer *ECDSASigner) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
-	// The decoder checks the shape only: the token is already the "header.payload" signing input.
-	_, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
-	if err != nil {
-		return "", fmt.Errorf("(ECDSASigner.Transform) split source: %w", err)
-	}
+	return signToken(rawToken, checkECDSAPrivateKey(signer.secretKey, signer.crv), signer.sign)
+}
 
+// sign returns the ECDSA signature over signingInput. JWS encodes it as the fixed-width
+// concatenation R || S, each value big-endian and left-padded to the curve's coordinate size
+// (RFC 7518 §3.4). The ASN.1 DER form of ecdsa.SignASN1 does not interoperate.
+func (signer *ECDSASigner) sign(signingInput []byte) ([]byte, error) {
 	hasher := signer.hash.New()
-	hasher.Write([]byte(rawToken))
+	hasher.Write(signingInput)
 
 	r, s, err := ecdsa.Sign(rand.Reader, signer.secretKey, hasher.Sum(nil))
 	if err != nil {
-		return "", fmt.Errorf("(ECDSASigner.Transform) %w", err)
+		return nil, fmt.Errorf("sign: %w", err)
 	}
 
 	keyBytes := inferECDSAKeySize(signer.secretKey.Params())
 
-	// JWS encodes an ECDSA signature as the fixed-width concatenation R || S, each value big-endian
-	// and left-padded to the curve's coordinate size. The ASN.1 DER form of ecdsa.SignASN1 does not
-	// interoperate.
 	signature := make([]byte, 2*keyBytes)
-	r.FillBytes(signature[0:keyBytes])
+	r.FillBytes(signature[:keyBytes])
 	s.FillBytes(signature[keyBytes:])
 
-	return rawToken + "." + base64.RawURLEncoding.EncodeToString(signature), nil
+	return signature, nil
 }
 
 // An ECDSAVerifier verifies ECDSA-signed tokens as a [jwt.RecipientPlugin]. Build one with
@@ -143,106 +126,63 @@ func NewECDSAVerifier(publicKey *ecdsa.PublicKey, preset ECDSAPreset) *ECDSAVeri
 }
 
 func (verifier *ECDSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	if header.Alg != verifier.alg {
-		return nil, fmt.Errorf(
-			"(ECDSAVerifier.Transform) %w: invalid algorithm %s, expected %s",
-			jwt.ErrMismatchRecipientPlugin, header.Alg, verifier.alg,
-		)
-	}
+	return verifyToken(header, verifier.alg, checkECDSAKey(verifier.publicKey, verifier.crv), rawToken, verifier.verify)
+}
 
-	// RFC 7518 §3.4 binds the algorithm to the curve, as the signer also checks. A verifier configured
-	// for ES256 with a P-384 key enforces no ES256 at all, so it reports the misconfiguration instead
-	// of failing every signature.
-	if verifier.publicKey == nil || verifier.publicKey.Curve != verifier.crv {
-		return nil, fmt.Errorf(
-			"(ECDSAVerifier.Transform) %w: verification key does not live on the curve %s requires",
-			jwt.ErrInvalidSecretKey, verifier.alg,
-		)
-	}
-
-	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
-	if err != nil {
-		return nil, fmt.Errorf("(ECDSAVerifier.Transform) split source: %w", err)
-	}
-
-	// The signing input is the token up to the dot before its signature.
-	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
-
-	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
-	if err != nil {
-		return nil, fmt.Errorf("(ECDSAVerifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
+// verify checks the R || S signature over signingInput, as [ECDSASigner.sign] encodes it.
+func (verifier *ECDSAVerifier) verify(signingInput, signature []byte) error {
 	keyBytes := inferECDSAKeySize(verifier.publicKey.Params())
-	if len(sigBytes) != 2*keyBytes {
-		return nil, fmt.Errorf("(ECDSAVerifier.Transform) %w: invalid signature size", ErrInvalidSignature)
+	if len(signature) != 2*keyBytes {
+		return fmt.Errorf("%w: invalid signature size", ErrInvalidSignature)
 	}
 
-	r := big.NewInt(0).SetBytes(sigBytes[:keyBytes])
-	s := big.NewInt(0).SetBytes(sigBytes[keyBytes:])
+	r := new(big.Int).SetBytes(signature[:keyBytes])
+	s := new(big.Int).SetBytes(signature[keyBytes:])
 
 	hasher := verifier.hash.New()
 	hasher.Write(signingInput)
 
 	if !ecdsa.Verify(verifier.publicKey, hasher.Sum(nil), r, s) {
-		return nil, fmt.Errorf("(ECDSAVerifier.Transform) %w", ErrInvalidSignature)
+		return ErrInvalidSignature
 	}
 
-	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("(ECDSAVerifier.Transform) %w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	return decoded, nil
+	return nil
 }
 
-// sourcedECDSAPublic decodes a raw JSON Web Key into an ECDSA public key for verification, matching
-// only signature keys on the preset's algorithm and curve, skipping any that carry private material.
-func sourcedECDSAPublic(preset ECDSAPreset) keyDecoder[*ecdsa.PublicKey] {
-	jwkPreset := jwk.ECDSAPreset{Alg: preset.Alg, Curve: preset.Crv}
-
-	return func(key *jwa.JWK) (*ecdsa.PublicKey, error) {
-		privateKey, publicKey, err := jwk.ConsumeECDSA(key, jwkPreset)
-		if err != nil {
-			return nil, err
-		}
-
-		if privateKey != nil {
-			return nil, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
-		}
-
-		if publicKey == nil {
-			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
-		}
-
-		return publicKey.Key(), nil
+// checkECDSAKey fails unless key lives on crv. RFC 7518 §3.4 binds each ES* algorithm to one curve,
+// so a plugin holding a key on another curve enforces no ES* algorithm at all: it reports the
+// misconfiguration instead of failing every signature.
+func checkECDSAKey(key *ecdsa.PublicKey, crv elliptic.Curve) error {
+	if key == nil || key.Curve != crv {
+		return fmt.Errorf("%w: ECDSA key does not live on the curve of the preset", jwt.ErrInvalidSecretKey)
 	}
+
+	return nil
 }
 
-// sourcedECDSAPrivate decodes a raw JSON Web Key into an ECDSA private key for signing.
-func sourcedECDSAPrivate(preset ECDSAPreset) keyDecoder[*ecdsa.PrivateKey] {
+// checkECDSAPrivateKey applies checkECDSAKey to a private key's public half, rejecting a nil key
+// first so the dereference is safe.
+func checkECDSAPrivateKey(key *ecdsa.PrivateKey, crv elliptic.Curve) error {
+	if key == nil {
+		return fmt.Errorf("%w: nil ECDSA key", jwt.ErrInvalidSecretKey)
+	}
+
+	return checkECDSAKey(&key.PublicKey, crv)
+}
+
+// consumeECDSA binds [jwk.ConsumeECDSA] to the algorithm and curve of preset.
+func consumeECDSA(preset ECDSAPreset) keyPair[*ecdsa.PrivateKey, *ecdsa.PublicKey] {
 	jwkPreset := jwk.ECDSAPreset{Alg: preset.Alg, Curve: preset.Crv}
 
-	return func(key *jwa.JWK) (*ecdsa.PrivateKey, error) {
-		privateKey, _, err := jwk.ConsumeECDSA(key, jwkPreset)
-		if err != nil {
-			return nil, err
-		}
-
-		if privateKey == nil {
-			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
-		}
-
-		return privateKey.Key(), nil
+	return func(key *jwa.JWK) (*jwk.Key[*ecdsa.PrivateKey], *jwk.Key[*ecdsa.PublicKey], error) {
+		return jwk.ConsumeECDSA(key, jwkPreset)
 	}
 }
 
 // A SourcedECDSASigner signs like an [ECDSASigner] but resolves its key from a [jwk.Source] at each
 // call, so the plugin follows key rotation. Build one with [NewSourcedECDSASigner].
 type SourcedECDSASigner struct {
-	source *jwk.Source
-	keys   *jwk.Decoder[*ecdsa.PrivateKey]
-	preset ECDSAPreset
+	*sourcedSigner[*ecdsa.PrivateKey]
 }
 
 // NewSourcedECDSASigner returns a [jwt.ProducerPlugin] that signs tokens with ECDSA, drawing the key
@@ -251,43 +191,16 @@ type SourcedECDSASigner struct {
 //
 // See RFC 7518, section 3.4: https://datatracker.ietf.org/doc/html/rfc7518#section-3.4
 func NewSourcedECDSASigner(source *jwk.Source, preset ECDSAPreset) *SourcedECDSASigner {
-	return &SourcedECDSASigner{
-		source: source,
-		keys:   signingKeys(source, sourcedECDSAPrivate(preset)),
-		preset: preset,
-	}
-}
+	newSigner := func(key *ecdsa.PrivateKey) jwt.ProducerPlugin { return NewECDSASigner(key, preset) }
 
-func (signer *SourcedECDSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
-	if err != nil {
-		return nil, fmt.Errorf("(SourcedECDSASigner.Header) %w", err)
-	}
-
-	// Stamp the resolved key's ID into the header so recipients can select it for verification.
-	if header.KID == "" {
-		header.KID = kid
-	}
-
-	return NewECDSASigner(key, signer.preset).Header(ctx, header)
-}
-
-func (signer *SourcedECDSASigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
-	if err != nil {
-		return "", fmt.Errorf("(SourcedECDSASigner.Transform) %w", err)
-	}
-
-	return NewECDSASigner(key, signer.preset).Transform(ctx, header, rawToken)
+	return &SourcedECDSASigner{newSourcedSigner(source, privateHalf(consumeECDSA(preset)), newSigner)}
 }
 
 // A SourcedECDSAVerifier verifies like an [ECDSAVerifier] but resolves candidate keys from a
 // [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source. Build one with [NewSourcedECDSAVerifier].
 type SourcedECDSAVerifier struct {
-	source *jwk.Source
-	keys   *jwk.Decoder[*ecdsa.PublicKey]
-	preset ECDSAPreset
+	*sourcedVerifier[*ecdsa.PublicKey]
 }
 
 // NewSourcedECDSAVerifier returns a [jwt.RecipientPlugin] that verifies ECDSA-signed tokens against
@@ -296,16 +209,7 @@ type SourcedECDSAVerifier struct {
 //
 // See RFC 7518, section 3.4: https://datatracker.ietf.org/doc/html/rfc7518#section-3.4
 func NewSourcedECDSAVerifier(source *jwk.Source, preset ECDSAPreset) *SourcedECDSAVerifier {
-	return &SourcedECDSAVerifier{
-		source: source,
-		keys:   verificationKeys(source, sourcedECDSAPublic(preset)),
-		preset: preset,
-	}
-}
+	newVerifier := func(key *ecdsa.PublicKey) jwt.RecipientPlugin { return NewECDSAVerifier(key, preset) }
 
-func (verifier *SourcedECDSAVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, verifier.keys.Decode,
-		func(key *ecdsa.PublicKey) jwt.RecipientPlugin {
-			return NewECDSAVerifier(key, verifier.preset)
-		})
+	return &SourcedECDSAVerifier{newSourcedVerifier(source, publicHalf(consumeECDSA(preset)), newVerifier)}
 }

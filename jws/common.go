@@ -1,12 +1,12 @@
 package jws
 
 import (
-	"crypto"
-	"crypto/rsa"
+	"encoding/base64"
 	"errors"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt/v2"
+	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
 // ErrInvalidSignature is returned by a verifier when a token's signature does not match its header
@@ -18,47 +18,90 @@ var ErrInvalidSignature = fmt.Errorf("%w: invalid signature", jwt.ErrTokenReject
 // signing scheme, such as an RSA plugin given an algorithm that is neither RS* nor PS*.
 var ErrUnsupportedAlgorithm = errors.New("unsupported algorithm")
 
-// checkHMACKey fails unless key is at least as long as the output of hash, the floor RFC 7518 §3.2
-// sets for the HS* algorithms.
-func checkHMACKey(key []byte, hash crypto.Hash) error {
-	if len(key) < hash.Size() {
-		return fmt.Errorf(
-			"%w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
-			jwt.ErrInvalidSecretKey, len(key), hash.Size(),
+// signatureEncoding decodes a signature segment. Strict refuses unused trailing bits that are not
+// zero, so a signature has a single encoding and a token verifies only in the form it was issued
+// in. The signature segment is the one part of a token its own signature does not cover.
+var signatureEncoding = base64.RawURLEncoding.Strict()
+
+// signHeader sets alg on a header that names no algorithm yet. keyErr is the signer's key check: a
+// signer refuses to label a token it cannot sign.
+func signHeader(header *jwa.JWH, alg jwa.Alg, keyErr error) (*jwa.JWH, error) {
+	if !header.Alg.Empty() {
+		return nil, fmt.Errorf("%w: alg field already set", jwt.ErrConflictingHeader)
+	}
+
+	if keyErr != nil {
+		return nil, keyErr
+	}
+
+	header.Alg = alg
+
+	return header, nil
+}
+
+// signToken appends to the "header.payload" signing input the base64url signature sign computes,
+// which gives the JWS Compact Serialization of RFC 7515 §7.1. keyErr is the signer's key check: a
+// sourced signer resolves its key again here without going back through Header, so this check gates
+// every signature.
+func signToken(rawToken string, keyErr error, sign func(signingInput []byte) ([]byte, error)) (string, error) {
+	if keyErr != nil {
+		return "", keyErr
+	}
+
+	// The decoder checks the shape only: the token is already the "header.payload" signing input.
+	_, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
+	if err != nil {
+		return "", fmt.Errorf("split token: %w", err)
+	}
+
+	signature, err := sign([]byte(rawToken))
+	if err != nil {
+		return "", err
+	}
+
+	return rawToken + "." + base64.RawURLEncoding.EncodeToString(signature), nil
+}
+
+// verifyToken checks a compact JWS and returns its decoded payload. A token under another algorithm
+// than alg fails with [jwt.ErrMismatchRecipientPlugin], so the recipient tries its next plugin.
+// keyErr is the verifier's key check, and verify checks the decoded signature over the signing
+// input, failing with [ErrInvalidSignature] when it does not match.
+func verifyToken(
+	header *jwa.JWH, alg jwa.Alg, keyErr error, rawToken string,
+	verify func(signingInput, signature []byte) error,
+) ([]byte, error) {
+	if header.Alg != alg {
+		return nil, fmt.Errorf(
+			"%w: invalid algorithm %s, expected %s", jwt.ErrMismatchRecipientPlugin, header.Alg, alg,
 		)
 	}
 
-	return nil
-}
-
-// minRSAKeyBits is the smallest RSA modulus the RS* and PS* algorithms accept, per RFC 7518 §3.3
-// and §3.5 ("A key of size 2048 bits or larger MUST be used"). Enforced at both sign and verify.
-const minRSAKeyBits = 2048
-
-// checkRSAPublicKey fails closed unless key is a usable RSA public key: non-nil, with a positive
-// modulus of at least minRSAKeyBits. BitLen reads the absolute value, so the sign is checked
-// separately. A negative modulus clears the bit-length floor.
-func checkRSAPublicKey(key *rsa.PublicKey) error {
-	if key == nil || key.N == nil || key.N.Sign() <= 0 {
-		return fmt.Errorf("%w: RSA key has no valid modulus", jwt.ErrInvalidSecretKey)
+	if keyErr != nil {
+		return nil, keyErr
 	}
 
-	if key.N.BitLen() < minRSAKeyBits {
-		return fmt.Errorf(
-			"%w: RSA key is %d bits, need at least %d",
-			jwt.ErrInvalidSecretKey, key.N.BitLen(), minRSAKeyBits,
-		)
+	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
+	if err != nil {
+		return nil, fmt.Errorf("split token: %w", err)
 	}
 
-	return nil
-}
+	// The signing input is the token up to the dot before its signature.
+	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
 
-// checkRSAPrivateKey applies checkRSAPublicKey to a private key's public half, rejecting a nil key
-// first so the dereference is safe.
-func checkRSAPrivateKey(key *rsa.PrivateKey) error {
-	if key == nil {
-		return fmt.Errorf("%w: nil RSA key", jwt.ErrInvalidSecretKey)
+	signature, err := signatureEncoding.DecodeString(token.Signature)
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
-	return checkRSAPublicKey(&key.PublicKey)
+	err = verify(signingInput, signature)
+	if err != nil {
+		return nil, err
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(token.Payload)
+	if err != nil {
+		return nil, fmt.Errorf("%w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
+	}
+
+	return payload, nil
 }

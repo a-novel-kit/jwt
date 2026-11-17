@@ -16,16 +16,119 @@ import (
 // signFromSource skip in a mixed source.
 type keyDecoder[K any] func(key *jwa.JWK) (K, error)
 
-// signingKeys returns the Decoder a sourced signer draws its keys through: decode, restricted to keys
-// whose "key_ops" permit signing.
-func signingKeys[K any](source *jwk.Source, decode keyDecoder[K]) *jwk.Decoder[K] {
-	return jwk.NewDecoder(source, permitting(jwa.KeyOpSign, decode))
+// A sourcedSigner signs with the key a [jwk.Source] holds for the token, resolved at each call, so
+// the signer follows key rotation. The exported Sourced*Signer types embed a pointer to it, each
+// with the decoder of its family and the single-key signer newSigner builds. The pointer keeps those
+// types comparable.
+type sourcedSigner[K any] struct {
+	source    *jwk.Source
+	keys      *jwk.Decoder[K]
+	newSigner func(key K) jwt.ProducerPlugin
 }
 
-// verificationKeys returns the Decoder a sourced verifier draws its keys through: decode, restricted
+// newSourcedSigner returns a sourcedSigner drawing keys from source through decode, restricted to
+// keys whose "key_ops" permit signing.
+func newSourcedSigner[K any](
+	source *jwk.Source, decode keyDecoder[K], newSigner func(key K) jwt.ProducerPlugin,
+) *sourcedSigner[K] {
+	return &sourcedSigner[K]{
+		source:    source,
+		keys:      jwk.NewDecoder(source, permitting(jwa.KeyOpSign, decode)),
+		newSigner: newSigner,
+	}
+}
+
+// Header resolves the signing key and stamps its ID into a header that names none, so recipients
+// can select the key for verification.
+func (signer *sourcedSigner[K]) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
+	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
+	if err != nil {
+		return nil, err
+	}
+
+	if header.KID == "" {
+		header.KID = kid
+	}
+
+	return signer.newSigner(key).Header(ctx, header)
+}
+
+// Transform signs the token with the key its header names, or the first key of the family.
+func (signer *sourcedSigner[K]) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
+	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
+	if err != nil {
+		return "", err
+	}
+
+	return signer.newSigner(key).Transform(ctx, header, rawToken)
+}
+
+// A sourcedVerifier verifies with the keys a [jwk.Source] holds, resolved at each call. When the
+// token names a KID, it tries only that key. Otherwise it tries every key of its family. The
+// exported Sourced*Verifier types embed a pointer to it, each with the decoder of its family and the
+// single-key verifier newVerifier builds. The pointer keeps those types comparable.
+type sourcedVerifier[K any] struct {
+	source      *jwk.Source
+	keys        *jwk.Decoder[K]
+	newVerifier func(key K) jwt.RecipientPlugin
+}
+
+// newSourcedVerifier returns a sourcedVerifier drawing keys from source through decode, restricted
 // to keys whose "key_ops" permit verification.
-func verificationKeys[K any](source *jwk.Source, decode keyDecoder[K]) *jwk.Decoder[K] {
-	return jwk.NewDecoder(source, permitting(jwa.KeyOpVerify, decode))
+func newSourcedVerifier[K any](
+	source *jwk.Source, decode keyDecoder[K], newVerifier func(key K) jwt.RecipientPlugin,
+) *sourcedVerifier[K] {
+	return &sourcedVerifier[K]{
+		source:      source,
+		keys:        jwk.NewDecoder(source, permitting(jwa.KeyOpVerify, decode)),
+		newVerifier: newVerifier,
+	}
+}
+
+// Transform returns the payload once a candidate key verifies the token.
+func (verifier *sourcedVerifier[K]) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
+	return verifyFromSource(ctx, verifier.source, header, rawToken, verifier.keys.Decode, verifier.newVerifier)
+}
+
+// keyPair is the signature of the jwk Consume functions, bound to a preset where they take one.
+type keyPair[Priv, Pub any] func(key *jwa.JWK) (*jwk.Key[Priv], *jwk.Key[Pub], error)
+
+// privateHalf decodes a raw JSON Web Key into the private key a signer needs. A key that carries
+// only the public half belongs to verifiers, so it is skipped as a key of another family.
+func privateHalf[Priv, Pub any](consume keyPair[Priv, Pub]) keyDecoder[Priv] {
+	return func(key *jwa.JWK) (Priv, error) {
+		var zero Priv
+
+		privateKey, _, err := consume(key)
+		if err != nil {
+			return zero, err
+		}
+
+		if privateKey == nil {
+			return zero, fmt.Errorf("%w: key holds no private material", jwk.ErrJWKMismatch)
+		}
+
+		return privateKey.Key(), nil
+	}
+}
+
+// publicHalf decodes a raw JSON Web Key into the public key a verifier needs. A source exposing
+// private material is misconfigured, so such a key is skipped as one of another family.
+func publicHalf[Priv, Pub any](consume keyPair[Priv, Pub]) keyDecoder[Pub] {
+	return func(key *jwa.JWK) (Pub, error) {
+		var zero Pub
+
+		privateKey, publicKey, err := consume(key)
+		if err != nil {
+			return zero, err
+		}
+
+		if privateKey != nil {
+			return zero, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
+		}
+
+		return publicKey.Key(), nil
+	}
 }
 
 // permitting wraps decode so it refuses, as a key of another family, any key whose "key_ops" lack op.

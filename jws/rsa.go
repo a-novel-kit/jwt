@@ -5,7 +5,6 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
-	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -75,60 +74,31 @@ func NewRSASigner(secretKey *rsa.PrivateKey, preset RSAPreset) *RSASigner {
 }
 
 func (signer *RSASigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(RSASigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
-	}
-
-	err := checkRSAPrivateKey(signer.secretKey)
-	if err != nil {
-		return nil, fmt.Errorf("(RSASigner.Header) %w", err)
-	}
-
-	header.Alg = signer.alg
-
-	return header, nil
+	return signHeader(header, signer.alg, checkRSAPrivateKey(signer.secretKey))
 }
 
-func (signer *RSASigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw string) (string, error) {
-	// A sourced signer re-resolves its key here without going back through Header, so this is the
-	// guard that gates every signature.
-	err := checkRSAPrivateKey(signer.secretKey)
-	if err != nil {
-		return "", fmt.Errorf("(RSASigner.Transform) %w", err)
-	}
-
-	// The decoder checks the shape only: the token is already the "header.payload" signing input.
-	_, err = (&jwt.RawTokenDecoder{}).Decode(tokenRaw)
-	if err != nil {
-		return "", fmt.Errorf("(RSASigner.Transform) split token: %w", err)
-	}
-
-	hasher := signer.hash.New()
-	hasher.Write([]byte(tokenRaw))
-
-	signature, err := signer.sign(hasher.Sum(nil))
-	if err != nil {
-		return "", fmt.Errorf("(RSASigner.Transform) %w", err)
-	}
-
-	return tokenRaw + "." + base64.RawURLEncoding.EncodeToString(signature), nil
+func (signer *RSASigner) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
+	return signToken(rawToken, checkRSAPrivateKey(signer.secretKey), signer.sign)
 }
 
-// sign produces the RSA signature over digest using the scheme its algorithm denotes. PSS uses a
-// salt length equal to the hash, the value RFC 7518 §3.5 mandates for the PS* algorithms.
-func (signer *RSASigner) sign(digest []byte) ([]byte, error) {
+// sign produces the RSA signature over signingInput using the scheme its algorithm denotes. PSS uses
+// a salt length equal to the hash, the value RFC 7518 §3.5 mandates for the PS* algorithms.
+func (signer *RSASigner) sign(signingInput []byte) ([]byte, error) {
 	pss, err := algIsPSS(signer.alg)
 	if err != nil {
 		return nil, err
 	}
 
+	hasher := signer.hash.New()
+	hasher.Write(signingInput)
+
 	if pss {
-		return rsa.SignPSS(rand.Reader, signer.secretKey, signer.hash, digest, &rsa.PSSOptions{
+		return rsa.SignPSS(rand.Reader, signer.secretKey, signer.hash, hasher.Sum(nil), &rsa.PSSOptions{
 			SaltLength: rsa.PSSSaltLengthEqualsHash,
 		})
 	}
 
-	return rsa.SignPKCS1v15(rand.Reader, signer.secretKey, signer.hash, digest)
+	return rsa.SignPKCS1v15(rand.Reader, signer.secretKey, signer.hash, hasher.Sum(nil))
 }
 
 // An RSAVerifier verifies RSA-signed tokens (RSASSA-PKCS1-v1_5 or RSASSA-PSS, per the preset) as a
@@ -156,129 +126,88 @@ func NewRSAVerifier(publicKey *rsa.PublicKey, preset RSAPreset) *RSAVerifier {
 }
 
 func (verifier *RSAVerifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	if header.Alg != verifier.alg {
-		return nil, fmt.Errorf(
-			"(RSAVerifier.Transform) %w: invalid algorithm %s, expected %s",
-			jwt.ErrMismatchRecipientPlugin, header.Alg, verifier.alg,
-		)
-	}
-
-	err := checkRSAPublicKey(verifier.publicKey)
-	if err != nil {
-		return nil, fmt.Errorf("(RSAVerifier.Transform) %w", err)
-	}
-
-	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
-	if err != nil {
-		return nil, fmt.Errorf("(RSAVerifier.Transform) split token: %w", err)
-	}
-
-	// The signing input is the token up to the dot before its signature.
-	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
-
-	hasher := verifier.hash.New()
-	hasher.Write(signingInput)
-
-	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
-	if err != nil {
-		return nil, fmt.Errorf("(RSAVerifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	err = verifier.verify(hasher.Sum(nil), sigBytes)
-	if err != nil {
-		if errors.Is(err, rsa.ErrVerification) {
-			return nil, errors.Join(fmt.Errorf("(RSAVerifier.Transform) %w", ErrInvalidSignature), err)
-		}
-
-		return nil, fmt.Errorf("(RSAVerifier.Transform) %w", err)
-	}
-
-	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("(RSAVerifier.Transform) %w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	return decoded, nil
+	return verifyToken(header, verifier.alg, checkRSAPublicKey(verifier.publicKey), rawToken, verifier.verify)
 }
 
-// verify checks the RSA signature over digest using the scheme its algorithm denotes.
+// verify checks the RSA signature over signingInput using the scheme its algorithm denotes.
 //
 // RFC 7518 §3.5 sets the PSS salt to the hash size, which the signer uses. The verifier deliberately
 // accepts any salt length (PSSSaltLengthAuto), so it interoperates with signers that pad differently.
 // The salt length does not weaken PSS.
-func (verifier *RSAVerifier) verify(digest, sig []byte) error {
+func (verifier *RSAVerifier) verify(signingInput, signature []byte) error {
 	pss, err := algIsPSS(verifier.alg)
 	if err != nil {
 		return err
 	}
 
+	hasher := verifier.hash.New()
+	hasher.Write(signingInput)
+
 	if pss {
-		return rsa.VerifyPSS(verifier.publicKey, verifier.hash, digest, sig, &rsa.PSSOptions{
+		err = rsa.VerifyPSS(verifier.publicKey, verifier.hash, hasher.Sum(nil), signature, &rsa.PSSOptions{
 			SaltLength: rsa.PSSSaltLengthAuto,
 		})
+	} else {
+		err = rsa.VerifyPKCS1v15(verifier.publicKey, verifier.hash, hasher.Sum(nil), signature)
 	}
 
-	return rsa.VerifyPKCS1v15(verifier.publicKey, verifier.hash, digest, sig)
+	if errors.Is(err, rsa.ErrVerification) {
+		return errors.Join(ErrInvalidSignature, err)
+	}
+
+	return err
 }
 
-// rsaSignatureKey returns the jwk preset matching an RSA signature key bound to alg.
-func rsaSignatureKey(alg jwa.Alg) jwk.RSAPreset {
-	return jwk.RSAPreset{
+// minRSAKeyBits is the smallest RSA modulus the RS* and PS* algorithms accept, per RFC 7518 §3.3
+// and §3.5 ("A key of size 2048 bits or larger MUST be used"). Enforced at both sign and verify.
+const minRSAKeyBits = 2048
+
+// checkRSAPublicKey fails closed unless key is a usable RSA public key: non-nil, with a positive
+// modulus of at least minRSAKeyBits. BitLen reads the absolute value, so the sign is checked
+// separately. A negative modulus clears the bit-length floor.
+func checkRSAPublicKey(key *rsa.PublicKey) error {
+	if key == nil || key.N == nil || key.N.Sign() <= 0 {
+		return fmt.Errorf("%w: RSA key has no valid modulus", jwt.ErrInvalidSecretKey)
+	}
+
+	if key.N.BitLen() < minRSAKeyBits {
+		return fmt.Errorf(
+			"%w: RSA key is %d bits, need at least %d",
+			jwt.ErrInvalidSecretKey, key.N.BitLen(), minRSAKeyBits,
+		)
+	}
+
+	return nil
+}
+
+// checkRSAPrivateKey applies checkRSAPublicKey to a private key's public half, rejecting a nil key
+// first so the dereference is safe.
+func checkRSAPrivateKey(key *rsa.PrivateKey) error {
+	if key == nil {
+		return fmt.Errorf("%w: nil RSA key", jwt.ErrInvalidSecretKey)
+	}
+
+	return checkRSAPublicKey(&key.PublicKey)
+}
+
+// consumeRSA binds [jwk.ConsumeRSA] to a signature key for alg, as GenerateRSA labels one.
+func consumeRSA(alg jwa.Alg) keyPair[*rsa.PrivateKey, *rsa.PublicKey] {
+	preset := jwk.RSAPreset{
 		Alg:           alg,
 		Use:           jwa.UseSig,
 		PrivateKeyOps: jwa.KeyOps{jwa.KeyOpSign},
 		PublicKeyOps:  jwa.KeyOps{jwa.KeyOpVerify},
 	}
-}
 
-// sourcedRSAPublic decodes a raw JSON Web Key into an RSA public key for verification, matching only
-// signature keys bound to alg and skipping any that carry private material.
-func sourcedRSAPublic(alg jwa.Alg) keyDecoder[*rsa.PublicKey] {
-	preset := rsaSignatureKey(alg)
-
-	return func(key *jwa.JWK) (*rsa.PublicKey, error) {
-		privateKey, publicKey, err := jwk.ConsumeRSA(key, preset)
-		if err != nil {
-			return nil, err
-		}
-
-		if privateKey != nil {
-			return nil, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
-		}
-
-		if publicKey == nil {
-			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
-		}
-
-		return publicKey.Key(), nil
-	}
-}
-
-// sourcedRSAPrivate decodes a raw JSON Web Key into an RSA private key for signing, matching only
-// signature keys bound to alg.
-func sourcedRSAPrivate(alg jwa.Alg) keyDecoder[*rsa.PrivateKey] {
-	preset := rsaSignatureKey(alg)
-
-	return func(key *jwa.JWK) (*rsa.PrivateKey, error) {
-		privateKey, _, err := jwk.ConsumeRSA(key, preset)
-		if err != nil {
-			return nil, err
-		}
-
-		if privateKey == nil {
-			return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
-		}
-
-		return privateKey.Key(), nil
+	return func(key *jwa.JWK) (*jwk.Key[*rsa.PrivateKey], *jwk.Key[*rsa.PublicKey], error) {
+		return jwk.ConsumeRSA(key, preset)
 	}
 }
 
 // A SourcedRSASigner signs like an [RSASigner] but resolves its key from a [jwk.Source] at each
 // call, so the plugin follows key rotation. Build one with [NewSourcedRSASigner].
 type SourcedRSASigner struct {
-	source *jwk.Source
-	keys   *jwk.Decoder[*rsa.PrivateKey]
-	preset RSAPreset
+	*sourcedSigner[*rsa.PrivateKey]
 }
 
 // NewSourcedRSASigner returns a [jwt.ProducerPlugin] that signs tokens with RSA, drawing the key from
@@ -287,43 +216,16 @@ type SourcedRSASigner struct {
 //
 // See RFC 7518, sections 3.3 and 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
 func NewSourcedRSASigner(source *jwk.Source, preset RSAPreset) *SourcedRSASigner {
-	return &SourcedRSASigner{
-		source: source,
-		keys:   signingKeys(source, sourcedRSAPrivate(preset.Alg)),
-		preset: preset,
-	}
-}
+	newSigner := func(key *rsa.PrivateKey) jwt.ProducerPlugin { return NewRSASigner(key, preset) }
 
-func (signer *SourcedRSASigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
-	if err != nil {
-		return nil, fmt.Errorf("(SourcedRSASigner.Header) %w", err)
-	}
-
-	// Stamp the resolved key's ID into the header so recipients can select it for verification.
-	if header.KID == "" {
-		header.KID = kid
-	}
-
-	return NewRSASigner(key, signer.preset).Header(ctx, header)
-}
-
-func (signer *SourcedRSASigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
-	if err != nil {
-		return "", fmt.Errorf("(SourcedRSASigner.Transform) %w", err)
-	}
-
-	return NewRSASigner(key, signer.preset).Transform(ctx, header, rawToken)
+	return &SourcedRSASigner{newSourcedSigner(source, privateHalf(consumeRSA(preset.Alg)), newSigner)}
 }
 
 // A SourcedRSAVerifier verifies like an [RSAVerifier] but resolves candidate keys from a
 // [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source. Build one with [NewSourcedRSAVerifier].
 type SourcedRSAVerifier struct {
-	source *jwk.Source
-	keys   *jwk.Decoder[*rsa.PublicKey]
-	preset RSAPreset
+	*sourcedVerifier[*rsa.PublicKey]
 }
 
 // NewSourcedRSAVerifier returns a [jwt.RecipientPlugin] that verifies RSA-signed tokens against keys
@@ -332,18 +234,7 @@ type SourcedRSAVerifier struct {
 //
 // See RFC 7518, sections 3.3 and 3.5: https://datatracker.ietf.org/doc/html/rfc7518#section-3.3
 func NewSourcedRSAVerifier(source *jwk.Source, preset RSAPreset) *SourcedRSAVerifier {
-	return &SourcedRSAVerifier{
-		source: source,
-		keys:   verificationKeys(source, sourcedRSAPublic(preset.Alg)),
-		preset: preset,
-	}
-}
+	newVerifier := func(key *rsa.PublicKey) jwt.RecipientPlugin { return NewRSAVerifier(key, preset) }
 
-func (verifier *SourcedRSAVerifier) Transform(
-	ctx context.Context, header *jwa.JWH, rawToken string,
-) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, verifier.keys.Decode,
-		func(key *rsa.PublicKey) jwt.RecipientPlugin {
-			return NewRSAVerifier(key, verifier.preset)
-		})
+	return &SourcedRSAVerifier{newSourcedVerifier(source, publicHalf(consumeRSA(preset.Alg)), newVerifier)}
 }
