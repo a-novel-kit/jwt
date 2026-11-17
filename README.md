@@ -236,7 +236,7 @@ Recipient plugins also run in order. A plugin that does not recognize the token 
 succeeds supplies the claims payload.
 
 A recipient consumes unsecured (`"alg":"none"`) tokens only when its plugins include
-`jwt.NewDefaultRecipientPlugin()`, since RFC 7518 forbids accepting them by default. Keep them to
+`jwt.NewUnsecuredRecipientPlugin()`, since RFC 7518 forbids accepting them by default. Keep them to
 tests and trusted internal hops.
 
 ### Standards

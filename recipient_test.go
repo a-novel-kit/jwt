@@ -56,7 +56,7 @@ func TestRecipient(t *testing.T) {
 		Issue(t.Context(), map[string]any{"sub": "x"}, map[string]any{"foo": "bar"})
 	require.NoError(t, err)
 
-	unsecured := []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()}
+	unsecured := []jwt.RecipientPlugin{jwt.NewUnsecuredRecipientPlugin()}
 
 	encode := base64.RawURLEncoding.EncodeToString
 	claimsSegment := encode([]byte(`{"foo":"bar"}`))

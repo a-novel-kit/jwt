@@ -39,7 +39,7 @@ var ErrUnexpectedTyp = fmt.Errorf("%w: unexpected token type", ErrTokenRejected)
 // RecipientConfig configures how a Recipient verifies, checks, and decodes a token.
 type RecipientConfig struct {
 	// Plugins run in order until one recognizes the token. A recipient without plugins accepts no
-	// token: unsecured ("none") tokens are consumed only when [DefaultRecipientPlugin] is listed here.
+	// token: unsecured ("none") tokens are consumed only when [UnsecuredRecipientPlugin] is listed here.
 	Plugins []RecipientPlugin
 
 	// Deserializer decodes the raw claims payload into the destination. Defaults to json.Unmarshal.
