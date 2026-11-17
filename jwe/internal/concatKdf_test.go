@@ -9,38 +9,42 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwe/internal"
 )
 
-// https://datatracker.ietf.org/doc/html/rfc7518#appendix-C
-func TestVectorConcatKDF(t *testing.T) {
+func TestConcatKDF(t *testing.T) {
 	t.Parallel()
 
-	z := []byte{
-		158, 86, 217, 29, 129, 113, 53, 211, 114, 131, 66, 131, 191, 132,
-		38, 156, 251, 49, 110, 163, 218, 128, 106, 72, 246, 218, 167, 121,
-		140, 254, 144, 196,
-	}
+	// https://datatracker.ietf.org/doc/html/rfc7518#appendix-C
+	t.Run("Success/RFC7518AppendixC", func(t *testing.T) {
+		t.Parallel()
 
-	algID := []byte{0, 0, 0, 7, 65, 49, 50, 56, 71, 67, 77}
+		z := []byte{
+			158, 86, 217, 29, 129, 113, 53, 211, 114, 131, 66, 131, 191, 132,
+			38, 156, 251, 49, 110, 163, 218, 128, 106, 72, 246, 218, 167, 121,
+			140, 254, 144, 196,
+		}
 
-	ptyUInfo := []byte{0, 0, 0, 5, 65, 108, 105, 99, 101}
-	ptyVInfo := []byte{0, 0, 0, 3, 66, 111, 98}
+		algID := []byte{0, 0, 0, 7, 65, 49, 50, 56, 71, 67, 77}
 
-	supPubInfo := []byte{0, 0, 0, 128}
+		ptyUInfo := []byte{0, 0, 0, 5, 65, 108, 105, 99, 101}
+		ptyVInfo := []byte{0, 0, 0, 3, 66, 111, 98}
 
-	var supPrivInfo []byte
+		supPubInfo := []byte{0, 0, 0, 128}
 
-	expected := []byte{
-		86, 170, 141, 234, 248, 35, 109, 32, 92, 34, 40, 205, 113, 167, 16, 26,
-	}
+		var supPrivInfo []byte
 
-	out := internal.ConcatKDF(crypto.SHA256, z, 16, algID, ptyUInfo, ptyVInfo, supPubInfo, supPrivInfo)
-	require.Equal(t, expected, out)
-}
+		expected := []byte{
+			86, 170, 141, 234, 248, 35, 109, 32, 92, 34, 40, 205, 113, 167, 16, 26,
+		}
 
-func TestConcatKDFMultiBlock(t *testing.T) {
-	t.Parallel()
+		out := internal.ConcatKDF(crypto.SHA256, z, 16, algID, ptyUInfo, ptyVInfo, supPubInfo, supPrivInfo)
+		require.Equal(t, expected, out)
+	})
 
-	// The halves become the MAC and ENC keys of an AES-CBC-HMAC key. Both must differ.
-	out := internal.ConcatKDF(crypto.SHA256, []byte("shared-secret"), 64, nil, nil, nil, nil, nil)
-	require.Len(t, out, 64)
-	require.NotEqual(t, out[:32], out[32:])
+	t.Run("Success/MultiBlock", func(t *testing.T) {
+		t.Parallel()
+
+		// The halves become the MAC and ENC keys of an AES-CBC-HMAC key. Both must differ.
+		out := internal.ConcatKDF(crypto.SHA256, []byte("shared-secret"), 64, nil, nil, nil, nil, nil)
+		require.Len(t, out, 64)
+		require.NotEqual(t, out[:32], out[32:])
+	})
 }
