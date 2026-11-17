@@ -155,11 +155,7 @@ func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 
 	// A fresh random 128-bit IV, unique per encryption.
 	iv := make([]byte, 16)
-
-	_, err = rand.Read(iv)
-	if err != nil {
-		return "", fmt.Errorf("(AESCBCEncryption.Transform) generate IV: %w", err)
-	}
+	_, _ = rand.Read(iv) // never fails: it crashes the program instead
 
 	// K splits into two subkeys: MAC_KEY is its leading octets, ENC_KEY its trailing
 	// octets. The MAC key comes first, the reverse of the order the name suggests in

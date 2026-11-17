@@ -123,11 +123,7 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 
 	// A fresh random 96-bit nonce, the length NewGCM expects by default.
 	iv := make([]byte, 12)
-
-	_, err = rand.Read(iv)
-	if err != nil {
-		return "", fmt.Errorf("(AESGCMEncryption.Transform) generate IV: %w", err)
-	}
+	_, _ = rand.Read(iv) // never fails: it crashes the program instead
 
 	block, err := aes.NewCipher(secret)
 	if err != nil {
@@ -145,10 +141,6 @@ func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, raw
 	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
 	cipherText := ciphertextAndTag[:cipherLen]
 	tag := ciphertextAndTag[cipherLen:]
-
-	if len(tag) != 16 {
-		return "", fmt.Errorf("(AESGCMEncryption.Transform) invalid tag size: expected 16, got %d", len(tag))
-	}
 
 	return jwt.EncryptedToken{
 		Header:     encodedHeader,
