@@ -2,6 +2,7 @@ package jwk_test
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -103,6 +104,19 @@ func TestGenerateAES(t *testing.T) {
 			require.Equal(t, key.Key(), decoded)
 		})
 	}
+
+	// A generated key owns its key_ops: editing them leaves the exported preset alone.
+	t.Run("Success/KeyOpsOwnedByKey", func(t *testing.T) {
+		t.Parallel()
+
+		key, err := jwk.GenerateAES(jwk.A256KW)
+		require.NoError(t, err)
+
+		want := slices.Clone(jwk.A256KW.KeyOps)
+		key.KeyOps[0] = jwa.KeyOpSign
+
+		require.Equal(t, want, jwk.A256KW.KeyOps)
+	})
 }
 
 func TestConsumeAES(t *testing.T) {

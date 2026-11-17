@@ -7,7 +7,8 @@
 //
 // A Generate function sets both "use" and "key_ops" on every key, and a Consume function refuses a
 // key that lacks either, although RFC 7517 §4.3 says the two SHOULD NOT be used together. The two
-// halves of a pair share one key ID, so "key_ops" tells them apart, and the sourced signers and
-// verifiers of package jws pick their key by it. "use" serves JWK Set consumers that select a key by
-// its purpose (RFC 7517 §4.2). Both members always agree, as §4.3 requires when both appear.
+// halves of a signature or RSA key pair share one key ID, so "key_ops" tells them apart, and the
+// sourced signers and verifiers of package jws pick their key by it. "use" serves JWK Set
+// consumers that select a key by its purpose (RFC 7517 §4.2). Both members always agree, as §4.3
+// requires when both appear.
 package jwk

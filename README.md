@@ -178,6 +178,10 @@ recipient := jwt.NewRecipient(jwt.RecipientConfig{
 })
 ```
 
+A key set from another issuer often marks its keys with `"use"` alone, and sometimes omits `"alg"`.
+Package `jwk` requires `"use"`, `"key_ops"` and `"alg"` (see its RFC 7517 §4.3 note), so set
+`"key_ops"` to `verify`, and `"alg"` where it is missing, on each signing key inside `Fetch`.
+
 ### Encryption
 
 A `jwe` plugin encrypts the claims under a content encryption key. A `jwek` manager supplies that

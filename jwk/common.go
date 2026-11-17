@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -64,7 +65,8 @@ func newOctKey(header jwa.JWKCommon, keySize int) (*Key[[]byte], error) {
 		return nil, fmt.Errorf("serialize payload: %w", err)
 	}
 
-	header.KID = uuid.NewString()
+	// The header's key_ops come from an exported preset, so the key gets its own copy.
+	header.KID, header.KeyOps = uuid.NewString(), slices.Clone(header.KeyOps)
 
 	return NewKey(&jwa.JWK{JWKCommon: header, Payload: payload}, key), nil
 }
@@ -109,6 +111,10 @@ func newKeyPair[Priv, Pub any](
 
 	kid := uuid.NewString()
 	privateHeader.KID, publicHeader.KID = kid, kid
+
+	// The headers' key_ops come from an exported preset, so each key gets its own copy.
+	privateHeader.KeyOps = slices.Clone(privateHeader.KeyOps)
+	publicHeader.KeyOps = slices.Clone(publicHeader.KeyOps)
 
 	return NewKey(&jwa.JWK{JWKCommon: privateHeader, Payload: privateSerialized}, privateKey),
 		NewKey(&jwa.JWK{JWKCommon: publicHeader, Payload: publicSerialized}, publicKey),
