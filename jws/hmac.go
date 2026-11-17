@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/hmac"
-	"encoding/base64"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt/v2"
@@ -61,40 +60,15 @@ func NewHMACSigner(secretKey []byte, preset HMACPreset) *HMACSigner {
 }
 
 func (signer *HMACSigner) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(HMACSigner.Header) %w: alg field already set", jwt.ErrConflictingHeader)
-	}
-
-	err := checkHMACKey(signer.secretKey, signer.hash)
-	if err != nil {
-		return nil, fmt.Errorf("(HMACSigner.Header) %w", err)
-	}
-
-	header.Alg = signer.alg
-
-	return header, nil
+	return signHeader(header, signer.alg, checkHMACKey(signer.secretKey, signer.hash))
 }
 
-func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, tokenRaw string) (string, error) {
-	// A sourced signer re-resolves its key here without going back through Header, so this is the
-	// guard that gates every signature.
-	err := checkHMACKey(signer.secretKey, signer.hash)
-	if err != nil {
-		return "", fmt.Errorf("(HMACSigner.Transform) %w", err)
-	}
+func (signer *HMACSigner) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
+	keyErr := checkHMACKey(signer.secretKey, signer.hash)
 
-	// The decoder checks the shape only: the token is already the "header.payload" signing input.
-	_, err = (&jwt.RawTokenDecoder{}).Decode(tokenRaw)
-	if err != nil {
-		return "", fmt.Errorf("(HMACSigner.Transform) split token: %w", err)
-	}
-
-	hasher := hmac.New(signer.hash.New, signer.secretKey)
-	hasher.Write([]byte(tokenRaw))
-
-	signature := hasher.Sum(nil)
-
-	return tokenRaw + "." + base64.RawURLEncoding.EncodeToString(signature), nil
+	return signToken(rawToken, keyErr, func(signingInput []byte) ([]byte, error) {
+		return hmacSum(signer.hash, signer.secretKey, signingInput), nil
+	})
 }
 
 // An HMACVerifier verifies HMAC-signed tokens as a [jwt.RecipientPlugin]. Build one with
@@ -120,49 +94,41 @@ func NewHMACVerifier(secretKey []byte, preset HMACPreset) *HMACVerifier {
 }
 
 func (verifier *HMACVerifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	if header.Alg != verifier.alg {
-		return nil, fmt.Errorf(
-			"(HMACVerifier.Transform) %w: invalid algorithm %s, expected %s",
-			jwt.ErrMismatchRecipientPlugin, header.Alg, verifier.alg,
+	keyErr := checkHMACKey(verifier.secretKey, verifier.hash)
+
+	return verifyToken(header, verifier.alg, keyErr, rawToken, func(signingInput, signature []byte) error {
+		if !hmac.Equal(signature, hmacSum(verifier.hash, verifier.secretKey, signingInput)) {
+			return ErrInvalidSignature
+		}
+
+		return nil
+	})
+}
+
+// hmacSum returns the HMAC of signingInput under key.
+func hmacSum(hash crypto.Hash, key, signingInput []byte) []byte {
+	hasher := hmac.New(hash.New, key)
+	hasher.Write(signingInput)
+
+	return hasher.Sum(nil)
+}
+
+// checkHMACKey fails unless key is at least as long as the output of hash, the floor RFC 7518 §3.2
+// sets for the HS* algorithms.
+func checkHMACKey(key []byte, hash crypto.Hash) error {
+	if len(key) < hash.Size() {
+		return fmt.Errorf(
+			"%w: HMAC key is %d bytes, need at least %d (RFC 7518 §3.2)",
+			jwt.ErrInvalidSecretKey, len(key), hash.Size(),
 		)
 	}
 
-	err := checkHMACKey(verifier.secretKey, verifier.hash)
-	if err != nil {
-		return nil, fmt.Errorf("(HMACVerifier.Transform) %w", err)
-	}
-
-	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
-	if err != nil {
-		return nil, fmt.Errorf("(HMACVerifier.Transform) split token: %w", err)
-	}
-
-	// The signing input is the token up to the dot before its signature.
-	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
-
-	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
-	if err != nil {
-		return nil, fmt.Errorf("(HMACVerifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	hasher := hmac.New(verifier.hash.New, verifier.secretKey)
-	hasher.Write(signingInput)
-
-	if !hmac.Equal(sigBytes, hasher.Sum(nil)) {
-		return nil, fmt.Errorf("(HMACVerifier.Transform) %w", ErrInvalidSignature)
-	}
-
-	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("(HMACVerifier.Transform) %w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	return decoded, nil
+	return nil
 }
 
-// sourcedHMACKey decodes a raw JSON Web Key into its HMAC secret, matching only keys bound to alg.
+// consumeHMAC decodes a raw JSON Web Key into its HMAC secret, matching only keys bound to alg.
 // HMAC is symmetric, so the same decoder serves signing and verification.
-func sourcedHMACKey(alg jwa.Alg) keyDecoder[[]byte] {
+func consumeHMAC(alg jwa.Alg) keyDecoder[[]byte] {
 	preset := jwk.HMACPreset{Alg: alg}
 
 	return func(key *jwa.JWK) ([]byte, error) {
@@ -178,9 +144,7 @@ func sourcedHMACKey(alg jwa.Alg) keyDecoder[[]byte] {
 // A SourcedHMACSigner signs like an [HMACSigner] but resolves its secret from a [jwk.Source] at each
 // call, so the plugin follows key rotation. Build one with [NewSourcedHMACSigner].
 type SourcedHMACSigner struct {
-	source *jwk.Source
-	keys   *jwk.Decoder[[]byte]
-	preset HMACPreset
+	sourcedSigner[[]byte]
 }
 
 // NewSourcedHMACSigner returns a [jwt.ProducerPlugin] that signs tokens with HMAC, drawing the
@@ -189,43 +153,16 @@ type SourcedHMACSigner struct {
 //
 // See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
 func NewSourcedHMACSigner(source *jwk.Source, preset HMACPreset) *SourcedHMACSigner {
-	return &SourcedHMACSigner{
-		source: source,
-		keys:   signingKeys(source, sourcedHMACKey(preset.Alg)),
-		preset: preset,
-	}
-}
-
-func (signer *SourcedHMACSigner) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
-	if err != nil {
-		return nil, fmt.Errorf("(SourcedHMACSigner.Header) %w", err)
-	}
-
-	// Stamp the resolved key's ID into the header so recipients can select it for verification.
-	if header.KID == "" {
-		header.KID = kid
-	}
-
-	return NewHMACSigner(key, signer.preset).Header(ctx, header)
-}
-
-func (signer *SourcedHMACSigner) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
-	if err != nil {
-		return "", fmt.Errorf("(SourcedHMACSigner.Transform) %w", err)
-	}
-
-	return NewHMACSigner(key, signer.preset).Transform(ctx, header, rawToken)
+	return &SourcedHMACSigner{newSourcedSigner(source, consumeHMAC(preset.Alg), func(key []byte) jwt.ProducerPlugin {
+		return NewHMACSigner(key, preset)
+	})}
 }
 
 // A SourcedHMACVerifier verifies like an [HMACVerifier] but resolves candidate secrets from a
 // [jwk.Source] at each call. When the token names a KID, it tries only that secret. Otherwise
 // it tries every secret in the source. Build one with [NewSourcedHMACVerifier].
 type SourcedHMACVerifier struct {
-	source *jwk.Source
-	keys   *jwk.Decoder[[]byte]
-	preset HMACPreset
+	sourcedVerifier[[]byte]
 }
 
 // NewSourcedHMACVerifier returns a [jwt.RecipientPlugin] that verifies HMAC-signed tokens against
@@ -233,16 +170,7 @@ type SourcedHMACVerifier struct {
 //
 // See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
 func NewSourcedHMACVerifier(source *jwk.Source, preset HMACPreset) *SourcedHMACVerifier {
-	return &SourcedHMACVerifier{
-		source: source,
-		keys:   verificationKeys(source, sourcedHMACKey(preset.Alg)),
-		preset: preset,
-	}
-}
-
-func (verifier *SourcedHMACVerifier) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, verifier.keys.Decode,
-		func(key []byte) jwt.RecipientPlugin {
-			return NewHMACVerifier(key, verifier.preset)
-		})
+	return &SourcedHMACVerifier{newSourcedVerifier(source, consumeHMAC(preset.Alg), func(key []byte) jwt.RecipientPlugin {
+		return NewHMACVerifier(key, preset)
+	})}
 }

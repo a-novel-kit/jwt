@@ -3,7 +3,6 @@ package jws
 import (
 	"context"
 	"crypto/ed25519"
-	"encoding/base64"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt/v2"
@@ -42,37 +41,15 @@ func NewEdDSASigner(secretKey ed25519.PrivateKey) *ED25519Signer {
 }
 
 func (signer *ED25519Signer) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(ED25519Signer.Header) %w: alg field already set", jwt.ErrConflictingHeader)
-	}
-
-	err := checkED25519Key(signer.secretKey, ed25519.PrivateKeySize)
-	if err != nil {
-		return nil, fmt.Errorf("(ED25519Signer.Header) %w", err)
-	}
-
-	header.Alg = signer.alg
-
-	return header, nil
+	return signHeader(header, signer.alg, checkED25519Key(signer.secretKey, ed25519.PrivateKeySize))
 }
 
 func (signer *ED25519Signer) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
-	// A sourced signer re-resolves its key here without going back through Header, so this is the
-	// guard that gates every signature.
-	err := checkED25519Key(signer.secretKey, ed25519.PrivateKeySize)
-	if err != nil {
-		return "", fmt.Errorf("(ED25519Signer.Transform) %w", err)
-	}
+	keyErr := checkED25519Key(signer.secretKey, ed25519.PrivateKeySize)
 
-	// The decoder checks the shape only: the token is already the "header.payload" signing input.
-	_, err = (&jwt.RawTokenDecoder{}).Decode(rawToken)
-	if err != nil {
-		return "", fmt.Errorf("(ED25519Signer.Transform) split token: %w", err)
-	}
-
-	signature := ed25519.Sign(signer.secretKey, []byte(rawToken))
-
-	return rawToken + "." + base64.RawURLEncoding.EncodeToString(signature), nil
+	return signToken(rawToken, keyErr, func(signingInput []byte) ([]byte, error) {
+		return ed25519.Sign(signer.secretKey, signingInput), nil
+	})
 }
 
 // An ED25519Verifier verifies Ed25519-signed tokens as a [jwt.RecipientPlugin]. It accepts the
@@ -93,41 +70,21 @@ func NewED25519Verifier(publicKey ed25519.PublicKey) *ED25519Verifier {
 }
 
 func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	if header.Alg != jwa.Ed25519 && header.Alg != jwa.EdDSA { //nolint:staticcheck // Still accepted, per RFC 9864.
-		return nil, fmt.Errorf(
-			"(ED25519Verifier.Transform) %w: invalid algorithm %s, expected %s",
-			jwt.ErrMismatchRecipientPlugin, header.Alg, jwa.Ed25519,
-		)
+	alg := jwa.Ed25519
+	// RFC 9864 deprecates "EdDSA", which names the same scheme for an Ed25519 key.
+	if header.Alg == jwa.EdDSA { //nolint:staticcheck // Still accepted, per RFC 9864.
+		alg = header.Alg
 	}
 
-	err := checkED25519Key(verifier.publicKey, ed25519.PublicKeySize)
-	if err != nil {
-		return nil, fmt.Errorf("(ED25519Verifier.Transform) %w", err)
-	}
+	keyErr := checkED25519Key(verifier.publicKey, ed25519.PublicKeySize)
 
-	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
-	if err != nil {
-		return nil, fmt.Errorf("(ED25519Verifier.Transform) split source: %w", err)
-	}
+	return verifyToken(header, alg, keyErr, rawToken, func(signingInput, signature []byte) error {
+		if !ed25519.Verify(verifier.publicKey, signingInput, signature) {
+			return ErrInvalidSignature
+		}
 
-	// The signing input is the token up to the dot before its signature.
-	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
-
-	sigBytes, err := base64.RawURLEncoding.DecodeString(token.Signature)
-	if err != nil {
-		return nil, fmt.Errorf("(ED25519Verifier.Transform) %w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	if !ed25519.Verify(verifier.publicKey, signingInput, sigBytes) {
-		return nil, fmt.Errorf("(ED25519Verifier.Transform) %w", ErrInvalidSignature)
-	}
-
-	decoded, err := base64.RawURLEncoding.DecodeString(token.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("(ED25519Verifier.Transform) %w: decode payload: %w", jwt.ErrUnsupportedTokenFormat, err)
-	}
-
-	return decoded, nil
+		return nil
+	})
 }
 
 // checkED25519Key fails unless key holds size bytes. crypto/ed25519 panics on a key of any other
@@ -140,45 +97,10 @@ func checkED25519Key[K ed25519.PrivateKey | ed25519.PublicKey](key K, size int) 
 	return nil
 }
 
-// sourcedED25519Public decodes a raw JSON Web Key into an Ed25519 public key for verification,
-// skipping any that carry private material.
-func sourcedED25519Public(key *jwa.JWK) (ed25519.PublicKey, error) {
-	privateKey, publicKey, err := jwk.ConsumeED25519(key)
-	if err != nil {
-		return nil, err
-	}
-
-	if privateKey != nil {
-		return nil, fmt.Errorf("%w: source exposes a private key", jwk.ErrJWKMismatch)
-	}
-
-	if publicKey == nil {
-		return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
-	}
-
-	return publicKey.Key(), nil
-}
-
-// sourcedED25519Private decodes a raw JSON Web Key into an Ed25519 private key for signing.
-func sourcedED25519Private(key *jwa.JWK) (ed25519.PrivateKey, error) {
-	privateKey, _, err := jwk.ConsumeED25519(key)
-	if err != nil {
-		return nil, err
-	}
-
-	if privateKey == nil {
-		return nil, fmt.Errorf("%w", jwk.ErrJWKMismatch)
-	}
-
-	return privateKey.Key(), nil
-}
-
 // A SourcedED25519Signer signs like an [ED25519Signer] but resolves its key from a [jwk.Source] at
 // each call, so the plugin follows key rotation. Build one with [NewSourcedED25519Signer].
 type SourcedED25519Signer struct {
-	source *jwk.Source
-	keys   *jwk.Decoder[ed25519.PrivateKey]
-	alg    jwa.Alg
+	sourcedSigner[ed25519.PrivateKey]
 }
 
 // NewSourcedED25519Signer returns a [jwt.ProducerPlugin] that signs tokens with Ed25519,
@@ -186,11 +108,7 @@ type SourcedED25519Signer struct {
 //
 // See RFC 8032, section 3.3: https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
 func NewSourcedED25519Signer(source *jwk.Source) *SourcedED25519Signer {
-	return &SourcedED25519Signer{
-		source: source,
-		keys:   signingKeys(source, sourcedED25519Private),
-		alg:    jwa.Ed25519,
-	}
+	return &SourcedED25519Signer{newSourcedSigner(source, privateHalf(jwk.ConsumeED25519), newED25519Signer(jwa.Ed25519))}
 }
 
 // NewSourcedEdDSASigner returns a [jwt.ProducerPlugin] that signs like [NewSourcedED25519Signer] but
@@ -198,42 +116,21 @@ func NewSourcedED25519Signer(source *jwk.Source) *SourcedED25519Signer {
 //
 // Deprecated: switch to [NewSourcedED25519Signer] once every verifier accepts "Ed25519".
 func NewSourcedEdDSASigner(source *jwk.Source) *SourcedED25519Signer {
-	return &SourcedED25519Signer{
-		source: source,
-		keys:   signingKeys(source, sourcedED25519Private),
-		alg:    jwa.EdDSA,
-	}
+	return &SourcedED25519Signer{newSourcedSigner(source, privateHalf(jwk.ConsumeED25519), newED25519Signer(jwa.EdDSA))}
 }
 
-func (signer *SourcedED25519Signer) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	key, kid, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
-	if err != nil {
-		return nil, fmt.Errorf("(SourcedED25519Signer.Header) %w", err)
+// newED25519Signer returns the constructor of single-key Ed25519 signers labeling tokens with alg.
+func newED25519Signer(alg jwa.Alg) func(key ed25519.PrivateKey) jwt.ProducerPlugin {
+	return func(key ed25519.PrivateKey) jwt.ProducerPlugin {
+		return &ED25519Signer{secretKey: key, alg: alg}
 	}
-
-	// Stamp the resolved key's ID into the header so recipients can select it for verification.
-	if header.KID == "" {
-		header.KID = kid
-	}
-
-	return (&ED25519Signer{secretKey: key, alg: signer.alg}).Header(ctx, header)
-}
-
-func (signer *SourcedED25519Signer) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	key, _, err := signFromSource(ctx, signer.source, header.KID, signer.keys.Decode)
-	if err != nil {
-		return "", fmt.Errorf("(SourcedED25519Signer.Transform) %w", err)
-	}
-
-	return NewED25519Signer(key).Transform(ctx, header, rawToken)
 }
 
 // A SourcedED25519Verifier verifies like an [ED25519Verifier] but resolves candidate keys from a
 // [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source. Build one with [NewSourcedED25519Verifier].
 type SourcedED25519Verifier struct {
-	source *jwk.Source
-	keys   *jwk.Decoder[ed25519.PublicKey]
+	sourcedVerifier[ed25519.PublicKey]
 }
 
 // NewSourcedED25519Verifier returns a [jwt.RecipientPlugin] that verifies Ed25519-signed tokens
@@ -241,17 +138,7 @@ type SourcedED25519Verifier struct {
 //
 // See RFC 8032, section 3.3: https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
 func NewSourcedED25519Verifier(source *jwk.Source) *SourcedED25519Verifier {
-	return &SourcedED25519Verifier{
-		source: source,
-		keys:   verificationKeys(source, sourcedED25519Public),
-	}
-}
+	newVerifier := func(key ed25519.PublicKey) jwt.RecipientPlugin { return NewED25519Verifier(key) }
 
-func (verifier *SourcedED25519Verifier) Transform(
-	ctx context.Context, header *jwa.JWH, rawToken string,
-) ([]byte, error) {
-	return verifyFromSource(ctx, verifier.source, header, rawToken, verifier.keys.Decode,
-		func(key ed25519.PublicKey) jwt.RecipientPlugin {
-			return NewED25519Verifier(key)
-		})
+	return &SourcedED25519Verifier{newSourcedVerifier(source, publicHalf(jwk.ConsumeED25519), newVerifier)}
 }
