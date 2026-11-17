@@ -82,96 +82,100 @@ func TestHasPrivateMaterial(t *testing.T) {
 	}
 }
 
-func TestPublicStripsPrivateMembers(t *testing.T) {
+func TestPublic(t *testing.T) {
 	t.Parallel()
 
-	rsaPrivate, _, err := jwk.GenerateRSA(jwk.RS256)
-	require.NoError(t, err)
+	t.Run("Success/StripsPrivateMembers", func(t *testing.T) {
+		t.Parallel()
 
-	// RSA carries the widest private set, so it is the one that proves every
-	// name is removed rather than just "d".
-	generatedMembers := []string{"d", "p", "q", "dp", "dq", "qi"}
-	strippedMembers := []string{"d", "p", "q", "dp", "dq", "qi", "oth"}
+		rsaPrivate, _, err := jwk.GenerateRSA(jwk.RS256)
+		require.NoError(t, err)
 
-	private := members(t, rsaPrivate.JWK)
-	for _, name := range generatedMembers {
-		require.Contains(t, private, name, "the generated key should carry %s to begin with", name)
-	}
+		// RSA carries the widest private set, so it is the one that proves every
+		// name is removed rather than just "d".
+		generatedMembers := []string{"d", "p", "q", "dp", "dq", "qi"}
+		strippedMembers := []string{"d", "p", "q", "dp", "dq", "qi", "oth"}
 
-	public, err := jwk.Public(rsaPrivate.JWK)
-	require.NoError(t, err)
+		private := members(t, rsaPrivate.JWK)
+		for _, name := range generatedMembers {
+			require.Contains(t, private, name, "the generated key should carry %s to begin with", name)
+		}
 
-	got := members(t, public)
-	for _, name := range strippedMembers {
-		require.NotContains(t, got, name)
-	}
+		public, err := jwk.Public(rsaPrivate.JWK)
+		require.NoError(t, err)
 
-	// The public half has to remain usable.
-	require.Contains(t, got, "n")
-	require.Contains(t, got, "e")
+		got := members(t, public)
+		for _, name := range strippedMembers {
+			require.NotContains(t, got, name)
+		}
 
-	require.Equal(t, rsaPrivate.KID, public.KID)
-	require.Equal(t, rsaPrivate.KTY, public.KTY)
+		// The public half has to remain usable.
+		require.Contains(t, got, "n")
+		require.Contains(t, got, "e")
 
-	hasPrivate, err := jwk.HasPrivateMaterial(public)
-	require.NoError(t, err)
-	require.False(t, hasPrivate)
+		require.Equal(t, rsaPrivate.KID, public.KID)
+		require.Equal(t, rsaPrivate.KTY, public.KTY)
 
-	// The input is left alone, so a caller projecting a key it still signs with
-	// does not disarm its own signer.
-	require.Contains(t, members(t, rsaPrivate.JWK), "d")
-}
+		hasPrivate, err := jwk.HasPrivateMaterial(public)
+		require.NoError(t, err)
+		require.False(t, hasPrivate)
 
-func TestPublicRefusesASymmetricKey(t *testing.T) {
-	t.Parallel()
+		// The input is left alone, so a caller projecting a key it still signs with
+		// does not disarm its own signer.
+		require.Contains(t, members(t, rsaPrivate.JWK), "d")
+	})
 
-	// There is no public half to return. Emptying the payload would produce a
-	// key that looks publishable and verifies nothing.
-	hmacKey, err := jwk.GenerateHMAC(jwk.HS256)
-	require.NoError(t, err)
+	t.Run("Success/AlreadyPublic", func(t *testing.T) {
+		t.Parallel()
 
-	_, err = jwk.Public(hmacKey.JWK)
-	require.ErrorIs(t, err, jwk.ErrPrivateKeyMaterial)
-}
+		// Idempotent, so a caller need not track whether it has already projected.
+		_, ecPublic, err := jwk.GenerateECDSA(jwk.ES256)
+		require.NoError(t, err)
 
-func TestPublicOnAnAlreadyPublicKey(t *testing.T) {
-	t.Parallel()
+		public, err := jwk.Public(ecPublic.JWK)
+		require.NoError(t, err)
+		require.JSONEq(t, string(ecPublic.Payload), string(public.Payload))
+	})
 
-	// Idempotent, so a caller need not track whether it has already projected.
-	_, ecPublic, err := jwk.GenerateECDSA(jwk.ES256)
-	require.NoError(t, err)
+	t.Run("Success/CaseVariantMember", func(t *testing.T) {
+		t.Parallel()
 
-	public, err := jwk.Public(ecPublic.JWK)
-	require.NoError(t, err)
-	require.JSONEq(t, string(ecPublic.Payload), string(public.Payload))
-}
+		// encoding/json decodes a "D" member into the private scalar, so it counts as private and is
+		// stripped like "d".
+		ecPrivate, _, err := jwk.GenerateECDSA(jwk.ES256)
+		require.NoError(t, err)
 
-func TestPublicCaseVariantMember(t *testing.T) {
-	t.Parallel()
+		payload := members(t, ecPrivate.JWK)
+		payload["D"] = payload["d"]
+		delete(payload, "d")
 
-	// encoding/json decodes a "D" member into the private scalar, so it counts as private and is
-	// stripped like "d".
-	ecPrivate, _, err := jwk.GenerateECDSA(jwk.ES256)
-	require.NoError(t, err)
+		serialized, err := json.Marshal(payload)
+		require.NoError(t, err)
 
-	payload := members(t, ecPrivate.JWK)
-	payload["D"] = payload["d"]
-	delete(payload, "d")
+		variant := &jwa.JWK{JWKCommon: ecPrivate.JWKCommon, Payload: serialized}
 
-	serialized, err := json.Marshal(payload)
-	require.NoError(t, err)
+		hasPrivate, err := jwk.HasPrivateMaterial(variant)
+		require.NoError(t, err)
+		require.True(t, hasPrivate)
 
-	variant := &jwa.JWK{JWKCommon: ecPrivate.JWKCommon, Payload: serialized}
+		public, err := jwk.Public(variant)
+		require.NoError(t, err)
+		require.NotContains(t, members(t, public), "D")
 
-	hasPrivate, err := jwk.HasPrivateMaterial(variant)
-	require.NoError(t, err)
-	require.True(t, hasPrivate)
+		// The projection owns its slices, so editing them leaves the input untouched.
+		public.KeyOps[0] = jwa.KeyOpVerify
+		require.Equal(t, jwa.KeyOps{jwa.KeyOpSign}, variant.KeyOps)
+	})
 
-	public, err := jwk.Public(variant)
-	require.NoError(t, err)
-	require.NotContains(t, members(t, public), "D")
+	t.Run("Error/SymmetricKey", func(t *testing.T) {
+		t.Parallel()
 
-	// The projection owns its slices, so editing them leaves the input untouched.
-	public.KeyOps[0] = jwa.KeyOpVerify
-	require.Equal(t, jwa.KeyOps{jwa.KeyOpSign}, variant.KeyOps)
+		// There is no public half to return. Emptying the payload would produce a
+		// key that looks publishable and verifies nothing.
+		hmacKey, err := jwk.GenerateHMAC(jwk.HS256)
+		require.NoError(t, err)
+
+		_, err = jwk.Public(hmacKey.JWK)
+		require.ErrorIs(t, err, jwk.ErrPrivateKeyMaterial)
+	})
 }
