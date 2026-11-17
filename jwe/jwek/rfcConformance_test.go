@@ -310,6 +310,31 @@ func TestKeyManagementRejects(t *testing.T) {
 		require.NotErrorIs(t, err, jwt.ErrTokenRejected)
 	})
 
+	t.Run("UnknownEnc/ECDHES", func(t *testing.T) {
+		t.Parallel()
+
+		// ECDH-ES derives a key of the length "enc" takes, so it cannot serve an algorithm it does not know.
+		_, recipientPublicKey, err := jwk.GenerateECDHKey(jwk.ECDHESX25519)
+		require.NoError(t, err)
+
+		recipientPrivateKey, _, err := jwk.GenerateECDHKey(jwk.ECDHESX25519)
+		require.NoError(t, err)
+
+		preset := jwek.ECDHKeyAgrPreset{Enc: "C20P"}
+
+		manager := jwek.NewECDHKeyAgrManager(&jwek.ECDHKeyAgrManagerConfig{RecipientKey: recipientPublicKey.Key()}, preset)
+
+		_, err = manager.ComputeCEK(t.Context(), &jwa.JWH{})
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+		require.NotErrorIs(t, err, jwt.ErrTokenRejected)
+
+		decoder := jwek.NewECDHKeyAgrDecoder(&jwek.ECDHKeyAgrDecoderConfig{RecipientKey: recipientPrivateKey.Key()}, preset)
+
+		_, err = decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.ECDHES, Enc: "C20P"}}, nil)
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+		require.NotErrorIs(t, err, jwt.ErrTokenRejected)
+	})
+
 	t.Run("NoRecipientKey", func(t *testing.T) {
 		t.Parallel()
 

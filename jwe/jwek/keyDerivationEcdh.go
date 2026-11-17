@@ -17,46 +17,27 @@ import (
 // ECDHKeyAgrPreset describes ECDH-ES key agreement for one content encryption algorithm. Use one of
 // the predefined presets.
 type ECDHKeyAgrPreset struct {
-	// Enc is the content encryption algorithm the derived key serves.
+	// Enc is the content encryption algorithm the derived key serves. The key takes the length the
+	// algorithm's jwe preset states.
 	Enc jwa.Enc
 	// Alg is ignored, since the header always names ECDH-ES.
 	Alg jwa.Alg
-	// KeyLen is the length of the derived content encryption key, in bytes.
-	KeyLen int
 }
 
 var (
 	// ECDHESA128CBC derives the 32-byte content encryption key of A128CBC-HS256.
-	ECDHESA128CBC = ECDHKeyAgrPreset{
-		Enc:    jwa.A128CBC,
-		KeyLen: 32,
-	}
+	ECDHESA128CBC = ECDHKeyAgrPreset{Enc: jwa.A128CBC}
 	// ECDHESA192CBC derives the 48-byte content encryption key of A192CBC-HS384.
-	ECDHESA192CBC = ECDHKeyAgrPreset{
-		Enc:    jwa.A192CBC,
-		KeyLen: 48,
-	}
+	ECDHESA192CBC = ECDHKeyAgrPreset{Enc: jwa.A192CBC}
 	// ECDHESA256CBC derives the 64-byte content encryption key of A256CBC-HS512.
-	ECDHESA256CBC = ECDHKeyAgrPreset{
-		Enc:    jwa.A256CBC,
-		KeyLen: 64,
-	}
+	ECDHESA256CBC = ECDHKeyAgrPreset{Enc: jwa.A256CBC}
 
 	// ECDHESA128GCM derives the 16-byte content encryption key of A128GCM.
-	ECDHESA128GCM = ECDHKeyAgrPreset{
-		Enc:    jwa.A128GCM,
-		KeyLen: 16,
-	}
+	ECDHESA128GCM = ECDHKeyAgrPreset{Enc: jwa.A128GCM}
 	// ECDHESA192GCM derives the 24-byte content encryption key of A192GCM.
-	ECDHESA192GCM = ECDHKeyAgrPreset{
-		Enc:    jwa.A192GCM,
-		KeyLen: 24,
-	}
+	ECDHESA192GCM = ECDHKeyAgrPreset{Enc: jwa.A192GCM}
 	// ECDHESA256GCM derives the 32-byte content encryption key of A256GCM.
-	ECDHESA256GCM = ECDHKeyAgrPreset{
-		Enc:    jwa.A256GCM,
-		KeyLen: 32,
-	}
+	ECDHESA256GCM = ECDHKeyAgrPreset{Enc: jwa.A256GCM}
 )
 
 // ECDHKeyAgrManagerConfig configures NewECDHKeyAgrManager.
@@ -80,13 +61,12 @@ type ECDHKeyAgrManagerConfig struct {
 type ECDHKeyAgrManager struct {
 	config ECDHKeyAgrManagerConfig
 
-	enc    jwa.Enc
-	keyLen int
+	enc jwa.Enc
 }
 
 // NewECDHKeyAgrManager creates a jwe.CEKManager that derives the content
 // encryption key with ECDH-ES using the Concat KDF. The preset selects the
-// content-encryption algorithm and derived-key length; use one of the
+// content encryption algorithm, which sets the derived key's length; use one of the
 // ECDHKeyAgrPreset values (for example ECDHESA128CBC).
 //
 // Pick the encryption whose name matches the preset: ECDHESA128CBC pairs with
@@ -97,7 +77,6 @@ func NewECDHKeyAgrManager(config *ECDHKeyAgrManagerConfig, preset ECDHKeyAgrPres
 	return &ECDHKeyAgrManager{
 		config: *config,
 		enc:    preset.Enc,
-		keyLen: preset.KeyLen,
 	}
 }
 
@@ -117,6 +96,11 @@ func (manager *ECDHKeyAgrManager) SetHeader(_ context.Context, header *jwa.JWH) 
 }
 
 func (manager *ECDHKeyAgrManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
+	size, err := cekSize(manager.enc)
+	if err != nil {
+		return nil, fmt.Errorf("(ECDHKeyAgrManager.ComputeCEK) %w", err)
+	}
+
 	z, err := ephemeralAgreement(header, manager.config.RecipientKey)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrManager.ComputeCEK) %w", err)
@@ -127,7 +111,7 @@ func (manager *ECDHKeyAgrManager) ComputeCEK(_ context.Context, header *jwa.JWH)
 		return nil, fmt.Errorf("(ECDHKeyAgrManager.ComputeCEK) %w", err)
 	}
 
-	cek, err := internal.Derive(z, string(manager.enc), manager.keyLen, apu, apv)
+	cek, err := internal.Derive(z, string(manager.enc), size, apu, apv)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrManager.ComputeCEK) derive key: %w", err)
 	}
@@ -151,8 +135,7 @@ type ECDHKeyAgrDecoderConfig struct {
 type ECDHKeyAgrDecoder struct {
 	config ECDHKeyAgrDecoderConfig
 
-	enc    jwa.Enc
-	keyLen int
+	enc jwa.Enc
 }
 
 // NewECDHKeyAgrDecoder creates a jwe.CEKDecoder that derives the content
@@ -168,7 +151,6 @@ func NewECDHKeyAgrDecoder(config *ECDHKeyAgrDecoderConfig, preset ECDHKeyAgrPres
 	return &ECDHKeyAgrDecoder{
 		config: *config,
 		enc:    preset.Enc,
-		keyLen: preset.KeyLen,
 	}
 }
 
@@ -194,6 +176,11 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 		)
 	}
 
+	size, err := cekSize(decoder.enc)
+	if err != nil {
+		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) %w", err)
+	}
+
 	z, err := recipientAgreement(header, decoder.config.RecipientKey)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) %w", err)
@@ -204,7 +191,7 @@ func (decoder *ECDHKeyAgrDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) %w: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
-	cek, err := internal.Derive(z, string(decoder.enc), decoder.keyLen, apu, apv)
+	cek, err := internal.Derive(z, string(decoder.enc), size, apu, apv)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrDecoder.ComputeCEK) derive key: %w", err)
 	}
