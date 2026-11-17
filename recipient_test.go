@@ -36,7 +36,7 @@ func TestRecipient(t *testing.T) {
 	errFoo := errors.New("foo")
 
 	producer := jwt.NewProducer(jwt.ProducerConfig{})
-	token, err := producer.Issue(t.Context(), map[string]interface{}{"foo": "bar"}, nil)
+	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
 	require.NoError(t, err)
 
 	tokenNotJSON, err := (&jwt.SignedTokenDecoder{}).Decode(token)
@@ -377,18 +377,14 @@ func TestRecipientConcurrentConsume(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for range 16 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			dst := map[string]any{}
 
 			err := recipient.Consume(t.Context(), token, &dst)
 			if err != nil {
 				t.Errorf("concurrent consume: %v", err)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
