@@ -85,9 +85,11 @@ func EncodeED[Key ed25519.PublicKey | ed25519.PrivateKey](key Key) *EDPayload {
 		}
 	}
 
-	privKey := any(key).(ed25519.PrivateKey)
+	// Key allows no other type, and Public returns no other one.
+	privKey, _ := any(key).(ed25519.PrivateKey)
+	derivedPub, _ := privKey.Public().(ed25519.PublicKey)
 
-	encodedPub := base64.RawURLEncoding.EncodeToString(privKey.Public().(ed25519.PublicKey))
+	encodedPub := base64.RawURLEncoding.EncodeToString(derivedPub)
 	encodedPriv := base64.RawURLEncoding.EncodeToString(privKey.Seed())
 
 	return &EDPayload{

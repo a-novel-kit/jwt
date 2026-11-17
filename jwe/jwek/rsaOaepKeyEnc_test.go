@@ -19,7 +19,7 @@ func TestRSAOAEPKeyEncManager(t *testing.T) {
 		t.Parallel()
 
 		// RFC 7518 §4.3: RSA-OAEP needs a key of 2048 bits or more, at both ends.
-		shortKey, err := rsa.GenerateKey(rand.Reader, 1024)
+		shortKey, err := rsa.GenerateKey(rand.Reader, 1024) //nolint:gosec // The weak key is under test.
 		require.NoError(t, err)
 
 		manager := jwek.NewRSAOAEPKeyEncManager(
@@ -40,7 +40,7 @@ func TestRSAOAEPKeyEncDecoder(t *testing.T) {
 		t.Parallel()
 
 		// RFC 7518 §4.3: RSA-OAEP needs a key of 2048 bits or more, at both ends.
-		shortKey, err := rsa.GenerateKey(rand.Reader, 1024)
+		shortKey, err := rsa.GenerateKey(rand.Reader, 1024) //nolint:gosec // The weak key is under test.
 		require.NoError(t, err)
 
 		decoder := jwek.NewRSAOAEPKeyEncDecoder(&jwek.RSAOAEPKeyEncDecoderConfig{EncKey: shortKey}, jwek.RSAOAEP256)

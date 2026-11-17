@@ -3,6 +3,7 @@ package jws_test
 import (
 	"context"
 	"encoding/json"
+	"io/fs"
 	"os"
 	"strings"
 	"testing"
@@ -224,7 +225,7 @@ func consume(t *testing.T, verifier jwt.RecipientPlugin, token string) error {
 func readVector(t *testing.T, name string, dst any) {
 	t.Helper()
 
-	raw, err := os.ReadFile("testdata/" + name)
+	raw, err := fs.ReadFile(os.DirFS("testdata"), name)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(raw, dst))
 }

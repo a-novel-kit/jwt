@@ -1,3 +1,5 @@
+# golib's .golangci.yaml is the Go-library baseline (happiness-day ruling ci R9). This file is a
+# copy of it, and each deviation carries its reason inline.
 version: "2"
 
 formatters:
@@ -10,8 +12,8 @@ formatters:
       sections:
         - standard # Standard section: captures all standard packages.
         - default # Default section: contains all imports that could not be matched to another section type.
+        - prefix(go.opentelemetry.io)
         - prefix(github.com/a-novel-kit)
-        - prefix(github.com/a-novel)
         - localmodule
 
 linters:
@@ -44,7 +46,7 @@ linters:
     - exptostd
     - fatcontext
     - forbidigo
-    #    - forcetypeassert
+    - forcetypeassert
     - funcorder
     #    - funlen
     #    - ginkgolinter
@@ -63,7 +65,7 @@ linters:
     - gomoddirectives
     #    - gomodguard
     - goprintffuncname
-    #    - gosec
+    - gosec
     #    - gosmopolitan
     - govet
     - grouper
@@ -94,7 +96,7 @@ linters:
     - nolintlint
     - nonamedreturns
     - nosprintfhostport
-    #    - paralleltest
+    - paralleltest
     - perfsprint
     - prealloc
     - predeclared
@@ -127,23 +129,26 @@ linters:
     #    - wrapcheck
     #    - wsl
     - wsl_v5
-    - zerologlint
+  #    - zerologlint
 
   settings:
     tagliatelle:
       case:
         rules:
+          # Deviation from golib's goCamel: JOSE fixes its member names in snake_case, such as
+          # "key_ops" (RFC 7517 §4.3) and "x5t#S256" (RFC 7515 §4.1.8), so the JSON tags follow them.
           json: goSnake
           yaml: goCamel
 
   exclusions:
     paths:
       - mocks
+      - proto
     rules:
       - path: (.+)_test.go
         linters:
+          - forcetypeassert
           - maintidx
           - gocognit
           - tagliatelle
           - goconst
-          - prealloc

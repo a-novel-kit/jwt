@@ -100,7 +100,7 @@ func EncodeEC[Key *ecdsa.PublicKey | *ecdsa.PrivateKey](key Key) (*ECPayload, er
 
 	var privateKey *ecdsa.PrivateKey
 	if !ok {
-		privateKey = any(key).(*ecdsa.PrivateKey)
+		privateKey, _ = any(key).(*ecdsa.PrivateKey) // Key allows no other type.
 		publicKey = &privateKey.PublicKey
 	}
 
