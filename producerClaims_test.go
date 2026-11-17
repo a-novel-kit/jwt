@@ -84,4 +84,29 @@ func TestNewBasicClaims(t *testing.T) {
 
 		require.Equal(t, customClaims, decodedCustom)
 	})
+
+	t.Run("Error/ReservedCustomFields", func(t *testing.T) {
+		t.Parallel()
+
+		registeredClaims := []string{"exp", "sub", "iss", "aud", "jti", "nbf", "iat"}
+
+		for _, name := range registeredClaims {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+
+				claims, err := jwt.NewBasicClaims(
+					map[string]any{name: "injected"},
+					jwt.ClaimsProducerConfig{TTL: time.Hour},
+				)
+				require.NoError(t, err)
+
+				// NewBasicClaims only stores the payload; the merge happens when the
+				// claims are encoded, which is where every earlier check has already
+				// finished.
+				_, err = json.Marshal(claims)
+				require.ErrorIs(t, err, jwa.ErrReservedMember)
+				require.ErrorContains(t, err, name)
+			})
+		}
+	})
 }

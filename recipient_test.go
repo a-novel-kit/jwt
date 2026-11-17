@@ -359,64 +359,49 @@ func TestRecipient(t *testing.T) {
 			require.Equal(t, testCase.expect, testCase.dst)
 		})
 	}
-}
 
-func TestRecipientConcurrentConsume(t *testing.T) {
-	t.Parallel()
+	t.Run("Error/CaseVariantHeader", func(t *testing.T) {
+		t.Parallel()
 
-	producer := jwt.NewProducer(jwt.ProducerConfig{})
-	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
-	require.NoError(t, err)
+		// A verifier routes on alg, and a parser that matches names exactly reads HS256 from this
+		// header. encoding/json alone would decode alg as none.
+		header := encode([]byte(`{"alg":"HS256","ALG":"none"}`))
+		payload := encode([]byte(`{"role":"admin"}`))
 
-	// A Recipient with a defaulted deserializer is shared across goroutines; the default is resolved
-	// at construction, so nothing writes config here.
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()},
+		recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: unsecured})
+
+		var claims map[string]any
+
+		err := recipient.Consume(t.Context(), header+"."+payload, &claims)
+		require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+		require.ErrorIs(t, err, jwa.ErrReservedMember)
 	})
 
-	var wg sync.WaitGroup
+	t.Run("Success/Concurrent", func(t *testing.T) {
+		t.Parallel()
 
-	for range 16 {
-		wg.Go(func() {
-			dst := map[string]any{}
+		// A Recipient with a defaulted deserializer is shared across goroutines; the default is
+		// resolved at construction, so nothing writes config here.
+		recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: unsecured})
 
-			err := recipient.Consume(t.Context(), token, &dst)
-			if err != nil {
-				t.Errorf("concurrent consume: %v", err)
-			}
-		})
-	}
+		var wg sync.WaitGroup
 
-	wg.Wait()
+		for range 16 {
+			wg.Go(func() {
+				dst := map[string]any{}
+
+				err := recipient.Consume(t.Context(), token, &dst)
+				if err != nil {
+					t.Errorf("concurrent consume: %v", err)
+				}
+			})
+		}
+
+		wg.Wait()
+	})
 }
 
 func TestRecipientDecodeUnverified(t *testing.T) {
-	t.Parallel()
-
-	// The signature of this token never verifies, and DecodeUnverified reads its claims anyway.
-	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256"}`))
-	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"alice","jti":"abc"}`))
-	token := header + "." + payload + ".not-a-real-signature"
-
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{})
-
-	var claims map[string]any
-
-	require.NoError(t, recipient.DecodeUnverified(token, &claims))
-	require.Equal(t, map[string]any{"sub": "alice", "jti": "abc"}, claims)
-}
-
-func TestRecipientDecodeUnverifiedTooLarge(t *testing.T) {
-	t.Parallel()
-
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{MaxTokenBytes: 8})
-
-	var claims map[string]any
-
-	require.ErrorIs(t, recipient.DecodeUnverified("aaaa.bbbb.cccc", &claims), jwt.ErrTokenTooLarge)
-}
-
-func TestRecipientDecodeUnverifiedRejects(t *testing.T) {
 	t.Parallel()
 
 	b64 := func(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
@@ -439,7 +424,7 @@ func TestRecipientDecodeUnverifiedRejects(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
+		t.Run("Error/"+testCase.name, func(t *testing.T) {
 			t.Parallel()
 
 			recipient := jwt.NewRecipient(jwt.RecipientConfig{})
@@ -454,4 +439,28 @@ func TestRecipientDecodeUnverifiedRejects(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
+
+		// The signature of this token never verifies, and DecodeUnverified reads its claims anyway.
+		token := goodHeader + "." + b64(`{"sub":"alice","jti":"abc"}`) + ".not-a-real-signature"
+
+		recipient := jwt.NewRecipient(jwt.RecipientConfig{})
+
+		var claims map[string]any
+
+		require.NoError(t, recipient.DecodeUnverified(token, &claims))
+		require.Equal(t, map[string]any{"sub": "alice", "jti": "abc"}, claims)
+	})
+
+	t.Run("Error/TooLarge", func(t *testing.T) {
+		t.Parallel()
+
+		recipient := jwt.NewRecipient(jwt.RecipientConfig{MaxTokenBytes: 8})
+
+		var claims map[string]any
+
+		require.ErrorIs(t, recipient.DecodeUnverified("aaaa.bbbb.cccc", &claims), jwt.ErrTokenTooLarge)
+	})
 }
