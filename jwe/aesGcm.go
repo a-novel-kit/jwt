@@ -5,7 +5,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"slices"
 
@@ -51,120 +50,44 @@ type AESGCMEncryptionConfig struct {
 // AESGCMEncryption is a jwt.ProducerPlugin that encrypts a token payload with
 // AES-GCM. Create it with NewAESGCMEncryption.
 type AESGCMEncryption struct {
-	cekManager     CEKManager
-	additionalData []byte
-
-	enc       jwa.Enc
-	keyLength int
+	contentEncryption
 }
 
 // NewAESGCMEncryption creates a jwt.ProducerPlugin that encrypts a token payload
 // with AES-GCM. Pass one of the package's AESGCMPreset values to select the key size.
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-5.3
 func NewAESGCMEncryption(config *AESGCMEncryptionConfig, preset AESGCMPreset) *AESGCMEncryption {
 	return &AESGCMEncryption{
-		cekManager:     config.CEKManager,
-		additionalData: config.AdditionalData,
-		enc:            preset.Enc,
-		keyLength:      preset.KeyLen,
+		contentEncryption: contentEncryption{
+			cekManager:     config.CEKManager,
+			additionalData: config.AdditionalData,
+			enc:            preset.Enc,
+			cekLen:         preset.KeyLen,
+		},
 	}
-}
-
-func (enc *AESGCMEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	if header.Enc != "" {
-		return nil, fmt.Errorf("(AESGCMEncryption.Header) %w: enc field already set", jwt.ErrConflictingHeader)
-	}
-
-	var err error
-
-	header, err = enc.cekManager.SetHeader(ctx, header)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMEncryption.Header) set key derivation header: %w", err)
-	}
-
-	// A CEKManager may pin the token to one enc, which this plugin must then match.
-	if header.Enc != "" && header.Enc != enc.enc {
-		return nil, fmt.Errorf(
-			"(AESGCMEncryption.Header) %w: cek manager is incompatible with the current encryption algorithm: "+
-				"expected %s, got %s",
-			jwt.ErrConflictingHeader, enc.enc, header.Enc,
-		)
-	}
-
-	header.Enc = enc.enc
-
-	return header, nil
 }
 
 func (enc *AESGCMEncryption) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	token, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
+	return enc.encrypt(ctx, header, rawToken, sealGCM)
+}
+
+// sealGCM encrypts plainText under a fresh random 96-bit nonce (RFC 7518 §5.3).
+func sealGCM(cek, plainText, aadBytes []byte) ([]byte, []byte, []byte, error) {
+	aesgcm, err := newGCM(cek)
 	if err != nil {
-		return "", fmt.Errorf("(AESGCMEncryption.Transform) split token: %w", err)
+		return nil, nil, nil, err
 	}
 
-	plainText, err := base64.RawURLEncoding.DecodeString(token.Payload)
-	if err != nil {
-		return "", fmt.Errorf("(AESGCMEncryption.Transform) decode payload: %w", err)
-	}
-
-	secret, err := enc.getCEK(ctx, header)
-	if err != nil {
-		return "", fmt.Errorf("(AESGCMEncryption.Transform) get secret key: %w", err)
-	}
-
-	encryptedSecret, err := enc.cekManager.EncryptCEK(ctx, header, secret)
-	if err != nil {
-		return "", fmt.Errorf("(AESGCMEncryption.Transform) encrypt key: %w", err)
-	}
-
-	encodedHeader, err := encodeProtectedHeader(header)
-	if err != nil {
-		return "", fmt.Errorf("(AESGCMEncryption.Transform) %w", err)
-	}
-
-	// A fresh random 96-bit nonce, the length NewGCM expects by default.
-	iv := make([]byte, 12)
+	iv := make([]byte, aesgcm.NonceSize())
 	_, _ = rand.Read(iv) // never fails: it crashes the program instead
-
-	block, err := aes.NewCipher(secret)
-	if err != nil {
-		return "", fmt.Errorf("(AESGCMEncryption.Transform) create cipher: %w", err)
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", fmt.Errorf("(AESGCMEncryption.Transform) create gcm: %w", err)
-	}
 
 	// Seal appends the authentication tag to the ciphertext, and JWE carries the two in separate
 	// segments.
-	ciphertextAndTag := aesgcm.Seal(nil, iv, plainText, aad(encodedHeader, enc.additionalData))
-	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
-	cipherText := ciphertextAndTag[:cipherLen]
-	tag := ciphertextAndTag[cipherLen:]
+	sealed := aesgcm.Seal(nil, iv, plainText, aadBytes)
+	cipherLen := len(sealed) - aesgcm.Overhead()
 
-	return jwt.EncryptedToken{
-		Header:     encodedHeader,
-		EncKey:     base64.RawURLEncoding.EncodeToString(encryptedSecret),
-		IV:         base64.RawURLEncoding.EncodeToString(iv),
-		CipherText: base64.RawURLEncoding.EncodeToString(cipherText),
-		Tag:        base64.RawURLEncoding.EncodeToString(tag),
-	}.String(), nil
-}
-
-func (enc *AESGCMEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byte, error) {
-	secret, err := enc.cekManager.ComputeCEK(ctx, header)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMEncryption.getCEK) compute cek: %w", err)
-	}
-
-	if len(secret) != enc.keyLength {
-		return nil, fmt.Errorf(
-			"(AESGCMEncryption.getCEK) %w: cek has length %d, expected %d",
-			ErrInvalidSecret, len(secret), enc.keyLength,
-		)
-	}
-
-	return secret, nil
+	return iv, sealed[:cipherLen], sealed[cipherLen:], nil
 }
 
 // AESGCMDecryptionConfig configures NewAESGCMDecryption.
@@ -178,97 +101,69 @@ type AESGCMDecryptionConfig struct {
 // AESGCMDecryption is a jwt.RecipientPlugin that decrypts a token encrypted with
 // AES-GCM. Create it with NewAESGCMDecryption.
 type AESGCMDecryption struct {
-	cekDecoder     CEKDecoder
-	additionalData []byte
-
-	enc       jwa.Enc
-	keyLength int
+	contentDecryption
 }
 
 // NewAESGCMDecryption creates a jwt.RecipientPlugin that decrypts a token encrypted
 // with AES-GCM. Pass one of the package's AESGCMPreset values to select the key size;
 // it must match the one used at encryption.
+//
+// https://datatracker.ietf.org/doc/html/rfc7518#section-5.3
 func NewAESGCMDecryption(config *AESGCMDecryptionConfig, preset AESGCMPreset) *AESGCMDecryption {
 	return &AESGCMDecryption{
-		cekDecoder:     config.CEKDecoder,
-		additionalData: config.AdditionalData,
-		enc:            preset.Enc,
-		keyLength:      preset.KeyLen,
+		contentDecryption: contentDecryption{
+			cekDecoder:     config.CEKDecoder,
+			additionalData: config.AdditionalData,
+			enc:            preset.Enc,
+			cekLen:         preset.KeyLen,
+		},
 	}
 }
 
 func (dec *AESGCMDecryption) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	if header.Enc != dec.enc {
-		return nil, fmt.Errorf(
-			"(AESGCMDecryption.Transform) %w: invalid enc %s, expected %s",
-			jwt.ErrMismatchRecipientPlugin, header.Enc, dec.enc,
-		)
-	}
+	return dec.decrypt(ctx, header, rawToken, openGCM)
+}
 
-	// This package performs no decompression, so it refuses a compressed payload.
-	if header.Zip != "" {
-		return nil, fmt.Errorf(
-			"(AESGCMDecryption.Transform) %w: unsupported zip %s", jwt.ErrUnsupportedTokenFormat, header.Zip,
-		)
-	}
-
-	token, err := (&jwt.EncryptedTokenDecoder{}).Decode(rawToken)
+// openGCM decrypts the token's ciphertext and checks its tag (RFC 7518 §5.3).
+func openGCM(cek []byte, segments *encryptedSegments, aadBytes []byte) ([]byte, error) {
+	aesgcm, err := newGCM(cek)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) split token: %w", err)
-	}
-
-	segments, err := decodeSegments(token)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w", err)
-	}
-
-	cek, err := dec.cekDecoder.ComputeCEK(ctx, header, segments.encryptedKey)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) get secret key: %w", err)
-	}
-
-	if len(cek) != dec.keyLength {
-		return nil, fmt.Errorf(
-			"(AESGCMDecryption.Transform) %w: cek has length %d, expected %d",
-			ErrInvalidSecret, len(cek), dec.keyLength,
-		)
-	}
-
-	block, err := aes.NewCipher(cek)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) create cipher: %w", err)
-	}
-
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) create gcm: %w", err)
+		return nil, err
 	}
 
 	// The IV is attacker-supplied, and gcm.Open panics on a nonce of the wrong length.
 	if len(segments.iv) != aesgcm.NonceSize() {
-		return nil, fmt.Errorf(
-			"(AESGCMDecryption.Transform) %w: iv length %d, expected %d",
-			ErrInvalidToken, len(segments.iv), aesgcm.NonceSize(),
-		)
+		return nil, fmt.Errorf("%w: iv length %d, expected %d", ErrInvalidToken, len(segments.iv), aesgcm.NonceSize())
 	}
 
 	// A tag of the wrong length makes the token malformed, which ErrInvalidToken reports apart from an
 	// authentication failure.
 	if len(segments.tag) != aesgcm.Overhead() {
-		return nil, fmt.Errorf(
-			"(AESGCMDecryption.Transform) %w: tag length %d, expected %d",
-			ErrInvalidToken, len(segments.tag), aesgcm.Overhead(),
-		)
+		return nil, fmt.Errorf("%w: tag length %d, expected %d", ErrInvalidToken, len(segments.tag), aesgcm.Overhead())
 	}
 
-	plainText, err := aesgcm.Open(
-		nil, segments.iv, slices.Concat(segments.cipherText, segments.tag), aad(token.Header, dec.additionalData),
-	)
+	plainText, err := aesgcm.Open(nil, segments.iv, slices.Concat(segments.cipherText, segments.tag), aadBytes)
 	if err != nil {
 		// An authenticated-decryption failure is the GCM analogue of a bad HMAC tag, so it surfaces
 		// the same sentinel as the CBC path.
-		return nil, fmt.Errorf("(AESGCMDecryption.Transform) %w: %w: %w", jwt.ErrTokenRejected, ErrInvalidSecret, err)
+		return nil, fmt.Errorf("%w: %w: %w", jwt.ErrTokenRejected, ErrInvalidSecret, err)
 	}
 
 	return plainText, nil
+}
+
+// newGCM returns the AES-GCM cipher keyed with cek, with the 96-bit nonce and 128-bit tag RFC 7518
+// §5.3 fixes.
+func newGCM(cek []byte) (cipher.AEAD, error) {
+	block, err := aes.NewCipher(cek)
+	if err != nil {
+		return nil, fmt.Errorf("create cipher: %w", err)
+	}
+
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("create gcm: %w", err)
+	}
+
+	return aesgcm, nil
 }

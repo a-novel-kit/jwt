@@ -7,7 +7,6 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 
@@ -74,14 +73,9 @@ type AESCBCEncryptionConfig struct {
 // AESCBCEncryption is a jwt.ProducerPlugin that encrypts a token payload with
 // AES_CBC_HMAC_SHA2. Create it with NewAESCBCEncryption.
 type AESCBCEncryption struct {
-	cekManager     CEKManager
-	additionalData []byte
+	contentEncryption
 
-	enc          jwa.Enc
-	hash         crypto.Hash
-	keyLength    int
-	macKeyLength int
-	tagLength    int
+	preset AESCBCPreset
 }
 
 // NewAESCBCEncryption creates a jwt.ProducerPlugin that encrypts a token payload
@@ -91,114 +85,40 @@ type AESCBCEncryption struct {
 // https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
 func NewAESCBCEncryption(config *AESCBCEncryptionConfig, preset AESCBCPreset) *AESCBCEncryption {
 	return &AESCBCEncryption{
-		cekManager:     config.CEKManager,
-		additionalData: config.AdditionalData,
-		enc:            preset.Enc,
-		hash:           preset.Hash,
-		keyLength:      preset.EncKeyLen,
-		macKeyLength:   preset.MACKeyLen,
-		tagLength:      preset.TagLength,
+		contentEncryption: contentEncryption{
+			cekManager:     config.CEKManager,
+			additionalData: config.AdditionalData,
+			enc:            preset.Enc,
+			cekLen:         preset.MACKeyLen + preset.EncKeyLen,
+		},
+		preset: preset,
 	}
-}
-
-func (enc *AESCBCEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	if header.Enc != "" {
-		return nil, fmt.Errorf("(AESCBCEncryption.Header) %w: enc field already set", jwt.ErrConflictingHeader)
-	}
-
-	var err error
-
-	header, err = enc.cekManager.SetHeader(ctx, header)
-	if err != nil {
-		return nil, fmt.Errorf("(AESCBCEncryption.Header) set key derivation header: %w", err)
-	}
-
-	// A CEKManager may pin the token to one enc, which this plugin must then match.
-	if header.Enc != "" && header.Enc != enc.enc {
-		return nil, fmt.Errorf(
-			"(AESCBCEncryption.Header) %w: cek manager is incompatible with the current encryption algorithm: "+
-				"expected %s, got %s",
-			jwt.ErrConflictingHeader, enc.enc, header.Enc,
-		)
-	}
-
-	header.Enc = enc.enc
-
-	return header, nil
 }
 
 func (enc *AESCBCEncryption) Transform(ctx context.Context, header *jwa.JWH, rawToken string) (string, error) {
-	token, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
-	if err != nil {
-		return "", fmt.Errorf("(AESCBCEncryption.Transform) split token: %w", err)
-	}
+	return enc.encrypt(ctx, header, rawToken, enc.seal)
+}
 
-	plainText, err := base64.RawURLEncoding.DecodeString(token.Payload)
-	if err != nil {
-		return "", fmt.Errorf("(AESCBCEncryption.Transform) decode payload: %w", err)
-	}
-
-	secret, err := enc.getCEK(ctx, header)
-	if err != nil {
-		return "", fmt.Errorf("(AESCBCEncryption.Transform) get secret key: %w", err)
-	}
-
-	encryptedSecret, err := enc.cekManager.EncryptCEK(ctx, header, secret)
-	if err != nil {
-		return "", fmt.Errorf("(AESCBCEncryption.Transform) encrypt key: %w", err)
-	}
-
-	encodedHeader, err := encodeProtectedHeader(header)
-	if err != nil {
-		return "", fmt.Errorf("(AESCBCEncryption.Transform) %w", err)
-	}
-
-	// A fresh random 128-bit IV, unique per encryption.
-	iv := make([]byte, 16)
-	_, _ = rand.Read(iv) // never fails: it crashes the program instead
-
+// seal encrypts plainText under a fresh random 128-bit IV and computes its tag (RFC 7518 §5.2.2.1).
+func (enc *AESCBCEncryption) seal(cek, plainText, aadBytes []byte) ([]byte, []byte, []byte, error) {
 	// K splits into two subkeys: MAC_KEY is its leading octets, ENC_KEY its trailing
 	// octets. The MAC key comes first, the reverse of the order the name suggests in
 	// "AES_CBC_HMAC_SHA2".
-	encKey := secret[enc.macKeyLength:]
-	macKey := secret[:enc.macKeyLength]
+	macKey, encKey := cek[:enc.preset.MACKeyLen], cek[enc.preset.MACKeyLen:]
 
 	block, err := aes.NewCipher(encKey)
 	if err != nil {
-		return "", fmt.Errorf("(AESCBCEncryption.Transform) new cipher: %w", err)
+		return nil, nil, nil, fmt.Errorf("new cipher: %w", err)
 	}
 
-	blockMode := cipher.NewCBCEncrypter(block, iv)
+	iv := make([]byte, aes.BlockSize)
+	_, _ = rand.Read(iv) // never fails: it crashes the program instead
+
 	// CBC encrypts in place, over the fresh slice the padding returns.
-	cipherText := internal.PKCS7Padding(plainText, block.BlockSize())
-	blockMode.CryptBlocks(cipherText, cipherText)
+	cipherText := internal.PKCS7Padding(plainText, aes.BlockSize)
+	cipher.NewCBCEncrypter(block, iv).CryptBlocks(cipherText, cipherText)
 
-	aadBytes := aad(encodedHeader, enc.additionalData)
-	tag := cbcTag(enc.hash, macKey, aadBytes, iv, cipherText, enc.tagLength)
-
-	return jwt.EncryptedToken{
-		Header:     encodedHeader,
-		EncKey:     base64.RawURLEncoding.EncodeToString(encryptedSecret),
-		IV:         base64.RawURLEncoding.EncodeToString(iv),
-		CipherText: base64.RawURLEncoding.EncodeToString(cipherText),
-		Tag:        base64.RawURLEncoding.EncodeToString(tag),
-	}.String(), nil
-}
-
-func (enc *AESCBCEncryption) getCEK(ctx context.Context, header *jwa.JWH) ([]byte, error) {
-	secret, err := enc.cekManager.ComputeCEK(ctx, header)
-	if err != nil {
-		return nil, fmt.Errorf("(AESCBCEncryption.getCEK) compute cek: %w", err)
-	}
-
-	if len(secret) != enc.keyLength+enc.macKeyLength {
-		return nil, fmt.Errorf(
-			"(AESCBCEncryption.getCEK) %w: cek has length %d, expected %d",
-			ErrInvalidSecret, len(secret), enc.keyLength+enc.macKeyLength,
-		)
-	}
-
-	return secret, nil
+	return iv, cipherText, cbcTag(enc.preset.Hash, macKey, aadBytes, iv, cipherText, enc.preset.TagLength), nil
 }
 
 // AESCBCDecryptionConfig configures NewAESCBCDecryption.
@@ -212,14 +132,9 @@ type AESCBCDecryptionConfig struct {
 // AESCBCDecryption is a jwt.RecipientPlugin that decrypts a token encrypted with
 // AES_CBC_HMAC_SHA2. Create it with NewAESCBCDecryption.
 type AESCBCDecryption struct {
-	cekDecoder     CEKDecoder
-	additionalData []byte
+	contentDecryption
 
-	enc          jwa.Enc
-	hash         crypto.Hash
-	keyLength    int
-	macKeyLength int
-	tagLength    int
+	preset AESCBCPreset
 }
 
 // NewAESCBCDecryption creates a jwt.RecipientPlugin that decrypts a token encrypted
@@ -229,97 +144,56 @@ type AESCBCDecryption struct {
 // https://datatracker.ietf.org/doc/html/rfc7518#section-5.2
 func NewAESCBCDecryption(config *AESCBCDecryptionConfig, preset AESCBCPreset) *AESCBCDecryption {
 	return &AESCBCDecryption{
-		cekDecoder:     config.CEKDecoder,
-		additionalData: config.AdditionalData,
-		enc:            preset.Enc,
-		hash:           preset.Hash,
-		keyLength:      preset.EncKeyLen,
-		macKeyLength:   preset.MACKeyLen,
-		tagLength:      preset.TagLength,
+		contentDecryption: contentDecryption{
+			cekDecoder:     config.CEKDecoder,
+			additionalData: config.AdditionalData,
+			enc:            preset.Enc,
+			cekLen:         preset.MACKeyLen + preset.EncKeyLen,
+		},
+		preset: preset,
 	}
 }
 
 func (dec *AESCBCDecryption) Transform(ctx context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
-	if header.Enc != dec.enc {
-		return nil, fmt.Errorf(
-			"(AESCBCDecryption.Transform) %w: invalid enc %s, expected %s",
-			jwt.ErrMismatchRecipientPlugin, header.Enc, dec.enc,
-		)
-	}
+	return dec.decrypt(ctx, header, rawToken, dec.open)
+}
 
-	// This package performs no decompression, so it refuses a compressed payload.
-	if header.Zip != "" {
-		return nil, fmt.Errorf(
-			"(AESCBCDecryption.Transform) %w: unsupported zip %s", jwt.ErrUnsupportedTokenFormat, header.Zip,
-		)
-	}
-
-	token, err := (&jwt.EncryptedTokenDecoder{}).Decode(rawToken)
-	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) split token: %w", err)
-	}
-
-	segments, err := decodeSegments(token)
-	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w", err)
-	}
-
-	cek, err := dec.cekDecoder.ComputeCEK(ctx, header, segments.encryptedKey)
-	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) get secret key: %w", err)
-	}
-
-	if len(cek) != dec.keyLength+dec.macKeyLength {
-		return nil, fmt.Errorf(
-			"(AESCBCDecryption.Transform) %w: cek has length %d, expected %d",
-			ErrInvalidSecret, len(cek), dec.keyLength+dec.macKeyLength,
-		)
-	}
-
+// open checks the token's tag, then decrypts and unpads its ciphertext (RFC 7518 §5.2.2.2).
+func (dec *AESCBCDecryption) open(cek []byte, segments *encryptedSegments, aadBytes []byte) ([]byte, error) {
 	// The IV and ciphertext are attacker-supplied, and the CBC decrypter panics unless the IV is one
 	// block and the ciphertext whole blocks. A sender who knows the CEK passes the tag check with
 	// either, so the lengths are checked first.
 	if len(segments.iv) != aes.BlockSize {
-		return nil, fmt.Errorf(
-			"(AESCBCDecryption.Transform) %w: iv length %d, expected %d",
-			ErrInvalidToken, len(segments.iv), aes.BlockSize,
-		)
+		return nil, fmt.Errorf("%w: iv length %d, expected %d", ErrInvalidToken, len(segments.iv), aes.BlockSize)
 	}
 
 	if len(segments.cipherText)%aes.BlockSize != 0 {
 		return nil, fmt.Errorf(
-			"(AESCBCDecryption.Transform) %w: cipher text length %d is not a multiple of %d",
-			ErrInvalidToken, len(segments.cipherText), aes.BlockSize,
+			"%w: cipher text length %d is not a multiple of %d", ErrInvalidToken, len(segments.cipherText), aes.BlockSize,
 		)
 	}
 
 	// MAC_KEY leads K and ENC_KEY trails it, as at encryption.
-	encKey := cek[dec.macKeyLength:]
-	macKey := cek[:dec.macKeyLength]
+	macKey, encKey := cek[:dec.preset.MACKeyLen], cek[dec.preset.MACKeyLen:]
 
 	// The tag is checked before the ciphertext is touched. hmac.Equal compares in constant time, so
 	// timing leaks nothing about the tag.
-	aadBytes := aad(token.Header, dec.additionalData)
-
-	expect := cbcTag(dec.hash, macKey, aadBytes, segments.iv, segments.cipherText, dec.tagLength)
+	expect := cbcTag(dec.preset.Hash, macKey, aadBytes, segments.iv, segments.cipherText, dec.preset.TagLength)
 	if !hmac.Equal(segments.tag, expect) {
-		return nil, fmt.Errorf(
-			"(AESCBCDecryption.Transform) %w: %w: auth tag check failed", jwt.ErrTokenRejected, ErrInvalidSecret,
-		)
+		return nil, fmt.Errorf("%w: %w: auth tag check failed", jwt.ErrTokenRejected, ErrInvalidSecret)
 	}
 
 	block, err := aes.NewCipher(encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) new cipher: %w", err)
+		return nil, fmt.Errorf("new cipher: %w", err)
 	}
 
 	// The decoded ciphertext belongs to this call, so CBC decrypts it in place.
-	blockMode := cipher.NewCBCDecrypter(block, segments.iv)
-	blockMode.CryptBlocks(segments.cipherText, segments.cipherText)
+	cipher.NewCBCDecrypter(block, segments.iv).CryptBlocks(segments.cipherText, segments.cipherText)
 
 	plainText, err := internal.PKCS7UnPadding(segments.cipherText)
 	if err != nil {
-		return nil, fmt.Errorf("(AESCBCDecryption.Transform) %w: %w", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
 
 	return plainText, nil
