@@ -15,7 +15,7 @@ jobs:
     outputs:
       artifact-id: ${{ steps.test.outputs.artifact-id }}
     steps:
-      - uses: a-novel-kit/workflows/go-actions/test-go@v1.87.0
+      - uses: a-novel-kit/workflows/go-actions/test-go@v1.87.1
         id: test
         with:
           modfile: gotestsum.mod
@@ -38,14 +38,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/go-actions/lint-go@v1.87.0
+      - uses: a-novel-kit/workflows/go-actions/lint-go@v1.87.1
 
   lint-js:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/node-actions/lint-node@v1.87.0
+      - uses: a-novel-kit/workflows/node-actions/lint-node@v1.87.1
         with:
           lint_action: "lint:prettier"
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -55,21 +55,21 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/generic-actions/lint-shell@v1.87.0
+      - uses: a-novel-kit/workflows/generic-actions/lint-shell@v1.87.1
 
   scan-secrets:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/security-actions/scan-secrets@v1.87.0
+      - uses: a-novel-kit/workflows/security-actions/scan-secrets@v1.87.1
 
   lint-workflows:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/security-actions/lint-workflows@v1.87.0
+      - uses: a-novel-kit/workflows/security-actions/lint-workflows@v1.87.1
 
   report-codecov:
     runs-on: ubuntu-latest
@@ -77,7 +77,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: a-novel-kit/workflows/generic-actions/codecov@v1.87.0
+      - uses: a-novel-kit/workflows/generic-actions/codecov@v1.87.1
         with:
           codecov_token: ${{ secrets.CODECOV_TOKEN }}
           coverage_files: coverage.txt
