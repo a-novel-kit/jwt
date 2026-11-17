@@ -18,6 +18,11 @@ var ErrInvalidSignature = fmt.Errorf("%w: invalid signature", jwt.ErrTokenReject
 // signing scheme, such as an RSA plugin given an algorithm that is neither RS* nor PS*.
 var ErrUnsupportedAlgorithm = errors.New("unsupported algorithm")
 
+// signatureEncoding decodes a signature segment. Strict refuses unused trailing bits that are not
+// zero, so a signature has a single encoding and a token verifies only in the form it was issued
+// in. The signature segment is the one part of a token its own signature does not cover.
+var signatureEncoding = base64.RawURLEncoding.Strict()
+
 // signHeader sets alg on a header that names no algorithm yet. keyErr is the signer's key check: a
 // signer refuses to label a token it cannot sign.
 func signHeader(header *jwa.JWH, alg jwa.Alg, keyErr error) (*jwa.JWH, error) {
@@ -83,7 +88,7 @@ func verifyToken(
 	// The signing input is the token up to the dot before its signature.
 	signingInput := []byte(rawToken[:len(rawToken)-len(token.Signature)-1])
 
-	signature, err := base64.RawURLEncoding.DecodeString(token.Signature)
+	signature, err := signatureEncoding.DecodeString(token.Signature)
 	if err != nil {
 		return nil, fmt.Errorf("%w: decode signature: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}

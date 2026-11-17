@@ -96,6 +96,30 @@ func TestHMAC(t *testing.T) {
 				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 			})
 
+			// A lenient decoder ignores the unused trailing bits of the last character, so setting one
+			// gives a second token string that decodes to the same signature.
+			t.Run("NonCanonicalSignature", func(t *testing.T) {
+				t.Parallel()
+
+				parts := strings.Split(token, ".")
+
+				variant, ok := nonCanonical(parts[2])
+				if !ok {
+					t.Skip("a signature of a multiple of 3 bytes leaves no unused bit")
+				}
+
+				original, err := base64.RawURLEncoding.DecodeString(parts[2])
+				require.NoError(t, err)
+				lenient, err := base64.RawURLEncoding.DecodeString(variant)
+				require.NoError(t, err)
+				require.Equal(t, original, lenient)
+
+				var recipientClaims map[string]any
+
+				err = recipient.Consume(t.Context(), strings.Join(append(parts[:2:2], variant), "."), &recipientClaims)
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+			})
+
 			t.Run("InvalidSignature", func(t *testing.T) {
 				t.Parallel()
 
@@ -320,4 +344,19 @@ func TestSourcedHMACSignerEmptySource(t *testing.T) {
 
 	_, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
 	require.Error(t, err)
+}
+
+// nonCanonical returns segment with an unused trailing bit set, which a lenient base64url decoder
+// reads as the same bytes. It reports false when the encoded bytes leave no unused bit, as a
+// multiple of 3 bytes does.
+func nonCanonical(segment string) (string, bool) {
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+	if len(segment)%4 == 0 {
+		return "", false
+	}
+
+	last := strings.IndexByte(alphabet, segment[len(segment)-1])
+
+	return segment[:len(segment)-1] + string(alphabet[last^1]), true
 }
