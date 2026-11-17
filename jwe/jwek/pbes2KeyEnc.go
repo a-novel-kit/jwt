@@ -155,11 +155,7 @@ func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JW
 	// A fresh salt per token widens the key space, so one password never derives the
 	// same wrap key twice. It travels in the header for the recipient.
 	salt := make([]byte, manager.saltSize)
-
-	_, err := rand.Read(salt)
-	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWManager.SetHeader) generate salt: %w", err)
-	}
+	_, _ = rand.Read(salt) // never fails: it crashes the program instead
 
 	header.JWHPBES2 = jwa.JWHPBES2{
 		P2S: base64.RawURLEncoding.EncodeToString(salt),

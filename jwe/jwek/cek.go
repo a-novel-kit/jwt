@@ -39,11 +39,7 @@ func (freshCEK) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
 	}
 
 	cek := make([]byte, size)
-
-	_, err := rand.Read(cek)
-	if err != nil {
-		return nil, fmt.Errorf("(freshCEK.ComputeCEK) generate cek: %w", err)
-	}
+	_, _ = rand.Read(cek) // never fails: it crashes the program instead
 
 	return cek, nil
 }

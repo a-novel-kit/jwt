@@ -177,13 +177,6 @@ func (decoder *ECDHKeyAgrKWDecoder) ComputeCEK(_ context.Context, header *jwa.JW
 		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) derive key: %w", err)
 	}
 
-	if len(kek) != decoder.keyLen {
-		return nil, fmt.Errorf(
-			"(ECDHKeyAgrKWDecoder.ComputeCEK) %w: derived key length is %d, expected %d",
-			jwt.ErrUnsupportedTokenFormat, len(kek), decoder.keyLen,
-		)
-	}
-
 	cek, err := internal.KeyUnwrap(kek, encKey)
 	if err != nil {
 		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) %w: unwrap key: %w", jwt.ErrTokenRejected, err)
