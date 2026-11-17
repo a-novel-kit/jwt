@@ -103,7 +103,7 @@ var (
 func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey], error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, preset.KeySize)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateRSA) generate private key: %w", err)
+		return nil, nil, fmt.Errorf("generate private key: %w", err)
 	}
 
 	publicKey := &privateKey.PublicKey
@@ -113,7 +113,7 @@ func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey],
 		publicKey, serializers.EncodeRSA(publicKey), rsaHeader(preset, preset.PublicKeyOps),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateRSA) %w", err)
+		return nil, nil, err
 	}
 
 	return private, public, nil
@@ -129,7 +129,7 @@ func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[
 		source, rsaHeader(preset, preset.PrivateKeyOps), rsaHeader(preset, preset.PublicKeyOps), serializers.DecodeRSA,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeRSA) %w", err)
+		return nil, nil, err
 	}
 
 	return privateKey, publicKey, nil

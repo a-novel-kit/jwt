@@ -42,19 +42,19 @@ func NewUnsecuredRecipientPlugin() *UnsecuredRecipientPlugin {
 func (plugin *UnsecuredRecipientPlugin) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
 	if header.Alg != jwa.None {
 		return nil, fmt.Errorf(
-			"(UnsecuredRecipientPlugin.Transform) %w: invalid algorithm %s, expected %s",
+			"%w: invalid algorithm %s, expected %s",
 			ErrMismatchRecipientPlugin, header.Alg, jwa.None,
 		)
 	}
 
 	token, err := (&RawTokenDecoder{}).Decode(strings.TrimSuffix(rawToken, "."))
 	if err != nil {
-		return nil, fmt.Errorf("(UnsecuredRecipientPlugin.Transform) decode token: %w", err)
+		return nil, fmt.Errorf("decode token: %w", err)
 	}
 
 	decodedPayload, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("(UnsecuredRecipientPlugin.Transform) %w: decode payload: %w", ErrUnsupportedTokenFormat, err)
+		return nil, fmt.Errorf("%w: decode payload: %w", ErrUnsupportedTokenFormat, err)
 	}
 
 	return decodedPayload, nil

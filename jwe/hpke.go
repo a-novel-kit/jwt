@@ -68,12 +68,12 @@ func NewHPKEEncryption(config *HPKEEncryptionConfig, preset HPKEPreset) *HPKEEnc
 
 func (enc *HPKEEncryption) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() || header.Enc != "" {
-		return nil, fmt.Errorf("(HPKEEncryption.Header) %w: alg or enc field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("%w: alg or enc field already set", jwt.ErrConflictingHeader)
 	}
 
 	if enc.recipientKey == nil || enc.recipientKey.Curve() != enc.preset.Curve {
 		return nil, fmt.Errorf(
-			"(HPKEEncryption.Header) %w: %s needs a recipient key on %v",
+			"%w: %s needs a recipient key on %v",
 			jwt.ErrInvalidSecretKey, enc.preset.Alg, enc.preset.Curve,
 		)
 	}
@@ -86,28 +86,28 @@ func (enc *HPKEEncryption) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH,
 func (enc *HPKEEncryption) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
 	token, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
-		return "", fmt.Errorf("(HPKEEncryption.Transform) split token: %w", err)
+		return "", fmt.Errorf("split token: %w", err)
 	}
 
 	plainText, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return "", fmt.Errorf("(HPKEEncryption.Transform) decode payload: %w", err)
+		return "", fmt.Errorf("decode payload: %w", err)
 	}
 
 	publicKey, err := hpke.NewDHKEMPublicKey(enc.recipientKey)
 	if err != nil {
-		return "", fmt.Errorf("(HPKEEncryption.Transform) %w: %w", jwt.ErrInvalidSecretKey, err)
+		return "", fmt.Errorf("%w: %w", jwt.ErrInvalidSecretKey, err)
 	}
 
 	encapsulated, sender, err := hpke.NewSender(publicKey, enc.preset.KDF, enc.preset.AEAD, nil)
 	if err != nil {
-		return "", fmt.Errorf("(HPKEEncryption.Transform) set up sender: %w", err)
+		return "", fmt.Errorf("set up sender: %w", err)
 	}
 
 	// The AAD is the encoded protected header, which key management leaves unchanged in this mode.
 	cipherText, err := sender.Seal([]byte(token.Header), plainText)
 	if err != nil {
-		return "", fmt.Errorf("(HPKEEncryption.Transform) seal: %w", err)
+		return "", fmt.Errorf("seal: %w", err)
 	}
 
 	// The encapsulated secret takes the encrypted key's place, and the IV and tag stay empty.
@@ -146,21 +146,21 @@ func NewHPKEDecryption(config *HPKEDecryptionConfig, preset HPKEPreset) *HPKEDec
 func (dec *HPKEDecryption) Transform(_ context.Context, header *jwa.JWH, rawToken string) ([]byte, error) {
 	if header.Alg != dec.preset.Alg {
 		return nil, fmt.Errorf(
-			"(HPKEDecryption.Transform) %w: invalid algorithm %s, expected %s",
+			"%w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, dec.preset.Alg,
 		)
 	}
 
 	if dec.recipientKey == nil || dec.recipientKey.Curve() != dec.preset.Curve {
 		return nil, fmt.Errorf(
-			"(HPKEDecryption.Transform) %w: %s needs a recipient key on %v",
+			"%w: %s needs a recipient key on %v",
 			jwt.ErrInvalidSecretKey, dec.preset.Alg, dec.preset.Curve,
 		)
 	}
 
 	token, err := (&jwt.EncryptedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEDecryption.Transform) split token: %w", err)
+		return nil, fmt.Errorf("split token: %w", err)
 	}
 
 	// The draft keys these rules on presence, which the typed header loses for an empty or null value.
@@ -168,43 +168,43 @@ func (dec *HPKEDecryption) Transform(_ context.Context, header *jwa.JWH, rawToke
 	// "zip" a decompression it does not perform.
 	member, err := presentMember(token.Header, "enc", "ek", "psk_id", "zip")
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w", err)
+		return nil, err
 	}
 
 	if member != "" {
 		return nil, fmt.Errorf(
-			"(HPKEDecryption.Transform) %w: unsupported %q parameter", jwt.ErrUnsupportedTokenFormat, member,
+			"%w: unsupported %q parameter", jwt.ErrUnsupportedTokenFormat, member,
 		)
 	}
 
 	if token.IV != "" || token.Tag != "" {
-		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: iv and tag must be empty", ErrInvalidToken)
+		return nil, fmt.Errorf("%w: iv and tag must be empty", ErrInvalidToken)
 	}
 
 	encapsulated, err := segmentEncoding.DecodeString(token.EncKey)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: decode enc key: %w", jwt.ErrUnsupportedTokenFormat, err)
+		return nil, fmt.Errorf("%w: decode enc key: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	cipherText, err := segmentEncoding.DecodeString(token.CipherText)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: decode cipher text: %w", jwt.ErrUnsupportedTokenFormat, err)
+		return nil, fmt.Errorf("%w: decode cipher text: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	privateKey, err := hpke.NewDHKEMPrivateKey(dec.recipientKey)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: %w", jwt.ErrInvalidSecretKey, err)
+		return nil, fmt.Errorf("%w: %w", jwt.ErrInvalidSecretKey, err)
 	}
 
 	recipient, err := hpke.NewRecipient(encapsulated, privateKey, dec.preset.KDF, dec.preset.AEAD, nil)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: decapsulate: %w", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: decapsulate: %w", ErrInvalidToken, err)
 	}
 
 	plainText, err := recipient.Open([]byte(token.Header), cipherText)
 	if err != nil {
 		// An authenticated-decryption failure, like a bad AES-GCM tag.
-		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: %w: %w", jwt.ErrTokenRejected, ErrInvalidSecret, err)
+		return nil, fmt.Errorf("%w: %w: %w", jwt.ErrTokenRejected, ErrInvalidSecret, err)
 	}
 
 	return plainText, nil

@@ -53,7 +53,7 @@ func (plugin *EmbedKey) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, 
 	if plugin.config.Source != nil {
 		sourceKey, err := plugin.config.Source.Get(ctx, plugin.config.KID)
 		if err != nil {
-			return nil, fmt.Errorf("(EmbedKey.Header) get key: %w", err)
+			return nil, fmt.Errorf("get key: %w", err)
 		}
 
 		key = sourceKey
@@ -69,11 +69,11 @@ func (plugin *EmbedKey) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, 
 	if plugin.config.Embed && key != nil {
 		private, err := jwk.HasPrivateMaterial(key)
 		if err != nil {
-			return nil, fmt.Errorf("(EmbedKey.Header) inspect key: %w", err)
+			return nil, fmt.Errorf("inspect key: %w", err)
 		}
 
 		if private {
-			return nil, fmt.Errorf("(EmbedKey.Header) refusing to embed %s key %q: %w",
+			return nil, fmt.Errorf("refusing to embed %s key %q: %w",
 				key.KTY, kid, jwk.ErrPrivateKeyMaterial)
 		}
 

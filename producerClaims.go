@@ -37,7 +37,7 @@ type ClaimsProducerConfig struct {
 func NewBasicClaims(payload any, config ClaimsProducerConfig) (*jwa.Claims, error) {
 	payloadSerialized, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("(NewBasicClaims) marshal payload: %w", err)
+		return nil, fmt.Errorf("marshal payload: %w", err)
 	}
 
 	now := time.Now()

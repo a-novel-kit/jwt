@@ -44,19 +44,19 @@ var (
 func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.PublicKey], error) {
 	privateKey, err := ecdsa.GenerateKey(preset.Curve, rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDSA) generate private key: %w", err)
+		return nil, nil, fmt.Errorf("generate private key: %w", err)
 	}
 
 	publicKey := &privateKey.PublicKey
 
 	privatePayload, err := serializers.EncodeEC(privateKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDSA) encode private key: %w", err)
+		return nil, nil, fmt.Errorf("encode private key: %w", err)
 	}
 
 	publicPayload, err := serializers.EncodeEC(publicKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDSA) encode public key: %w", err)
+		return nil, nil, fmt.Errorf("encode public key: %w", err)
 	}
 
 	private, public, err := newKeyPair(
@@ -64,7 +64,7 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 		publicKey, publicPayload, signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpVerify),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDSA) %w", err)
+		return nil, nil, err
 	}
 
 	return private, public, nil
@@ -83,14 +83,14 @@ func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey],
 		serializers.DecodeEC,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeECDSA) %w", err)
+		return nil, nil, err
 	}
 
 	// RFC 7518 §3.4 binds each algorithm to one curve, such as ES256 to P-256. The curve lives in the
 	// payload, where the preset match cannot see it, so it is checked here.
 	if curve := publicKey.Key().Curve; curve != preset.Curve {
 		return nil, nil, fmt.Errorf(
-			"(ConsumeECDSA) %w: key is on %s, preset %s requires %s",
+			"%w: key is on %s, preset %s requires %s",
 			ErrJWKMismatch, curveName(curve), preset.Alg, curveName(preset.Curve),
 		)
 	}

@@ -47,7 +47,7 @@ func algIsPSS(alg jwa.Alg) (bool, error) {
 	case jwa.PS256, jwa.PS384, jwa.PS512:
 		return true, nil
 	default:
-		return false, fmt.Errorf("(jws) %w: %s", ErrUnsupportedAlgorithm, alg)
+		return false, fmt.Errorf("%w: %s", ErrUnsupportedAlgorithm, alg)
 	}
 }
 

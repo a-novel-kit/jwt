@@ -131,7 +131,7 @@ func NewSource(config SourceConfig) *Source {
 func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
 	err := source.refresh(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("(Source.List) refresh keys: %w", err)
+		return nil, fmt.Errorf("refresh keys: %w", err)
 	}
 
 	source.mu.RLock()
@@ -151,7 +151,7 @@ func (source *Source) List(ctx context.Context) ([]*jwa.JWK, error) {
 func (source *Source) Get(ctx context.Context, kid string) (*jwa.JWK, error) {
 	err := source.refresh(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("(Source.Get) refresh keys: %w", err)
+		return nil, fmt.Errorf("refresh keys: %w", err)
 	}
 
 	key, found := source.lookup(kid)
@@ -161,12 +161,12 @@ func (source *Source) Get(ctx context.Context, kid string) (*jwa.JWK, error) {
 
 	// An empty kid asks for whichever key ranks first, so a miss means the set is empty.
 	if kid == "" || !source.config.RefreshOnUnknownKeyID {
-		return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
+		return nil, ErrKeyNotFound
 	}
 
 	refreshed, err := source.refreshForUnknownKeyID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("(Source.Get) refresh keys: %w", err)
+		return nil, fmt.Errorf("refresh keys: %w", err)
 	}
 
 	if refreshed {
@@ -176,7 +176,7 @@ func (source *Source) Get(ctx context.Context, kid string) (*jwa.JWK, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("(Source.Get) %w", ErrKeyNotFound)
+	return nil, ErrKeyNotFound
 }
 
 // lookup resolves kid against the cache under the read lock, reporting whether it matched. An empty
@@ -359,7 +359,7 @@ func (source *Source) finish(call *fetchCall, keys []*jwa.JWK, err error) {
 // write lock.
 func (source *Source) storeLocked(keys []*jwa.JWK, err error) error {
 	if err != nil {
-		source.lastErr = fmt.Errorf("(Source.fetch) fetch keys: %w", err)
+		source.lastErr = fmt.Errorf("fetch keys: %w", err)
 		source.lastFailure = time.Now()
 
 		return source.lastErr

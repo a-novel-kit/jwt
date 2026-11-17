@@ -44,7 +44,7 @@ var (
 func GenerateMLDSA(preset MLDSAPreset) (*Key[*mldsa.PrivateKey], *Key[*mldsa.PublicKey], error) {
 	privateKey, err := mldsa.GenerateKey(preset.Params)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateMLDSA) generate key pair: %w", err)
+		return nil, nil, fmt.Errorf("generate key pair: %w", err)
 	}
 
 	publicKey := privateKey.PublicKey()
@@ -54,7 +54,7 @@ func GenerateMLDSA(preset MLDSAPreset) (*Key[*mldsa.PrivateKey], *Key[*mldsa.Pub
 		publicKey, serializers.EncodeMLDSA(publicKey), signatureHeader(jwa.KTYAKP, preset.Alg, jwa.KeyOpVerify),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateMLDSA) %w", err)
+		return nil, nil, err
 	}
 
 	return private, public, nil
@@ -75,7 +75,7 @@ func ConsumeMLDSA(source *jwa.JWK) (*Key[*mldsa.PrivateKey], *Key[*mldsa.PublicK
 	case jwa.MLDSA87:
 		params = MLDSA87.Params
 	default:
-		return nil, nil, fmt.Errorf("(ConsumeMLDSA) %w: %q is not an ML-DSA algorithm", ErrJWKMismatch, source.Alg)
+		return nil, nil, fmt.Errorf("%w: %q is not an ML-DSA algorithm", ErrJWKMismatch, source.Alg)
 	}
 
 	privateKey, publicKey, err := consumeKeyPair(
@@ -87,7 +87,7 @@ func ConsumeMLDSA(source *jwa.JWK) (*Key[*mldsa.PrivateKey], *Key[*mldsa.PublicK
 		},
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeMLDSA) %w", err)
+		return nil, nil, err
 	}
 
 	return privateKey, publicKey, nil

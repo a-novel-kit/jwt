@@ -88,21 +88,21 @@ func NewRecipient(config RecipientConfig) *Recipient {
 func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst any) error {
 	err := recipient.checkUntrusted(rawToken)
 	if err != nil {
-		return fmt.Errorf("(Recipient.Consume) %w", err)
+		return err
 	}
 
 	rawHeader, err := (&HeaderDecoder{}).Decode(rawToken)
 	if err != nil {
-		return fmt.Errorf("(Recipient.Consume) decode token: %w", err)
+		return fmt.Errorf("decode token: %w", err)
 	}
 
 	header, decodedHeader, err := decodeHeader(rawHeader)
 	if err != nil {
-		return fmt.Errorf("(Recipient.Consume) %w", err)
+		return err
 	}
 
 	if recipient.config.Typ != "" && !sameMediaType(header.Typ, recipient.config.Typ) {
-		return fmt.Errorf("(Recipient.Consume) %w: %q, expected %q", ErrUnexpectedTyp, header.Typ, recipient.config.Typ)
+		return fmt.Errorf("%w: %q, expected %q", ErrUnexpectedTyp, header.Typ, recipient.config.Typ)
 	}
 
 	// A non-nil Crit means the header holds a "crit" member, even an empty one. CheckCritUnderstood
@@ -110,7 +110,7 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 	if header.Crit != nil {
 		err = CheckCritUnderstood(decodedHeader, header.Crit, recipient.config.CriticalHeaders)
 		if err != nil {
-			return fmt.Errorf("(Recipient.Consume) check crit: %w", err)
+			return fmt.Errorf("check crit: %w", err)
 		}
 	}
 
@@ -123,30 +123,30 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 				continue
 			}
 
-			return fmt.Errorf("(Recipient.Consume) transform token: %w", err)
+			return fmt.Errorf("transform token: %w", err)
 		}
 
 		// RFC 7519 §7.2 step 10: the claims set is a JSON object in UTF-8, and encoding/json would
 		// otherwise replace an invalid sequence instead of failing.
 		if !utf8.Valid(rawClaims) {
-			return fmt.Errorf("(Recipient.Consume) %w: claims are not valid UTF-8", ErrUnsupportedTokenFormat)
+			return fmt.Errorf("%w: claims are not valid UTF-8", ErrUnsupportedTokenFormat)
 		}
 
 		err = checkReplicatedClaims(header, rawClaims)
 		if err != nil {
-			return fmt.Errorf("(Recipient.Consume) %w: %w", ErrTokenRejected, err)
+			return fmt.Errorf("%w: %w", ErrTokenRejected, err)
 		}
 
 		err = recipient.config.Deserializer(rawClaims, dst)
 		if err != nil {
-			return fmt.Errorf("(Recipient.Consume) unmarshal claims: %w", err)
+			return fmt.Errorf("unmarshal claims: %w", err)
 		}
 
 		return nil
 	}
 
 	return fmt.Errorf(
-		"(Recipient.Consume) %w: %w: no compatible plugin found", ErrTokenRejected, ErrMismatchRecipientPlugin,
+		"%w: %w: no compatible plugin found", ErrTokenRejected, ErrMismatchRecipientPlugin,
 	)
 }
 
@@ -161,32 +161,32 @@ func (recipient *Recipient) Consume(ctx context.Context, rawToken string, dst an
 func (recipient *Recipient) DecodeUnverified(rawToken string, dst any) error {
 	err := recipient.checkUntrusted(rawToken)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w", err)
+		return err
 	}
 
 	token, err := (&SignedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) decode token: %w", err)
+		return fmt.Errorf("decode token: %w", err)
 	}
 
 	// The header must decode, so a non-JWT input cannot yield claims.
 	_, _, err = decodeHeader(token.Header)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w", err)
+		return err
 	}
 
 	rawClaims, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w: decode payload: %w", ErrUnsupportedTokenFormat, err)
+		return fmt.Errorf("%w: decode payload: %w", ErrUnsupportedTokenFormat, err)
 	}
 
 	if !utf8.Valid(rawClaims) {
-		return fmt.Errorf("(Recipient.DecodeUnverified) %w: claims are not valid UTF-8", ErrUnsupportedTokenFormat)
+		return fmt.Errorf("%w: claims are not valid UTF-8", ErrUnsupportedTokenFormat)
 	}
 
 	err = recipient.config.Deserializer(rawClaims, dst)
 	if err != nil {
-		return fmt.Errorf("(Recipient.DecodeUnverified) unmarshal claims: %w", err)
+		return fmt.Errorf("unmarshal claims: %w", err)
 	}
 
 	return nil

@@ -146,7 +146,7 @@ func pbes2Salt(alg jwa.Alg, p2s string) ([]byte, error) {
 
 func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(PBES2KeyEncKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("%w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
 	// A fresh salt per token widens the key space, so one password never derives the
@@ -166,17 +166,17 @@ func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JW
 func (manager *PBES2KeyEncKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
 	salt, err := pbes2Salt(header.Alg, header.P2S)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) build salt: %w", err)
+		return nil, fmt.Errorf("build salt: %w", err)
 	}
 
 	wrapKey, err := pbkdf2.Key(manager.hash.New, manager.config.Secret, salt, header.P2C, manager.keySize)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) derive wrap key: %w", err)
+		return nil, fmt.Errorf("derive wrap key: %w", err)
 	}
 
 	wrapped, err := internal.KeyWrap(wrapKey, cek)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) wrap key: %w", err)
+		return nil, fmt.Errorf("wrap key: %w", err)
 	}
 
 	return wrapped, nil
@@ -232,14 +232,14 @@ func NewPBES2KeyEncKWDecoder(config *PBES2KeyEncKWDecoderConfig, preset PBES2Key
 func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
 	if header.Alg != decoder.alg {
 		return nil, fmt.Errorf(
-			"(PBES2KeyEncKWDecoder.ComputeCEK) %w: invalid algorithm %s, expected %s",
+			"%w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, decoder.alg,
 		)
 	}
 
 	if len(encKey) == 0 {
 		return nil, fmt.Errorf(
-			"(PBES2KeyEncKWDecoder.ComputeCEK) %w: missing enc key",
+			"%w: missing enc key",
 			jwt.ErrUnsupportedTokenFormat,
 		)
 	}
@@ -248,24 +248,24 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 	// checked before PBKDF2 runs.
 	if header.P2C <= 0 || header.P2C > decoder.maxIterations {
 		return nil, fmt.Errorf(
-			"(PBES2KeyEncKWDecoder.ComputeCEK) %w: p2c %d out of range (1..%d)",
+			"%w: p2c %d out of range (1..%d)",
 			jwt.ErrUnsupportedTokenFormat, header.P2C, decoder.maxIterations,
 		)
 	}
 
 	salt, err := pbes2Salt(header.Alg, header.P2S)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) %w: build salt: %w", jwt.ErrUnsupportedTokenFormat, err)
+		return nil, fmt.Errorf("%w: build salt: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	wrapKey, err := pbkdf2.Key(decoder.hash.New, decoder.config.Secret, salt, header.P2C, decoder.keySize)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) derive wrap key: %w", err)
+		return nil, fmt.Errorf("derive wrap key: %w", err)
 	}
 
 	cek, err := internal.KeyUnwrap(wrapKey, encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) %w: unwrap key: %w", jwt.ErrTokenRejected, err)
+		return nil, fmt.Errorf("%w: unwrap key: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

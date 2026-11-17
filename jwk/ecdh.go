@@ -49,19 +49,19 @@ var (
 func GenerateECDHKey(preset ECDHPreset) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
 	privateKey, err := preset.Curve.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDHKey) generate private key: %w", err)
+		return nil, nil, fmt.Errorf("generate private key: %w", err)
 	}
 
 	publicKey := privateKey.PublicKey()
 
 	privatePayload, err := serializers.EncodeECDH(privateKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDHKey) encode private key: %w", err)
+		return nil, nil, fmt.Errorf("encode private key: %w", err)
 	}
 
 	publicPayload, err := serializers.EncodeECDH(publicKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDHKey) encode public key: %w", err)
+		return nil, nil, fmt.Errorf("encode public key: %w", err)
 	}
 
 	// Each half gets its own header, so the two keys share no slice.
@@ -70,7 +70,7 @@ func GenerateECDHKey(preset ECDHPreset) (*Key[*ecdh.PrivateKey], *Key[*ecdh.Publ
 		publicKey, publicPayload, ecdhHeader(preset),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDHKey) %w", err)
+		return nil, nil, err
 	}
 
 	return private, public, nil
@@ -84,13 +84,13 @@ func GenerateECDHKey(preset ECDHPreset) (*Key[*ecdh.PrivateKey], *Key[*ecdh.Publ
 func ConsumeECDHKey(source *jwa.JWK, preset ECDHPreset) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
 	privateKey, publicKey, err := consumeKeyPair(source, ecdhHeader(preset), ecdhHeader(preset), serializers.DecodeECDH)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeECDHKey) %w", err)
+		return nil, nil, err
 	}
 
 	// The curve lives in the payload, where the preset match cannot see it.
 	if curve := publicKey.Key().Curve(); curve != preset.Curve {
 		return nil, nil, fmt.Errorf(
-			"(ConsumeECDHKey) %w: key is on %v, preset requires %v", ErrJWKMismatch, curve, preset.Curve,
+			"%w: key is on %v, preset requires %v", ErrJWKMismatch, curve, preset.Curve,
 		)
 	}
 

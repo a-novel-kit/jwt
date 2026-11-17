@@ -161,7 +161,7 @@ func verifyFromSource[K any](
 ) ([]byte, error) {
 	candidates, err := verificationCandidates(ctx, source, header.KID)
 	if err != nil {
-		return nil, fmt.Errorf("(verifyFromSource) %w", err)
+		return nil, err
 	}
 
 	for _, candidate := range candidates {
@@ -172,7 +172,7 @@ func verifyFromSource[K any](
 
 		// A key of this family that fails to decode is malformed material.
 		if err != nil {
-			return nil, fmt.Errorf("(verifyFromSource) decode key: %w", err)
+			return nil, fmt.Errorf("decode key: %w", err)
 		}
 
 		payload, err := newVerifier(key).Transform(ctx, header, rawToken)
@@ -181,11 +181,11 @@ func verifyFromSource[K any](
 		}
 
 		if !errors.Is(err, ErrInvalidSignature) {
-			return nil, fmt.Errorf("(verifyFromSource) %w", err)
+			return nil, err
 		}
 	}
 
-	return nil, fmt.Errorf("(verifyFromSource) %w", ErrInvalidSignature)
+	return nil, ErrInvalidSignature
 }
 
 // verificationCandidates returns the keys that may have signed a token naming kid: every key the
@@ -237,12 +237,12 @@ func signFromSource[K any](
 	if kid != "" {
 		candidate, err := source.Get(ctx, kid)
 		if err != nil {
-			return zero, "", fmt.Errorf("(signFromSource) %w", err)
+			return zero, "", err
 		}
 
 		key, err := decode(candidate)
 		if err != nil {
-			return zero, "", fmt.Errorf("(signFromSource) %w", err)
+			return zero, "", err
 		}
 
 		return key, candidate.KID, nil
@@ -250,7 +250,7 @@ func signFromSource[K any](
 
 	keys, err := source.List(ctx)
 	if err != nil {
-		return zero, "", fmt.Errorf("(signFromSource) %w", err)
+		return zero, "", err
 	}
 
 	for _, candidate := range keys {
@@ -262,11 +262,11 @@ func signFromSource[K any](
 				continue
 			}
 
-			return zero, "", fmt.Errorf("(signFromSource) decode key: %w", decodeErr)
+			return zero, "", fmt.Errorf("decode key: %w", decodeErr)
 		}
 
 		return key, candidate.KID, nil
 	}
 
-	return zero, "", fmt.Errorf("(signFromSource) %w", jwk.ErrKeyNotFound)
+	return zero, "", jwk.ErrKeyNotFound
 }

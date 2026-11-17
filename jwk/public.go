@@ -96,7 +96,7 @@ func Public(key *jwa.JWK) (*jwa.JWK, error) {
 
 	payload, err := json.Marshal(members)
 	if err != nil {
-		return nil, fmt.Errorf("(Public) serialize payload: %w", err)
+		return nil, fmt.Errorf("serialize payload: %w", err)
 	}
 
 	// The copy gets its own slices, so a caller editing its key_ops or x5c leaves the original intact.
@@ -149,7 +149,7 @@ func payloadMembers(key *jwa.JWK) (map[string]json.RawMessage, error) {
 
 	err := json.Unmarshal(key.Payload, &members)
 	if err != nil {
-		return nil, fmt.Errorf("(jwk) decode key payload: %w", err)
+		return nil, fmt.Errorf("decode key payload: %w", err)
 	}
 
 	return members, nil
