@@ -1,0 +1,85 @@
+# Upgrading to NEXT
+
+This release removes exports nothing used, renames the plugin that accepts unsecured tokens, and
+fixes two keys the library mishandled. No repository in the `a-novel` or `a-novel-kit`
+organizations uses a removed or renamed symbol.
+
+## Do I need to act?
+
+| You use                                                               | Action                                    |
+| --------------------------------------------------------------------- | ----------------------------------------- |
+| `jwt.DefaultRecipientPlugin` or `jwt.NewDefaultRecipientPlugin`       | **Required**: rename, see below.          |
+| A removed symbol or field listed below                                | **Required**: switch to its replacement.  |
+| An ECDH-ES preset you built by hand, with an `enc` this library lacks | **Required**: use a preset of `jwek`.     |
+| `jwk.Public` output fed to anything that reads `key_ops`              | Check: the public half now says `verify`. |
+| Error text of this library in logs, alerts or test doubles            | Check: many messages changed wording.     |
+| Signed or encrypted tokens and keys through the exported presets      | None.                                     |
+
+## Rename the unsecured recipient plugin
+
+The plugin accepting `"alg":"none"` tokens (RFC 7518 §3.6) read as the safe default. Its name now
+says what it accepts:
+
+```go
+// before
+plugin := jwt.NewDefaultRecipientPlugin()
+
+// after
+plugin := jwt.NewUnsecuredRecipientPlugin()
+```
+
+The type `jwt.DefaultRecipientPlugin` is now `jwt.UnsecuredRecipientPlugin`. Behavior is unchanged.
+
+## Removed exports
+
+Each removed symbol had no reader in this library or in its known consumers.
+
+| Removed                                                                                                  | Use instead                                                             |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `jwt.RawToken.Bytes`, `jwt.SignedToken.Bytes`, `jwt.EncryptedToken.Bytes`                                | `[]byte(token.String())`                                                |
+| `jwt.TokenDecoder`                                                                                       | the concrete decoder, such as `jwt.SignedTokenDecoder`                  |
+| `jwt.DecodeToken` (deprecated)                                                                           | `(&jwt.SignedTokenDecoder{}).Decode(rawToken)`, or the matching decoder |
+| `jwa.J509.Equal`                                                                                         | compare `X5U`, `X5C`, `X5T` and `X5TS256` directly                      |
+| `jwa.ErrUnsupportedKeyType`                                                                              | nothing: no function returned it                                        |
+| `jwk.GenerateECDH` (deprecated)                                                                          | `jwk.GenerateECDHKey(jwk.ECDHESX25519)`                                 |
+| `jwk.ConsumeECDH` (deprecated)                                                                           | `jwk.ConsumeECDHKey(key, jwk.ECDHESX25519)`                             |
+| package `jwk/generators` (`generators.NewOct`)                                                           | `crypto/rand.Read` into a `make([]byte, size)`                          |
+| `jwek.ECDHKeyAgrPreset.KeyLen`                                                                           | nothing: the key takes the length of the `jwe` preset matching `Enc`    |
+| `jwek.ECDHKeyAgrPreset.Alg`                                                                              | nothing: it was ignored, and the header always says `ECDH-ES`           |
+| the ignored `CEK` field of the `jwek` AES-KW, AES-GCM-KW, RSA-OAEP, PBES2 and ECDH-ES+KW manager configs | drop it: every token already used a fresh random key                    |
+| the ignored `ProducerKey` field of the `jwek` ECDH-ES and ECDH-ES+KW manager configs                     | drop it: every token already used a fresh ephemeral key                 |
+
+For the two ignored fields, delete them from the composite literal:
+
+```go
+// before
+manager := jwek.NewAESKWManager(&jwek.AESKWManagerConfig{WrapKey: wrapKey, CEK: cek}, jwek.A256KW)
+
+// after
+manager := jwek.NewAESKWManager(&jwek.AESKWManagerConfig{WrapKey: wrapKey}, jwek.A256KW)
+```
+
+## ECDH-ES derives the key length from the content encryption
+
+An ECDH-ES manager or decoder reads the length of the key it derives from the `jwe` preset of its
+`Enc`, so each `enc` states its key length once. A preset built by hand whose `Enc` has no `jwe`
+preset now fails with `jwt.ErrInvalidSecretKey` instead of deriving a key of the length it named.
+The exported presets are unaffected.
+
+## Fixes
+
+- **Ed25519 keys of the wrong length** fail with `jwt.ErrInvalidSecretKey`. `jws.ED25519Signer` and
+  `jws.ED25519Verifier` panicked on such a key, through `crypto/ed25519`, on their first token.
+- **Every signer checks its key on each signature.** The ECDSA, Ed25519 and ML-DSA signers checked it
+  only when stamping the header. The ECDSA signer now compares curves by identity, as its verifier
+  already did, so a key built on `elliptic.CurveParams` instead of `elliptic.P256()` and its siblings
+  is refused.
+- **`jwk.Public` gives the public half its own key operations**: `sign` becomes `verify`, `decrypt`
+  becomes `encrypt` and `unwrapKey` becomes `wrapKey`, as the Generate functions label a public
+  half. A JWK Set built from `jwk.Public` used to keep `sign`, so the sourced verifiers of `jws`
+  skipped every key in it.
+
+## Error messages
+
+Many error messages changed wording. Error text is not part of the API: compare with `errors.Is`
+against the exported sentinels, whose identities are unchanged.
