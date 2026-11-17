@@ -55,40 +55,21 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       - uses: a-novel-kit/workflows/generic-actions/lint-shell@v1.87.0
-        with:
-          # renovate: datasource=custom.shellcheck depName=koalaman/shellcheck
-          version: "0.11.0"
-          sha256: "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
 
   scan-secrets:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       - uses: a-novel-kit/workflows/security-actions/scan-secrets@v1.87.0
-        with:
-          # renovate: datasource=github-releases depName=gitleaks/gitleaks
-          version: "8.30.1"
 
   lint-workflows:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       - uses: a-novel-kit/workflows/security-actions/lint-workflows@v1.87.0
-        with:
-          # renovate: datasource=docker depName=ghcr.io/zizmorcore/zizmor
-          version: "1.32.0@sha256:3014cc8f68f663935f69b3c3e0e41f5ce102b268d97db13db0f62208747f860d"
 
   report-codecov:
     runs-on: ubuntu-latest
