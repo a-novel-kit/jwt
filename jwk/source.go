@@ -103,7 +103,7 @@ type Source struct {
 	// inflight is the Fetch call that concurrent refreshes share, nil when none runs.
 	inflight *fetchCall
 
-	mu *sync.RWMutex
+	mu sync.RWMutex
 }
 
 // A fetchCall is one run of Fetch. Every caller that needs the refreshed keys waits on it.
@@ -124,10 +124,7 @@ func (call *fetchCall) wait(ctx context.Context) error {
 
 // NewSource builds a [Source] from a config.
 func NewSource(config SourceConfig) *Source {
-	return &Source{
-		config: config,
-		mu:     &sync.RWMutex{},
-	}
+	return &Source{config: config}
 }
 
 // List returns every cached key, refreshing the cache first when it has expired.
@@ -249,13 +246,9 @@ func (source *Source) startForcedFetch(ctx context.Context) (*fetchCall, error) 
 	return source.startFetchLocked(ctx)
 }
 
-// fresh reports whether the cache is populated and still within CacheDuration. It takes the read
-// lock only, so concurrent readers of a warm cache never serialize behind the write lock.
-func (source *Source) fresh() bool {
-	return source.servable(0)
-}
-
-// servable reports whether the cache is populated and no older than window past CacheDuration.
+// servable reports whether the cache is populated and no older than window past CacheDuration. It
+// takes the read lock only, so concurrent readers of a warm cache never serialize behind the write
+// lock.
 func (source *Source) servable(window time.Duration) bool {
 	source.mu.RLock()
 	defer source.mu.RUnlock()
@@ -267,7 +260,7 @@ func (source *Source) servable(window time.Duration) bool {
 // cached keys serve at once while the fetch runs. While Fetch fails, they stay in service for
 // StaleIfError past expiry.
 func (source *Source) refresh(ctx context.Context) error {
-	if source.fresh() {
+	if source.servable(0) {
 		return nil
 	}
 
