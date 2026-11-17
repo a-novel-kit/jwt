@@ -21,6 +21,12 @@ var ErrInvalidSecret = errors.New("invalid secret")
 // initialization vector or padding of the wrong length. It matches [jwt.ErrTokenRejected].
 var ErrInvalidToken = fmt.Errorf("%w: invalid token", jwt.ErrTokenRejected)
 
+// segmentEncoding decodes the encrypted key, IV, tag and cipher text segments of a received token.
+// Strict refuses unused trailing bits that are not zero, so each segment has a single encoding and a
+// token decrypts only in the form it was issued in. The header needs no such check: it is the
+// additional data the authentication tag covers as written.
+var segmentEncoding = base64.RawURLEncoding.Strict()
+
 // aad builds the additional data bound into the JWE integrity check, which AES-GCM takes as its AAD
 // and AES-CBC-HMAC folds into its HMAC. It is the encoded protected header (RFC 7516 §5.1), followed
 // by ".BASE64URL(additionalData)" when additionalData is set, as the JWE JSON serialization does.
@@ -214,23 +220,23 @@ func decodeSegments(token *jwt.EncryptedToken) (*encryptedSegments, error) {
 	)
 
 	if len(token.EncKey) > 0 {
-		segments.encryptedKey, err = base64.RawURLEncoding.DecodeString(token.EncKey)
+		segments.encryptedKey, err = segmentEncoding.DecodeString(token.EncKey)
 		if err != nil {
 			return nil, fmt.Errorf("%w: decode enc key: %w", jwt.ErrUnsupportedTokenFormat, err)
 		}
 	}
 
-	segments.iv, err = base64.RawURLEncoding.DecodeString(token.IV)
+	segments.iv, err = segmentEncoding.DecodeString(token.IV)
 	if err != nil {
 		return nil, fmt.Errorf("%w: decode iv: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
-	segments.tag, err = base64.RawURLEncoding.DecodeString(token.Tag)
+	segments.tag, err = segmentEncoding.DecodeString(token.Tag)
 	if err != nil {
 		return nil, fmt.Errorf("%w: decode tag: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
-	segments.cipherText, err = base64.RawURLEncoding.DecodeString(token.CipherText)
+	segments.cipherText, err = segmentEncoding.DecodeString(token.CipherText)
 	if err != nil {
 		return nil, fmt.Errorf("%w: decode cipher text: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
