@@ -46,14 +46,26 @@ func (signer *ED25519Signer) Header(_ context.Context, header *jwa.JWH) (*jwa.JW
 		return nil, fmt.Errorf("(ED25519Signer.Header) %w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
+	err := checkED25519Key(signer.secretKey, ed25519.PrivateKeySize)
+	if err != nil {
+		return nil, fmt.Errorf("(ED25519Signer.Header) %w", err)
+	}
+
 	header.Alg = signer.alg
 
 	return header, nil
 }
 
 func (signer *ED25519Signer) Transform(_ context.Context, _ *jwa.JWH, rawToken string) (string, error) {
+	// A sourced signer re-resolves its key here without going back through Header, so this is the
+	// guard that gates every signature.
+	err := checkED25519Key(signer.secretKey, ed25519.PrivateKeySize)
+	if err != nil {
+		return "", fmt.Errorf("(ED25519Signer.Transform) %w", err)
+	}
+
 	// The decoder checks the shape only: the token is already the "header.payload" signing input.
-	_, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
+	_, err = (&jwt.RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return "", fmt.Errorf("(ED25519Signer.Transform) split token: %w", err)
 	}
@@ -88,6 +100,11 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 		)
 	}
 
+	err := checkED25519Key(verifier.publicKey, ed25519.PublicKeySize)
+	if err != nil {
+		return nil, fmt.Errorf("(ED25519Verifier.Transform) %w", err)
+	}
+
 	token, err := (&jwt.SignedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
 		return nil, fmt.Errorf("(ED25519Verifier.Transform) split source: %w", err)
@@ -111,6 +128,16 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 	}
 
 	return decoded, nil
+}
+
+// checkED25519Key fails unless key holds size bytes. crypto/ed25519 panics on a key of any other
+// length, so the plugins check it first, as every other family checks its key.
+func checkED25519Key[K ed25519.PrivateKey | ed25519.PublicKey](key K, size int) error {
+	if len(key) != size {
+		return fmt.Errorf("%w: Ed25519 key is %d bytes, need %d", jwt.ErrInvalidSecretKey, len(key), size)
+	}
+
+	return nil
 }
 
 // sourcedED25519Public decodes a raw JSON Web Key into an Ed25519 public key for verification,

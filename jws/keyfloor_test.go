@@ -1,6 +1,7 @@
 package jws_test
 
 import (
+	"crypto/ed25519"
 	"crypto/rsa"
 	"math/big"
 	"testing"
@@ -165,6 +166,35 @@ func TestRSANilKey(t *testing.T) {
 		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}}
 
 		_, err := jws.NewRSAVerifier(&rsa.PublicKey{N: negN, E: 65537}, jws.RS256).Transform(t.Context(), header, "a.b.c")
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+}
+
+// TestED25519WrongKeyLength checks the Ed25519 plugins refuse a key of the wrong length, on which
+// crypto/ed25519 panics.
+func TestED25519WrongKeyLength(t *testing.T) {
+	t.Parallel()
+
+	t.Run("SignerHeader", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := jws.NewED25519Signer(make(ed25519.PrivateKey, ed25519.SeedSize)).Header(t.Context(), &jwa.JWH{})
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
+	t.Run("SignerTransform", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := jws.NewED25519Signer(nil).Transform(t.Context(), &jwa.JWH{}, "a.b")
+		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
+	})
+
+	t.Run("Verifier", func(t *testing.T) {
+		t.Parallel()
+
+		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.Ed25519}}
+
+		_, err := jws.NewED25519Verifier(make(ed25519.PublicKey, 10)).Transform(t.Context(), header, "a.b.c")
 		require.ErrorIs(t, err, jwt.ErrInvalidSecretKey)
 	})
 }
