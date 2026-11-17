@@ -134,6 +134,93 @@ ecdsaPrivateKey := privateKey.Key()
 A Consume function accepts a key only when it declares the use, operations, and algorithm its
 preset expects. The JWK `"alg"` of a content encryption key holds the `"enc"` value it serves.
 
+### Key sources
+
+A `jwk.Source` fetches a key set and caches it for `CacheDuration`, so a verifier follows the
+issuer's key rotation. The issuer signs with a sourced signer, such as `jws.NewSourcedRSASigner`,
+which stamps the key's `"kid"` on each token, and publishes the public halves as a JWK Set. The
+sourced verifier picks the key that `"kid"` names.
+
+```go
+const jwksURL = "https://accounts.example.com/.well-known/jwks.json"
+
+source := jwk.NewSource(jwk.SourceConfig{
+	CacheDuration: 15 * time.Minute,
+	// The Source bounds each call with FetchTimeout, through ctx.
+	Fetch: func(ctx context.Context) ([]*jwa.JWK, error) {
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, jwksURL, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			return nil, err
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("fetch key set: status %d", response.StatusCode)
+		}
+
+		var set struct {
+			Keys []*jwa.JWK `json:"keys"`
+		}
+
+		err = json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&set)
+
+		return set.Keys, err
+	},
+})
+
+recipient := jwt.NewRecipient(jwt.RecipientConfig{
+	Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, jws.RS256)},
+})
+```
+
+### Encryption
+
+A `jwe` plugin encrypts the claims under a content encryption key. A `jwek` manager supplies that
+key to the producer, and the matching `jwek` decoder recovers it for the recipient. With RSA-OAEP-256,
+each token carries a fresh key encrypted to the recipient's public key.
+
+```go
+privateKey, publicKey, err := jwk.GenerateRSA(jwk.RSAOAEP256)
+if err != nil {
+	return err
+}
+
+producer := jwt.NewProducer(jwt.ProducerConfig{
+	Plugins: []jwt.ProducerPlugin{
+		jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
+			CEKManager: jwek.NewRSAOAEPKeyEncManager(
+				&jwek.RSAOAEPKeyEncManagerConfig{EncKey: publicKey.Key()}, jwek.RSAOAEP256,
+			),
+		}, jwe.A256GCM),
+	},
+})
+
+token, err := producer.Issue(ctx, map[string]any{"role": "admin"}, nil)
+if err != nil {
+	return err
+}
+
+recipient := jwt.NewRecipient(jwt.RecipientConfig{
+	Plugins: []jwt.RecipientPlugin{
+		jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
+			CEKDecoder: jwek.NewRSAOAEPKeyEncDecoder(
+				&jwek.RSAOAEPKeyEncDecoderConfig{EncKey: privateKey.Key()}, jwek.RSAOAEP256,
+			),
+		}, jwe.A256GCM),
+	},
+})
+
+var payload map[string]any
+if err := recipient.Consume(ctx, token, &payload); err != nil {
+	return err
+}
+```
+
 ### Plugins
 
 Producer plugins run in order, after the static plugins. A static plugin only amends the header. A
