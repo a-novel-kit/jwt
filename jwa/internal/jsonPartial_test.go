@@ -284,7 +284,7 @@ func TestUnmarshalPartial(t *testing.T) {
 			extra: json.RawMessage(`{"c":"baz"}`),
 		},
 		{
-			name: "NoCustomMembers",
+			name: "Success/NoCustomMembers",
 
 			src: []byte(`{"a":"foo","b":"bar"}`),
 
@@ -374,19 +374,19 @@ func TestUnmarshalPartial(t *testing.T) {
 			src  string
 		}{
 			{
-				name: "RegisteredAndCustomMembers",
+				name: "Success/RegisteredAndCustomMembers",
 				src:  `{"kty":"EC","kid":"k1","alg":"ES256","x":"abc","crv":"P-256"}`,
 			},
 			{
-				name: "RegisteredMembersOnly",
+				name: "Success/RegisteredMembersOnly",
 				src:  `{"kty":"oct","kid":"k1"}`,
 			},
 			{
-				name: "CustomMembersOnly",
+				name: "Success/CustomMembersOnly",
 				src:  `{"x":"abc","crv":"P-256"}`,
 			},
 			{
-				name: "NoMembers",
+				name: "Success/NoMembers",
 				src:  `{}`,
 			},
 		}

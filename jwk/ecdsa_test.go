@@ -115,6 +115,7 @@ func TestConsumeECDSA(t *testing.T) {
 		public    *jwk.Key[*ecdsa.PublicKey]
 		expectErr error
 	}{
+		// The curve check accepts each preset's own keys.
 		{
 			name:    "ES256",
 			preset:  jwk.ES256,
@@ -195,28 +196,5 @@ func TestConsumeECDSA(t *testing.T) {
 
 		_, _, err = jwk.ConsumeECDSA(&mislabelledPublic, jwk.ES256)
 		require.ErrorIs(t, err, jwk.ErrJWKMismatch)
-	})
-
-	// The curve check must not reject the keys the presets themselves produce.
-	t.Run("Success/OwnCurve", func(t *testing.T) {
-		t.Parallel()
-
-		presets := []jwk.ECDSAPreset{jwk.ES256, jwk.ES384, jwk.ES512}
-
-		for _, preset := range presets {
-			t.Run(string(preset.Alg), func(t *testing.T) {
-				t.Parallel()
-
-				private, public := mustECDSA(t, preset)
-
-				gotPrivate, _, err := jwk.ConsumeECDSA(private.JWK, preset)
-				require.NoError(t, err)
-				require.Equal(t, preset.Curve, gotPrivate.Key().Curve)
-
-				_, gotPublic, err := jwk.ConsumeECDSA(public.JWK, preset)
-				require.NoError(t, err)
-				require.Equal(t, preset.Curve, gotPublic.Key().Curve)
-			})
-		}
 	})
 }

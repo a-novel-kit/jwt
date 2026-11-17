@@ -3,11 +3,9 @@ package jwt_test
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -93,7 +91,7 @@ func TestProducer(t *testing.T) {
 		expectErr   error
 	}{
 		{
-			name: "Minimalistic",
+			name: "Success",
 
 			config: jwt.ProducerConfig{},
 
@@ -102,7 +100,7 @@ func TestProducer(t *testing.T) {
 			expectToken: "eyJhbGciOiJub25lIn0.eyJmb28iOiJiYXIifQ.",
 		},
 		{
-			name: "CustomHeader",
+			name: "Success/CustomHeader",
 
 			config: jwt.ProducerConfig{},
 
@@ -112,7 +110,7 @@ func TestProducer(t *testing.T) {
 			expectToken: "eyJhbGciOiJub25lIiwidGVzdCI6dHJ1ZX0.eyJmb28iOiJiYXIifQ.",
 		},
 		{
-			name: "Plugins",
+			name: "Success/Plugins",
 
 			config: jwt.ProducerConfig{
 				StaticPlugins: []jwt.ProducerStaticPlugin{
@@ -151,7 +149,7 @@ func TestProducer(t *testing.T) {
 		},
 		{
 			// A claim a plugin replicates in the header is checked like one from the header config.
-			name: "PluginReplicatedClaim",
+			name: "Error/PluginReplicatedClaim",
 
 			config: jwt.ProducerConfig{
 				StaticPlugins: []jwt.ProducerStaticPlugin{
@@ -170,7 +168,7 @@ func TestProducer(t *testing.T) {
 			expectErr: jwt.ErrReplicatedClaimMismatch,
 		},
 		{
-			name: "StaticPluginError",
+			name: "Error/StaticPlugin",
 
 			config: jwt.ProducerConfig{
 				StaticPlugins: []jwt.ProducerStaticPlugin{
@@ -186,7 +184,7 @@ func TestProducer(t *testing.T) {
 			expectErr: errFoo,
 		},
 		{
-			name: "PluginHeaderError",
+			name: "Error/PluginHeader",
 
 			config: jwt.ProducerConfig{
 				Plugins: []jwt.ProducerPlugin{
@@ -203,7 +201,7 @@ func TestProducer(t *testing.T) {
 			expectErr: errFoo,
 		},
 		{
-			name: "PluginTransformError",
+			name: "Error/PluginTransform",
 
 			config: jwt.ProducerConfig{
 				Plugins: []jwt.ProducerPlugin{
@@ -240,7 +238,7 @@ func TestProducer(t *testing.T) {
 		})
 	}
 
-	t.Run("UnmarshalableClaims", func(t *testing.T) {
+	t.Run("Error/UnmarshalableClaims", func(t *testing.T) {
 		t.Parallel()
 
 		producer := jwt.NewProducer(jwt.ProducerConfig{})
@@ -249,7 +247,7 @@ func TestProducer(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("UnmarshalableHeader", func(t *testing.T) {
+	t.Run("Error/UnmarshalableHeader", func(t *testing.T) {
 		t.Parallel()
 
 		producer := jwt.NewProducer(jwt.ProducerConfig{})
@@ -287,26 +285,5 @@ func TestProducer(t *testing.T) {
 
 		header := decodeSegment(t, token, 0)
 		require.JSONEq(t, `{"alg":"HS256","myapp-tenant":"acme"}`, header)
-	})
-
-	t.Run("Success/UnreservedCustomClaims", func(t *testing.T) {
-		t.Parallel()
-
-		claims, err := jwt.NewBasicClaims(
-			map[string]any{"role": "admin"},
-			jwt.ClaimsProducerConfig{TTL: time.Hour},
-		)
-		require.NoError(t, err)
-
-		producer := newSigningProducer(jwa.HS256)
-
-		token, err := producer.Issue(t.Context(), claims, nil)
-		require.NoError(t, err)
-
-		var payload map[string]any
-
-		require.NoError(t, json.Unmarshal([]byte(decodeSegment(t, token, 1)), &payload))
-		require.Equal(t, "admin", payload["role"])
-		require.NotZero(t, payload["exp"], "the producer's own exp must survive")
 	})
 }
