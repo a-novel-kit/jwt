@@ -156,7 +156,7 @@ func TestAESCBC(t *testing.T) {
 func TestAESCBCDecryption(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
+	examples := []struct {
 		name string
 
 		// decoder recovers the content encryption key of the example's token.
@@ -191,7 +191,7 @@ func TestAESCBCDecryption(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
+	for _, testCase := range examples {
 		t.Run("Success/"+testCase.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -211,39 +211,38 @@ func TestAESCBCDecryption(t *testing.T) {
 			require.Equal(t, example.Plaintext, string(plaintext))
 		})
 	}
-}
-
-func TestAESCBCRejectsCompression(t *testing.T) {
-	t.Parallel()
-
-	decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{CEKDecoder: &fakeCEKDecoder{}}, jwe.A256CBCHS512)
-
-	header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwe.A256CBCHS512.Enc, Zip: jwa.ZipDeflate}}
-
-	_, err := decrypter.Transform(t.Context(), header, "a.b.c.d.e")
-	require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-}
-
-func TestAESCBCMalformedSegment(t *testing.T) {
-	t.Parallel()
 
 	key, err := jwk.GenerateAES(jwk.A256CBC)
 	require.NoError(t, err)
 
+	preset := jwe.A256CBCHS512
+
 	encrypter := jwe.NewAESCBCEncryption(&jwe.AESCBCEncryptionConfig{
 		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, jwe.A256CBCHS512)
-	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
+	}, preset)
 
-	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	token, err := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}}).
+		Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	require.NoError(t, err)
+
+	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
 	require.NoError(t, err)
 
 	decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{
 		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, jwe.A256CBCHS512)
+	}, preset)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
 
-	testCases := []struct {
+	t.Run("Error/Compression", func(t *testing.T) {
+		t.Parallel()
+
+		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: preset.Enc, Zip: jwa.ZipDeflate}}
+
+		_, err := decrypter.Transform(t.Context(), header, token)
+		require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+	})
+
+	malformedSegments := []struct {
 		name    string
 		malform func(token *jwt.EncryptedToken)
 	}{
@@ -253,94 +252,17 @@ func TestAESCBCMalformedSegment(t *testing.T) {
 		{name: "CipherText", malform: func(token *jwt.EncryptedToken) { token.CipherText = testutils.UndecodableSegment }},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
+	for _, testCase := range malformedSegments {
+		t.Run("Error/MalformedSegment/"+testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
-			require.NoError(t, err)
-
-			testCase.malform(parts)
+			malformed := *parts
+			testCase.malform(&malformed)
 
 			var claims map[string]any
-			require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwt.ErrUnsupportedTokenFormat)
+			require.ErrorIs(t, recipient.Consume(t.Context(), malformed.String(), &claims), jwt.ErrUnsupportedTokenFormat)
 		})
 	}
-}
-
-// RFC 7518 §5.2.2.1 takes MAC_KEY from the leading MAC_KEY_LEN octets of the content encryption key
-// and ENC_KEY from the octets after it. The package presets split the key in equal halves, which hides
-// the offset, and a round trip agrees with itself on any split. This preset's keys differ in length,
-// and the test decrypts the ciphertext with ENC_KEY on its own.
-func TestAESCBCKeySplit(t *testing.T) {
-	t.Parallel()
-
-	preset := jwe.AESCBCPreset{
-		Enc:       jwa.A256CBC,
-		Hash:      crypto.SHA256,
-		KeyLen:    48,
-		EncKeyLen: 32,
-		MACKeyLen: 16,
-		TagLength: 16,
-	}
-
-	cek := make([]byte, preset.KeyLen)
-	_, err := rand.Read(cek)
-	require.NoError(t, err)
-
-	encrypter := jwe.NewAESCBCEncryption(&jwe.AESCBCEncryptionConfig{
-		CEKManager: &fakeCEKManager{cek: cek, encrypted: []byte("encrypted")},
-	}, preset)
-
-	header, err := encrypter.Header(t.Context(), &jwa.JWH{})
-	require.NoError(t, err)
-
-	plainText := []byte(`{"foo":"bar"}`)
-	rawToken := jwt.RawToken{Header: "e30", Payload: base64.RawURLEncoding.EncodeToString(plainText)}
-
-	token, err := encrypter.Transform(t.Context(), header, rawToken.String())
-	require.NoError(t, err)
-
-	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
-	require.NoError(t, err)
-
-	block, err := aes.NewCipher(cek[preset.MACKeyLen:])
-	require.NoError(t, err)
-
-	cipherText := mustDecodeBase64(t, parts.CipherText)
-	decrypted := make([]byte, len(cipherText))
-	cipher.NewCBCDecrypter(block, mustDecodeBase64(t, parts.IV)).CryptBlocks(decrypted, cipherText)
-	require.Equal(t, plainText, decrypted[:len(plainText)])
-
-	decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{
-		CEKDecoder: &fakeCEKDecoder{cek: cek, encrypted: []byte("encrypted")},
-	}, preset)
-
-	decoded, err := decrypter.Transform(t.Context(), header, token)
-	require.NoError(t, err)
-	require.Equal(t, plainText, decoded)
-}
-
-// TestAESCBCMalformedLengths sends tokens whose IV or ciphertext has a length the CBC decrypter
-// cannot take. Each token carries a valid tag, as a sender who knows the CEK can produce.
-func TestAESCBCMalformedLengths(t *testing.T) {
-	t.Parallel()
-
-	preset := jwe.A256CBCHS512
-
-	key, err := jwk.GenerateAES(jwk.A256CBC)
-	require.NoError(t, err)
-
-	encrypter := jwe.NewAESCBCEncryption(&jwe.AESCBCEncryptionConfig{
-		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, preset)
-	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
-
-	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
-	require.NoError(t, err)
-
-	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
-	require.NoError(t, err)
 
 	iv := mustDecodeBase64(t, parts.IV)
 	cipherText := mustDecodeBase64(t, parts.CipherText)
@@ -349,12 +271,9 @@ func TestAESCBCMalformedLengths(t *testing.T) {
 	// tag check.
 	require.Equal(t, mustDecodeBase64(t, parts.Tag), senderCBCTag(t, preset, key.Key(), parts.Header, iv, cipherText))
 
-	decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{
-		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, preset)
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
-
-	testCases := []struct {
+	// Each token below has an IV or ciphertext of a length the CBC decrypter cannot take. Each carries a
+	// valid tag, as a sender who knows the CEK can produce.
+	malformedLengths := []struct {
 		name string
 
 		iv         []byte
@@ -377,7 +296,7 @@ func TestAESCBCMalformedLengths(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
+	for _, testCase := range malformedLengths {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -392,6 +311,62 @@ func TestAESCBCMalformedLengths(t *testing.T) {
 			require.ErrorIs(t, recipient.Consume(t.Context(), malformed.String(), &claims), jwe.ErrInvalidToken)
 		})
 	}
+}
+
+func TestAESCBCEncryption(t *testing.T) {
+	t.Parallel()
+
+	// RFC 7518 §5.2.2.1 takes MAC_KEY from the leading MAC_KEY_LEN octets of the content encryption key
+	// and ENC_KEY from the octets after it. The package presets split the key in equal halves, which
+	// hides the offset, and a round trip agrees with itself on any split. This preset's keys differ in
+	// length, and the test decrypts the ciphertext with ENC_KEY on its own.
+	t.Run("Success/KeySplit", func(t *testing.T) {
+		t.Parallel()
+
+		preset := jwe.AESCBCPreset{
+			Enc:       jwa.A256CBC,
+			Hash:      crypto.SHA256,
+			KeyLen:    48,
+			EncKeyLen: 32,
+			MACKeyLen: 16,
+			TagLength: 16,
+		}
+
+		cek := make([]byte, preset.KeyLen)
+		_, _ = rand.Read(cek) // never fails: it crashes the program instead
+
+		encrypter := jwe.NewAESCBCEncryption(&jwe.AESCBCEncryptionConfig{
+			CEKManager: &fakeCEKManager{cek: cek, encrypted: []byte("encrypted")},
+		}, preset)
+
+		header, err := encrypter.Header(t.Context(), &jwa.JWH{})
+		require.NoError(t, err)
+
+		plainText := []byte(`{"foo":"bar"}`)
+		rawToken := jwt.RawToken{Header: "e30", Payload: base64.RawURLEncoding.EncodeToString(plainText)}
+
+		token, err := encrypter.Transform(t.Context(), header, rawToken.String())
+		require.NoError(t, err)
+
+		parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
+		require.NoError(t, err)
+
+		block, err := aes.NewCipher(cek[preset.MACKeyLen:])
+		require.NoError(t, err)
+
+		cipherText := mustDecodeBase64(t, parts.CipherText)
+		decrypted := make([]byte, len(cipherText))
+		cipher.NewCBCDecrypter(block, mustDecodeBase64(t, parts.IV)).CryptBlocks(decrypted, cipherText)
+		require.Equal(t, plainText, decrypted[:len(plainText)])
+
+		decrypter := jwe.NewAESCBCDecryption(&jwe.AESCBCDecryptionConfig{
+			CEKDecoder: &fakeCEKDecoder{cek: cek, encrypted: []byte("encrypted")},
+		}, preset)
+
+		decoded, err := decrypter.Transform(t.Context(), header, token)
+		require.NoError(t, err)
+		require.Equal(t, plainText, decoded)
+	})
 }
 
 // senderCBCTag computes the AES_CBC_HMAC_SHA2 tag that a sender holding cek attaches to a token
