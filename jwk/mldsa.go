@@ -2,10 +2,7 @@ package jwk
 
 import (
 	"crypto/mldsa"
-	"encoding/json"
 	"fmt"
-
-	"github.com/google/uuid"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
@@ -52,24 +49,15 @@ func GenerateMLDSA(preset MLDSAPreset) (*Key[*mldsa.PrivateKey], *Key[*mldsa.Pub
 
 	publicKey := privateKey.PublicKey()
 
-	privateSerialized, err := json.Marshal(serializers.EncodeMLDSA(privateKey))
+	private, public, err := newKeyPair(
+		privateKey, serializers.EncodeMLDSA(privateKey), signatureHeader(jwa.KTYAKP, preset.Alg, jwa.KeyOpSign),
+		publicKey, serializers.EncodeMLDSA(publicKey), signatureHeader(jwa.KTYAKP, preset.Alg, jwa.KeyOpVerify),
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateMLDSA) serialize private key: %w", err)
+		return nil, nil, fmt.Errorf("(GenerateMLDSA) %w", err)
 	}
 
-	publicSerialized, err := json.Marshal(serializers.EncodeMLDSA(publicKey))
-	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateMLDSA) serialize public key: %w", err)
-	}
-
-	kid := uuid.NewString()
-	privateHeader := signatureHeader(jwa.KTYAKP, preset.Alg, jwa.KeyOpSign)
-	publicHeader := signatureHeader(jwa.KTYAKP, preset.Alg, jwa.KeyOpVerify)
-	privateHeader.KID, publicHeader.KID = kid, kid
-
-	return NewKey(&jwa.JWK{JWKCommon: privateHeader, Payload: privateSerialized}, privateKey),
-		NewKey(&jwa.JWK{JWKCommon: publicHeader, Payload: publicSerialized}, publicKey),
-		nil
+	return private, public, nil
 }
 
 // ConsumeMLDSA parses a JSON Web Key into an ML-DSA signature key pair. The key's "alg" selects the
@@ -90,30 +78,17 @@ func ConsumeMLDSA(source *jwa.JWK) (*Key[*mldsa.PrivateKey], *Key[*mldsa.PublicK
 		return nil, nil, fmt.Errorf("(ConsumeMLDSA) %w: %q is not an ML-DSA algorithm", ErrJWKMismatch, source.Alg)
 	}
 
-	matchPrivate := source.MatchPreset(signatureHeader(jwa.KTYAKP, source.Alg, jwa.KeyOpSign))
-	matchPublic := source.MatchPreset(signatureHeader(jwa.KTYAKP, source.Alg, jwa.KeyOpVerify))
-
-	if !matchPrivate && !matchPublic {
-		return nil, nil, fmt.Errorf("(ConsumeMLDSA) %w", ErrJWKMismatch)
-	}
-
-	var payload serializers.MLDSAPayload
-
-	err := json.Unmarshal(source.Payload, &payload)
+	privateKey, publicKey, err := consumeKeyPair(
+		source,
+		signatureHeader(jwa.KTYAKP, source.Alg, jwa.KeyOpSign),
+		signatureHeader(jwa.KTYAKP, source.Alg, jwa.KeyOpVerify),
+		func(payload *serializers.MLDSAPayload) (*mldsa.PrivateKey, *mldsa.PublicKey, error) {
+			return serializers.DecodeMLDSA(payload, params)
+		},
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeMLDSA) unmarshal payload: %w", err)
+		return nil, nil, fmt.Errorf("(ConsumeMLDSA) %w", err)
 	}
 
-	decodedPrivate, decodedPublic, err := serializers.DecodeMLDSA(&payload, params)
-	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeMLDSA) decode payload: %w", err)
-	}
-
-	var privateKey *Key[*mldsa.PrivateKey]
-
-	if decodedPrivate != nil {
-		privateKey = NewKey(source, decodedPrivate)
-	}
-
-	return privateKey, NewKey(source, decodedPublic), nil
+	return privateKey, publicKey, nil
 }
