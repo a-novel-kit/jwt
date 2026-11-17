@@ -20,8 +20,6 @@ type ECDHKeyAgrPreset struct {
 	// Enc is the content encryption algorithm the derived key serves. The key takes the length the
 	// algorithm's jwe preset states.
 	Enc jwa.Enc
-	// Alg is ignored, since the header always names ECDH-ES.
-	Alg jwa.Alg
 }
 
 var (
@@ -42,9 +40,6 @@ var (
 
 // ECDHKeyAgrManagerConfig configures NewECDHKeyAgrManager.
 type ECDHKeyAgrManagerConfig struct {
-	// Deprecated: ignored. Each token agrees on its key with a fresh ephemeral key pair, as
-	// ECDH-ES requires.
-	ProducerKey *ecdh.PrivateKey
 	// RecipientKey is the recipient's static public key, one half of the Diffie-Hellman exchange.
 	RecipientKey *ecdh.PublicKey
 

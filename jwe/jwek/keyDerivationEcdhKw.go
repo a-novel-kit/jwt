@@ -34,15 +34,8 @@ var (
 
 // ECDHKeyAgrKWManagerConfig configures NewECDHKeyAgrKWManager.
 type ECDHKeyAgrKWManagerConfig struct {
-	// Deprecated: ignored. Each token agrees on its key with a fresh ephemeral key pair, as
-	// ECDH-ES requires.
-	ProducerKey *ecdh.PrivateKey
 	// RecipientKey is the recipient's static public key, one half of the Diffie-Hellman exchange.
 	RecipientKey *ecdh.PublicKey
-
-	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
-	// RFC 7516 requires.
-	CEK []byte
 
 	// ProducerInfo is the optional PartyUInfo mixed into the key derivation and published as "apu".
 	ProducerInfo string
