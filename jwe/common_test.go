@@ -1,7 +1,6 @@
 package jwe_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,41 +8,8 @@ import (
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe"
+	"github.com/a-novel-kit/jwt/v2/testutils"
 )
-
-// scriptedCEKManager is a CEKManager whose every step returns what the test sets: an "enc" to pin in
-// SetHeader, a content encryption key, and the errors of each step.
-type scriptedCEKManager struct {
-	pinEnc     jwa.Enc
-	headerErr  error
-	cek        []byte
-	cekErr     error
-	encryptErr error
-}
-
-func (manager *scriptedCEKManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	header.Enc = manager.pinEnc
-
-	return header, manager.headerErr
-}
-
-func (manager *scriptedCEKManager) ComputeCEK(_ context.Context, _ *jwa.JWH) ([]byte, error) {
-	return manager.cek, manager.cekErr
-}
-
-func (manager *scriptedCEKManager) EncryptCEK(_ context.Context, _ *jwa.JWH, _ []byte) ([]byte, error) {
-	return nil, manager.encryptErr
-}
-
-// scriptedCEKDecoder is a CEKDecoder returning the key and error the test sets.
-type scriptedCEKDecoder struct {
-	cek []byte
-	err error
-}
-
-func (decoder *scriptedCEKDecoder) ComputeCEK(_ context.Context, _ *jwa.JWH, _ []byte) ([]byte, error) {
-	return decoder.cek, decoder.err
-}
 
 // contentEncryptions lists the content encryption plugins, which share the steps under test, with
 // the "enc" and content encryption key length of each.
@@ -85,8 +51,9 @@ func TestContentEncryption(t *testing.T) {
 		testCases := []struct {
 			name string
 
+			// header, when set, runs Header; otherwise Transform runs on rawToken.
 			header   *jwa.JWH
-			manager  *scriptedCEKManager
+			manager  *fakeCEKManager
 			rawToken string
 
 			expectErr error
@@ -94,43 +61,43 @@ func TestContentEncryption(t *testing.T) {
 			{
 				name:      "Error/EncAlreadySet",
 				header:    &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: plugin.enc}},
-				manager:   &scriptedCEKManager{},
+				manager:   &fakeCEKManager{},
 				expectErr: jwt.ErrConflictingHeader,
 			},
 			{
 				// A CEKManager may pin the token to one enc, which the plugin must then match.
 				name:      "Error/ManagerPinsOtherEnc",
 				header:    &jwa.JWH{},
-				manager:   &scriptedCEKManager{pinEnc: jwa.A192GCM},
+				manager:   &fakeCEKManager{pinEnc: jwa.A192GCM},
 				expectErr: jwt.ErrConflictingHeader,
 			},
 			{
 				name:      "Error/ManagerHeader",
 				header:    &jwa.JWH{},
-				manager:   &scriptedCEKManager{headerErr: errFoo},
+				manager:   &fakeCEKManager{headerErr: errFoo},
 				expectErr: errFoo,
 			},
 			{
 				name:      "Error/MalformedToken",
-				manager:   &scriptedCEKManager{},
+				manager:   &fakeCEKManager{},
 				rawToken:  "header.payload.signature",
 				expectErr: jwt.ErrUnsupportedTokenFormat,
 			},
 			{
 				name:      "Error/ComputeCEK",
-				manager:   &scriptedCEKManager{cekErr: errFoo},
+				manager:   &fakeCEKManager{cekErr: errFoo},
 				rawToken:  "e30.e30",
 				expectErr: errFoo,
 			},
 			{
 				name:      "Error/CEKLength",
-				manager:   &scriptedCEKManager{cek: make([]byte, plugin.keyLen-1)},
+				manager:   &fakeCEKManager{cek: make([]byte, plugin.keyLen-1)},
 				rawToken:  "e30.e30",
 				expectErr: jwe.ErrInvalidSecret,
 			},
 			{
 				name:      "Error/EncryptCEK",
-				manager:   &scriptedCEKManager{cek: make([]byte, plugin.keyLen), encryptErr: errFoo},
+				manager:   &fakeCEKManager{cek: make([]byte, plugin.keyLen), encryptErr: errFoo},
 				rawToken:  "e30.e30",
 				expectErr: errFoo,
 			},
@@ -168,7 +135,8 @@ func TestContentDecryption(t *testing.T) {
 			name string
 
 			enc      jwa.Enc
-			decoder  *scriptedCEKDecoder
+			zip      jwa.Zip
+			decoder  *fakeCEKDecoder
 			rawToken string
 
 			expectErr error
@@ -177,28 +145,65 @@ func TestContentDecryption(t *testing.T) {
 				// A token for another enc belongs to another plugin.
 				name:      "Error/OtherEnc",
 				enc:       jwa.A192GCM,
-				decoder:   &scriptedCEKDecoder{},
+				decoder:   &fakeCEKDecoder{},
 				rawToken:  wellFormed,
 				expectErr: jwt.ErrMismatchRecipientPlugin,
 			},
 			{
 				name:      "Error/MalformedToken",
 				enc:       plugin.enc,
-				decoder:   &scriptedCEKDecoder{},
+				decoder:   &fakeCEKDecoder{},
 				rawToken:  "header.payload.signature",
+				expectErr: jwt.ErrUnsupportedTokenFormat,
+			},
+			{
+				// This package performs no decompression.
+				name:      "Error/Compression",
+				enc:       plugin.enc,
+				zip:       jwa.ZipDeflate,
+				decoder:   &fakeCEKDecoder{},
+				rawToken:  wellFormed,
+				expectErr: jwt.ErrUnsupportedTokenFormat,
+			},
+			{
+				name:      "Error/MalformedSegment/EncKey",
+				enc:       plugin.enc,
+				decoder:   &fakeCEKDecoder{},
+				rawToken:  "e30." + testutils.UndecodableSegment + ".AAAA.AAAA.AAAA",
+				expectErr: jwt.ErrUnsupportedTokenFormat,
+			},
+			{
+				name:      "Error/MalformedSegment/IV",
+				enc:       plugin.enc,
+				decoder:   &fakeCEKDecoder{},
+				rawToken:  "e30.." + testutils.UndecodableSegment + ".AAAA.AAAA",
+				expectErr: jwt.ErrUnsupportedTokenFormat,
+			},
+			{
+				name:      "Error/MalformedSegment/CipherText",
+				enc:       plugin.enc,
+				decoder:   &fakeCEKDecoder{},
+				rawToken:  "e30..AAAA." + testutils.UndecodableSegment + ".AAAA",
+				expectErr: jwt.ErrUnsupportedTokenFormat,
+			},
+			{
+				name:      "Error/MalformedSegment/Tag",
+				enc:       plugin.enc,
+				decoder:   &fakeCEKDecoder{},
+				rawToken:  "e30..AAAA.AAAA." + testutils.UndecodableSegment,
 				expectErr: jwt.ErrUnsupportedTokenFormat,
 			},
 			{
 				name:      "Error/ComputeCEK",
 				enc:       plugin.enc,
-				decoder:   &scriptedCEKDecoder{err: errFoo},
+				decoder:   &fakeCEKDecoder{encrypted: []byte("another key")},
 				rawToken:  wellFormed,
 				expectErr: errFoo,
 			},
 			{
 				name:      "Error/CEKLength",
 				enc:       plugin.enc,
-				decoder:   &scriptedCEKDecoder{cek: make([]byte, plugin.keyLen+1)},
+				decoder:   &fakeCEKDecoder{cek: make([]byte, plugin.keyLen+1)},
 				rawToken:  wellFormed,
 				expectErr: jwe.ErrInvalidSecret,
 			},
@@ -208,7 +213,7 @@ func TestContentDecryption(t *testing.T) {
 			t.Run(string(plugin.enc)+"/"+testCase.name, func(t *testing.T) {
 				t.Parallel()
 
-				header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: testCase.enc}}
+				header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: testCase.enc, Zip: testCase.zip}}
 
 				_, err := plugin.newDecryption(testCase.decoder).Transform(t.Context(), header, testCase.rawToken)
 				require.ErrorIs(t, err, testCase.expectErr)
@@ -222,10 +227,10 @@ func TestContentDecryption(t *testing.T) {
 
 			cek := make([]byte, plugin.keyLen)
 			producer := jwt.NewProducer(jwt.ProducerConfig{
-				Plugins: []jwt.ProducerPlugin{plugin.newEncryption(&scriptedCEKManager{cek: cek})},
+				Plugins: []jwt.ProducerPlugin{plugin.newEncryption(&fakeCEKManager{cek: cek})},
 			})
 			recipient := jwt.NewRecipient(jwt.RecipientConfig{
-				Plugins: []jwt.RecipientPlugin{plugin.newDecryption(&scriptedCEKDecoder{cek: cek})},
+				Plugins: []jwt.RecipientPlugin{plugin.newDecryption(&fakeCEKDecoder{cek: cek})},
 			})
 
 			token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)

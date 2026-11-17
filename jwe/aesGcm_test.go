@@ -8,12 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
-	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
-	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
 func TestAESGCM(t *testing.T) {
@@ -200,41 +198,12 @@ func TestAESGCMDecryption(t *testing.T) {
 	}, jwe.A256GCM)
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
 
-	t.Run("Error/Compression", func(t *testing.T) {
-		t.Parallel()
-
-		header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwe.A256GCM.Enc, Zip: jwa.ZipDeflate}}
-
-		_, err := decrypter.Transform(t.Context(), header, token)
-		require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-	})
-
 	testCases := []struct {
 		name    string
 		malform func(token *jwt.EncryptedToken)
 
 		expectErr error
 	}{
-		{
-			name:      "Error/MalformedSegment/EncKey",
-			malform:   func(token *jwt.EncryptedToken) { token.EncKey = testutils.UndecodableSegment },
-			expectErr: jwt.ErrUnsupportedTokenFormat,
-		},
-		{
-			name:      "Error/MalformedSegment/IV",
-			malform:   func(token *jwt.EncryptedToken) { token.IV = testutils.UndecodableSegment },
-			expectErr: jwt.ErrUnsupportedTokenFormat,
-		},
-		{
-			name:      "Error/MalformedSegment/Tag",
-			malform:   func(token *jwt.EncryptedToken) { token.Tag = testutils.UndecodableSegment },
-			expectErr: jwt.ErrUnsupportedTokenFormat,
-		},
-		{
-			name:      "Error/MalformedSegment/CipherText",
-			malform:   func(token *jwt.EncryptedToken) { token.CipherText = testutils.UndecodableSegment },
-			expectErr: jwt.ErrUnsupportedTokenFormat,
-		},
 		{
 			// gcm.Open panics on a nonce of the wrong length, so a tampered IV must yield an error instead.
 			name:      "Error/ShortIV",

@@ -14,23 +14,36 @@ import (
 
 var errFoo = errors.New("foo error")
 
+// fakeCEKManager is a CEKManager whose every step returns what the test sets: an "enc" to pin in
+// SetHeader when pinEnc is set, the content encryption key and its encrypted form, and the error of
+// each step.
 type fakeCEKManager struct {
-	cek       []byte
-	encrypted []byte
+	pinEnc     jwa.Enc
+	headerErr  error
+	cek        []byte
+	cekErr     error
+	encrypted  []byte
+	encryptErr error
 }
 
 func (f *fakeCEKManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
-	return header, nil
+	if f.pinEnc != "" {
+		header.Enc = f.pinEnc
+	}
+
+	return header, f.headerErr
 }
 
 func (f *fakeCEKManager) ComputeCEK(_ context.Context, _ *jwa.JWH) ([]byte, error) {
-	return f.cek, nil
+	return f.cek, f.cekErr
 }
 
 func (f *fakeCEKManager) EncryptCEK(_ context.Context, _ *jwa.JWH, _ []byte) ([]byte, error) {
-	return f.encrypted, nil
+	return f.encrypted, f.encryptErr
 }
 
+// fakeCEKDecoder is a CEKDecoder returning cek for a token whose encrypted key is encrypted, and
+// errFoo for any other.
 type fakeCEKDecoder struct {
 	cek       []byte
 	encrypted []byte
