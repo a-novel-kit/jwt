@@ -29,11 +29,14 @@ var (
 	}
 )
 
-// TestKeyManagement issues tokens through every key manager and reads them back through its decoder.
+// TestCEKManager issues tokens through every key manager and reads them back through its decoder.
 // RFC 7516 §5.1 draws a fresh content encryption key for every token, and RFC 7518 §4.6 a fresh
 // ephemeral key. A manager and decoder tested alone share one header object, so only a token issued
 // by a Producer and read by a Recipient proves the per-token parameters reach the serialized header.
-func TestKeyManagement(t *testing.T) {
+//
+// DirectKeyManager is left out, since it reuses one content encryption key by design. It has its own
+// TestDirectEncryption.
+func TestCEKManager(t *testing.T) {
 	t.Parallel()
 
 	type keyManagementCase struct {

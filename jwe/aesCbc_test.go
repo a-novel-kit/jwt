@@ -168,6 +168,7 @@ func TestAESCBCDecryption(t *testing.T) {
 			decoder: func(t *testing.T, example rfcExample) jwe.CEKDecoder {
 				t.Helper()
 
+				// serializers decodes the RFC's JWK, which lacks the "use" and "key_ops" every jwk.Consume* requires (jwk/doc.go).
 				var keyPayload serializers.OctPayload
 
 				require.NoError(t, json.Unmarshal(example.JWK, &keyPayload))

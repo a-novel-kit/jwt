@@ -156,6 +156,7 @@ func TestAESGCMDecryption(t *testing.T) {
 
 		example := mustLoadRFCExample(t, "RFC7516A1")
 
+		// serializers decodes the RFC's JWK, which lacks the "use" and "key_ops" every jwk.Consume* requires (jwk/doc.go).
 		var keyPayload serializers.RSAPayload
 
 		require.NoError(t, json.Unmarshal(example.JWK, &keyPayload))

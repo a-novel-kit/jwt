@@ -243,6 +243,30 @@ func TestHPKEDecryption(t *testing.T) {
 		})
 	}
 
+	// A lenient decoder reads an encapsulated key with an unused trailing bit set as the same bytes, so
+	// accepting it would turn one issued token into several strings that all decrypt.
+	t.Run("Error/NonCanonicalEncryptedKey", func(t *testing.T) {
+		t.Parallel()
+
+		recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
+
+		var claims map[string]any
+
+		require.NoError(t, recipient.Consume(t.Context(), token, &claims))
+
+		parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
+		require.NoError(t, err)
+
+		// HPKE-0 encapsulates a 65-byte P-256 point, which leaves unused bits. mustDecodeBase64 decodes
+		// leniently.
+		encKey, ok := nonCanonical(parts.EncKey)
+		require.True(t, ok)
+		require.Equal(t, mustDecodeBase64(t, parts.EncKey), mustDecodeBase64(t, encKey))
+
+		parts.EncKey = encKey
+		require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwt.ErrUnsupportedTokenFormat)
+	})
+
 	// The draft keys "enc", "ek", and "psk_id" on presence, so an empty or null value still counts. Each
 	// header here is sealed as the AAD of its ciphertext, so only the member check can reject the token.
 	// The SealedHeader case proves the same construction decrypts.

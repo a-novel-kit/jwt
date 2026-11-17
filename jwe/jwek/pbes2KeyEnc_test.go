@@ -1,6 +1,7 @@
 package jwek_test
 
 import (
+	"crypto"
 	"encoding/base64"
 	"testing"
 
@@ -137,4 +138,21 @@ func TestPBES2KeyEncKWDecoder(t *testing.T) {
 			require.ErrorIs(t, err, testCase.expectErr)
 		})
 	}
+
+	// RFC 7518 §4.8.1.1 prefixes the salt with the algorithm, so one password reused across two PBES2
+	// algorithms derives unrelated wrap keys. This preset differs from PBES2A128KW by its name only.
+	t.Run("Error/SaltBindsTheAlgorithm", func(t *testing.T) {
+		t.Parallel()
+
+		otherAlg := jwek.NewPBES2KeyEncKWDecoder(
+			&jwek.PBES2KeyEncKWDecoderConfig{Secret: "a password"},
+			jwek.PBES2KeyEncKWPreset{Alg: jwa.PBES2HS384A192KW, Hash: crypto.SHA256, KeySize: 16},
+		)
+
+		common := header.JWHCommon
+		common.Alg = jwa.PBES2HS384A192KW
+
+		_, err := otherAlg.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedKey)
+		require.ErrorIs(t, err, jwt.ErrTokenRejected)
+	})
 }

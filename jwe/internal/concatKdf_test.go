@@ -13,7 +13,7 @@ func TestConcatKDF(t *testing.T) {
 	t.Parallel()
 
 	// https://datatracker.ietf.org/doc/html/rfc7518#appendix-C
-	t.Run("Success/RFC7518AppendixC", func(t *testing.T) {
+	t.Run("Success/RFC7518C", func(t *testing.T) {
 		t.Parallel()
 
 		z := []byte{

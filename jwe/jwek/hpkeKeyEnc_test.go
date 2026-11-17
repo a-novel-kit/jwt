@@ -126,8 +126,8 @@ func TestHPKEKeyEncDecoder(t *testing.T) {
 	}
 
 	// "psk_id" selects HPKE's PSK mode by its presence, so an empty or null value still counts. The
-	// producer authenticates the header carrying it, so only the decoder's check can reject the token:
-	// the control proves the same pipeline decrypts.
+	// producer authenticates the header carrying it, so only the decoder's check can reject the token.
+	// The SealedHeader case proves the same pipeline decrypts.
 	producer := jwt.NewProducer(jwt.ProducerConfig{
 		Plugins: []jwt.ProducerPlugin{
 			jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
@@ -149,7 +149,7 @@ func TestHPKEKeyEncDecoder(t *testing.T) {
 
 		expectErr error
 	}{
-		{name: "Success/Control", header: nil},
+		{name: "Success/SealedHeader", header: nil},
 		{name: "Error/EmptyPSKID", header: map[string]any{"psk_id": ""}, expectErr: jwt.ErrUnsupportedTokenFormat},
 		{name: "Error/NullPSKID", header: map[string]any{"psk_id": nil}, expectErr: jwt.ErrUnsupportedTokenFormat},
 	}

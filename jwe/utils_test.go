@@ -56,6 +56,21 @@ func mustDecodeBase64(t *testing.T, segment string) []byte {
 	return decoded
 }
 
+// nonCanonical returns segment with an unused trailing bit set, which a lenient base64url decoder
+// reads as the same bytes. It reports false when the encoded bytes leave no unused bit, as a
+// multiple of 3 bytes does.
+func nonCanonical(segment string) (string, bool) {
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+	if len(segment)%4 == 0 {
+		return "", false
+	}
+
+	last := strings.IndexByte(alphabet, segment[len(segment)-1])
+
+	return segment[:len(segment)-1] + string(alphabet[last^1]), true
+}
+
 // rfcExample is a worked JWE example of RFC 7516 Appendix A or RFC 7517 Appendix C: a compact token,
 // the key or password that decrypts it, and the plaintext it carries.
 type rfcExample struct {

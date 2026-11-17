@@ -60,6 +60,9 @@ var keyWrapVectors = []struct {
 // The KEK of RFC 3394 §4.1, for the error cases.
 const keyWrapKEK = "000102030405060708090A0B0C0D0E0F"
 
+// shortKEK holds 15 bytes, a length AES refuses as a key.
+const shortKEK = "000102030405060708090A0B0C0D0E"
+
 func TestKeyWrap(t *testing.T) {
 	t.Parallel()
 
@@ -93,7 +96,7 @@ func TestKeyWrap(t *testing.T) {
 		{
 			// AES takes a 16, 24 or 32-byte key.
 			name:    "Error/ShortKEK",
-			kek:     keyWrapKEK[:30],
+			kek:     shortKEK,
 			keyData: "00112233445566778899AABBCCDDEEFF",
 		},
 	}
@@ -155,7 +158,7 @@ func TestKeyUnwrap(t *testing.T) {
 		},
 		{
 			name:       "Error/ShortKEK",
-			kek:        keyWrapKEK[:30],
+			kek:        shortKEK,
 			ciphertext: "1FA68B0A8112B447AEF34BD8FB5A7B829D3E862371D2CFE5",
 		},
 	}

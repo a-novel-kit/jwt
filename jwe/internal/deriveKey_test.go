@@ -12,7 +12,7 @@ import (
 func TestDerive(t *testing.T) {
 	t.Parallel()
 
-	// The RFC7518AppendixC case runs the worked example of TestConcatKDF one layer up.
+	// The RFC7518C case runs the worked example of TestConcatKDF one layer up.
 	//
 	// TestConcatKDF passes the length-prefixed OtherInfo blocks as literals, so it covers the KDF
 	// alone. Derive builds those blocks from apu and apv, and it decodes their base64url header values
@@ -20,7 +20,7 @@ func TestDerive(t *testing.T) {
 	// "Alice": [65, 108, 105, 99, 101].
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#appendix-C
-	t.Run("Success/RFC7518AppendixC", func(t *testing.T) {
+	t.Run("Success/RFC7518C", func(t *testing.T) {
 		t.Parallel()
 
 		z := []byte{

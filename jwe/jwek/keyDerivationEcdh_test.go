@@ -149,7 +149,7 @@ func TestECDHKeyAgrDecoder(t *testing.T) {
 	// the Concat KDF.
 	//
 	// https://datatracker.ietf.org/doc/html/rfc7518#appendix-C
-	t.Run("Success/RFC7518AppendixC", func(t *testing.T) {
+	t.Run("Success/RFC7518C", func(t *testing.T) {
 		t.Parallel()
 
 		bobKey, err := json.Marshal(map[string]any{
@@ -198,6 +198,9 @@ func runAgreementFaults(
 	t.Helper()
 
 	otherInfo := base64.RawURLEncoding.EncodeToString([]byte("another party"))
+
+	_, otherCurveKey, err := jwk.GenerateECDHKey(jwk.ECDHESP256)
+	require.NoError(t, err)
 
 	testCases := []struct {
 		name string
@@ -251,6 +254,17 @@ func runAgreementFaults(
 				common.EPK = &epk
 			},
 			expectErr: jwt.ErrUnsupportedTokenFormat,
+		},
+		{
+			// The EPK is a valid P-256 key, but the recipient key is X25519.
+			name: "Error/EPKOnAnotherCurve",
+			malform: func(common *jwa.JWHCommon) {
+				epk := *common.EPK
+				epk.KTY = jwa.KTYEC
+				epk.Payload = otherCurveKey.Payload
+				common.EPK = &epk
+			},
+			expectErr: jwt.ErrTokenRejected,
 		},
 		{
 			name:      "Error/WrongProducerInfo",
