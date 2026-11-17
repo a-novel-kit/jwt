@@ -70,7 +70,11 @@ func HasPrivateMaterial(key *jwa.JWK) (bool, error) {
 }
 
 // Public returns key with every private member removed, leaving the half a
-// recipient needs to verify. The original is not modified.
+// recipient needs to verify. Each operation that takes the private key becomes
+// its public counterpart in "key_ops" (sign becomes verify, decrypt becomes
+// encrypt, unwrapKey becomes wrapKey), as a Generate function labels a public
+// half, so a JWK Set built from Public serves the verifiers of package jws. The
+// original is not modified.
 //
 // A symmetric key has no public half, since its single member is the secret, so
 // one yields ErrPrivateKeyMaterial.
@@ -98,10 +102,39 @@ func Public(key *jwa.JWK) (*jwa.JWK, error) {
 	// The copy gets its own slices, so a caller editing its key_ops or x5c leaves the original intact.
 	out := *key
 	out.Payload = payload
-	out.KeyOps = slices.Clone(key.KeyOps)
+	out.KeyOps = publicKeyOps(key.KeyOps)
 	out.X5C = slices.Clone(key.X5C)
 
 	return &out, nil
+}
+
+// publicCounterparts maps each key operation that takes the private key to the one its public half
+// performs. RFC 7517 §4.3 defines the operations in these pairs.
+var publicCounterparts = map[jwa.KeyOp]jwa.KeyOp{
+	jwa.KeyOpSign:      jwa.KeyOpVerify,
+	jwa.KeyOpDecrypt:   jwa.KeyOpEncrypt,
+	jwa.KeyOpUnwrapKey: jwa.KeyOpWrapKey,
+}
+
+// publicKeyOps returns a new list holding the public counterpart of each operation in ops, once.
+func publicKeyOps(ops jwa.KeyOps) jwa.KeyOps {
+	if ops == nil {
+		return nil
+	}
+
+	public := make(jwa.KeyOps, 0, len(ops))
+
+	for _, op := range ops {
+		if counterpart, ok := publicCounterparts[op]; ok {
+			op = counterpart
+		}
+
+		if !slices.Contains(public, op) {
+			public = append(public, op)
+		}
+	}
+
+	return public
 }
 
 // payloadMembers decodes a key's type-specific members. An absent payload

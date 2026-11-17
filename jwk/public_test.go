@@ -120,9 +120,47 @@ func TestPublic(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, hasPrivate)
 
+		// The public half verifies what the private half signs.
+		require.Equal(t, jwa.KeyOps{jwa.KeyOpVerify}, public.KeyOps)
+
 		// The input is left alone, so a caller projecting a key it still signs with
 		// does not disarm its own signer.
 		require.Contains(t, members(t, rsaPrivate.JWK), "d")
+		require.Equal(t, jwa.KeyOps{jwa.KeyOpSign}, rsaPrivate.KeyOps)
+	})
+
+	t.Run("Success/PublicKeyOps", func(t *testing.T) {
+		t.Parallel()
+
+		_, ecPublic, err := jwk.GenerateECDSA(jwk.ES256)
+		require.NoError(t, err)
+
+		testCases := []struct {
+			name string
+
+			keyOps jwa.KeyOps
+			expect jwa.KeyOps
+		}{
+			{name: "Sign", keyOps: jwa.KeyOps{jwa.KeyOpSign}, expect: jwa.KeyOps{jwa.KeyOpVerify}},
+			{name: "Decrypt", keyOps: jwa.KeyOps{jwa.KeyOpDecrypt}, expect: jwa.KeyOps{jwa.KeyOpEncrypt}},
+			{name: "UnwrapKey", keyOps: jwa.KeyOps{jwa.KeyOpUnwrapKey}, expect: jwa.KeyOps{jwa.KeyOpWrapKey}},
+			{name: "BothHalves", keyOps: jwa.KeyOps{jwa.KeyOpSign, jwa.KeyOpVerify}, expect: jwa.KeyOps{jwa.KeyOpVerify}},
+			{name: "DeriveKey", keyOps: jwa.KeyOps{jwa.KeyOpDeriveKey}, expect: jwa.KeyOps{jwa.KeyOpDeriveKey}},
+			{name: "None"},
+		}
+
+		for _, testCase := range testCases {
+			t.Run(testCase.name, func(t *testing.T) {
+				t.Parallel()
+
+				labeled := *ecPublic.JWK
+				labeled.KeyOps = testCase.keyOps
+
+				public, err := jwk.Public(&labeled)
+				require.NoError(t, err)
+				require.Equal(t, testCase.expect, public.KeyOps)
+			})
+		}
 	})
 
 	t.Run("Success/AlreadyPublic", func(t *testing.T) {
