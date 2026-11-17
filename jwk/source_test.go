@@ -3,6 +3,7 @@ package jwk_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -151,52 +152,51 @@ func TestSourceGet(t *testing.T) {
 func TestSourceRefresh(t *testing.T) {
 	t.Parallel()
 
-	keys := []*jwa.JWK{
-		newPlaceholderKey[string](t, `"number":1`).JWK,
-		newPlaceholderKey[string](t, `"number":2`).JWK,
-	}
+	// The bubble's fake clock puts the reads exactly on either side of CacheDuration.
+	synctest.Test(t, func(t *testing.T) {
+		keys := []*jwa.JWK{
+			newPlaceholderKey[string](t, `"number":1`).JWK,
+			newPlaceholderKey[string](t, `"number":2`).JWK,
+		}
 
-	fetcher := func(_ context.Context) ([]*jwa.JWK, error) {
-		// Copy the slice so a caller cannot mutate the fixture.
-		copied := make([]*jwa.JWK, len(keys))
-		copy(copied, keys)
+		source := jwk.NewSource(jwk.SourceConfig{
+			CacheDuration: time.Hour,
+			Fetch: func(_ context.Context) ([]*jwa.JWK, error) {
+				// Copy the slice so a caller cannot mutate the fixture.
+				return slices.Clone(keys), nil
+			},
+		})
 
-		return copied, nil
-	}
+		fetchedKeys, err := source.List(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, []*jwa.JWK{
+			newPlaceholderKey[string](t, `"number":1`).JWK,
+			newPlaceholderKey[string](t, `"number":2`).JWK,
+		}, fetchedKeys)
 
-	config := jwk.SourceConfig{Fetch: fetcher, CacheDuration: 100 * time.Millisecond}
+		keys = []*jwa.JWK{
+			newPlaceholderKey[string](t, `"number":3`).JWK,
+			newPlaceholderKey[string](t, `"number":4`).JWK,
+		}
 
-	source := jwk.NewSource(config)
+		time.Sleep(time.Hour - time.Nanosecond)
 
-	fetchedKeys, err := source.List(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, []*jwa.JWK{
-		newPlaceholderKey[string](t, `"number":1`).JWK,
-		newPlaceholderKey[string](t, `"number":2`).JWK,
-	}, fetchedKeys)
+		fetchedKeys, err = source.List(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, []*jwa.JWK{
+			newPlaceholderKey[string](t, `"number":1`).JWK,
+			newPlaceholderKey[string](t, `"number":2`).JWK,
+		}, fetchedKeys)
 
-	keys = []*jwa.JWK{
-		newPlaceholderKey[string](t, `"number":3`).JWK,
-		newPlaceholderKey[string](t, `"number":4`).JWK,
-	}
+		time.Sleep(time.Nanosecond)
 
-	time.Sleep(10 * time.Millisecond)
-
-	fetchedKeys, err = source.List(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, []*jwa.JWK{
-		newPlaceholderKey[string](t, `"number":1`).JWK,
-		newPlaceholderKey[string](t, `"number":2`).JWK,
-	}, fetchedKeys)
-
-	time.Sleep(100 * time.Millisecond)
-
-	fetchedKeys, err = source.List(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, []*jwa.JWK{
-		newPlaceholderKey[string](t, `"number":3`).JWK,
-		newPlaceholderKey[string](t, `"number":4`).JWK,
-	}, fetchedKeys)
+		fetchedKeys, err = source.List(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, []*jwa.JWK{
+			newPlaceholderKey[string](t, `"number":3`).JWK,
+			newPlaceholderKey[string](t, `"number":4`).JWK,
+		}, fetchedKeys)
+	})
 }
 
 func TestSourceNegativeCache(t *testing.T) {
@@ -529,13 +529,9 @@ func TestSourceGetUnknownKeyIDConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for i := range 50 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_, _ = source.Get(t.Context(), "forged-"+strconv.Itoa(i))
-		}()
+		})
 	}
 
 	wg.Wait()
