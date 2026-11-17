@@ -33,7 +33,7 @@ func TestClaimsChecker(t *testing.T) {
 		expectErr error
 	}{
 		{
-			name: "Minimalistic",
+			name: "Success",
 
 			config: &jwp.ClaimsCheckerConfig{},
 
@@ -44,7 +44,7 @@ func TestClaimsChecker(t *testing.T) {
 		},
 		{
 			// A JSON null payload is no claims set, so no check can read it.
-			name: "NullClaims",
+			name: "Error/NullClaims",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{jwp.NewClaimsCheckTimestamp(0, false)},
@@ -87,7 +87,7 @@ func TestClaimsChecker(t *testing.T) {
 			},
 		},
 		{
-			name: "WithTarget/InvalidAudience",
+			name: "WithTarget/Error/InvalidAudience",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -114,7 +114,7 @@ func TestClaimsChecker(t *testing.T) {
 		{
 			// encoding/json fills Iss from the last match, so the target check alone would accept these
 			// claims, whose iss is fake-issuer. The claims set is refused before any check runs.
-			name: "WithTarget/CaseVariantIssuer",
+			name: "WithTarget/Error/CaseVariantIssuer",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -134,7 +134,7 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwa.ErrReservedMember,
 		},
 		{
-			name: "WithTarget/InvalidIssuer",
+			name: "WithTarget/Error/InvalidIssuer",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -159,7 +159,7 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwp.ErrInvalidClaims,
 		},
 		{
-			name: "WithTarget/InvalidSubject",
+			name: "WithTarget/Error/InvalidSubject",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -205,7 +205,7 @@ func TestClaimsChecker(t *testing.T) {
 			},
 		},
 		{
-			name: "NotBefore/Failure",
+			name: "NotBefore/Error",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -245,7 +245,7 @@ func TestClaimsChecker(t *testing.T) {
 			},
 		},
 		{
-			name: "Exp/Failure",
+			name: "Exp/Error",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -265,7 +265,7 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwp.ErrInvalidClaims,
 		},
 		{
-			name: "Exp/Failure/Required",
+			name: "Exp/Error/Required",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -285,7 +285,7 @@ func TestClaimsChecker(t *testing.T) {
 		},
 		{
 			// A negative exp is a bound in the past, so the token has expired.
-			name: "Exp/Failure/Negative",
+			name: "Exp/Error/Negative",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -304,7 +304,7 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwp.ErrInvalidClaims,
 		},
 		{
-			name: "Exp/Failure/NegativeRequired",
+			name: "Exp/Error/NegativeRequired",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{

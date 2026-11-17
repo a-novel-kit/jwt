@@ -21,7 +21,7 @@ func TestEC(t *testing.T) {
 
 	publicKey := &privateKey.PublicKey
 
-	t.Run("PrivateKey", func(t *testing.T) {
+	t.Run("Success/PrivateKey", func(t *testing.T) {
 		t.Parallel()
 
 		payload, err := serializers.EncodeEC(privateKey)
@@ -34,7 +34,7 @@ func TestEC(t *testing.T) {
 		require.True(t, publicKey.Equal(decodedPublicKey))
 	})
 
-	t.Run("PublicKey", func(t *testing.T) {
+	t.Run("Success/PublicKey", func(t *testing.T) {
 		t.Parallel()
 
 		payload, err := serializers.EncodeEC(publicKey)
@@ -97,11 +97,11 @@ func TestEC(t *testing.T) {
 			payload func() (*serializers.ECPayload, error)
 		}{
 			{
-				name:    "PrivateKey",
+				name:    "Success/PrivateKey",
 				payload: func() (*serializers.ECPayload, error) { return serializers.EncodeEC(privateKey) },
 			},
 			{
-				name:    "PublicKey",
+				name:    "Success/PublicKey",
 				payload: func() (*serializers.ECPayload, error) { return serializers.EncodeEC(&privateKey.PublicKey) },
 			},
 		}

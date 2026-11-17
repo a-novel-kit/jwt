@@ -117,26 +117,26 @@ func TestConsumeECDSA(t *testing.T) {
 	}{
 		// The curve check accepts each preset's own keys.
 		{
-			name:    "ES256",
+			name:    "Success/ES256",
 			preset:  jwk.ES256,
 			private: es256Private,
 			public:  es256Public,
 		},
 		{
-			name:    "ES384",
+			name:    "Success/ES384",
 			preset:  jwk.ES384,
 			private: es384Private,
 			public:  es384Public,
 		},
 		{
-			name:    "ES512",
+			name:    "Success/ES512",
 			preset:  jwk.ES512,
 			private: es512Private,
 			public:  es512Public,
 		},
 
 		{
-			name:      "Mismatch",
+			name:      "Error/Mismatch",
 			preset:    jwk.ES256,
 			private:   newPlaceholderKey[*ecdsa.PrivateKey](t, "kid-1"),
 			public:    newPlaceholderKey[*ecdsa.PublicKey](t, "kid-2"),
