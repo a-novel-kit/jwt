@@ -2,9 +2,6 @@ package jws_test
 
 import (
 	"crypto"
-	"crypto/rsa"
-	"encoding/base64"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,356 +10,52 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwk"
 	"github.com/a-novel-kit/jwt/v2/jws"
-	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
-func TestRSA(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name string
-
-		keyPreset jwk.RSAPreset
-		preset    jws.RSAPreset
-	}{
-		{
-			name:      "ES256",
-			keyPreset: jwk.RS256,
-			preset:    jws.RS256,
-		},
-		{
-			name:      "ES384",
-			keyPreset: jwk.RS384,
-			preset:    jws.RS384,
-		},
-		{
-			name:      "ES512",
-			keyPreset: jwk.RS512,
-			preset:    jws.RS512,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			privateKey, publicKey, err := jwk.GenerateRSA(testCase.keyPreset)
-			require.NoError(t, err)
-
-			signer := jws.NewRSASigner(privateKey.Key(), testCase.preset)
-			verifier := jws.NewRSAVerifier(publicKey.Key(), testCase.preset)
-
-			producer := jwt.NewProducer(jwt.ProducerConfig{
-				Plugins: []jwt.ProducerPlugin{signer},
-			})
-			recipient := jwt.NewRecipient(jwt.RecipientConfig{
-				Plugins: []jwt.RecipientPlugin{verifier},
-			})
-
-			producerClaims := map[string]any{"foo": "bar"}
-
-			token, err := producer.Issue(t.Context(), producerClaims, nil)
-			require.NoError(t, err)
-
-			t.Run("OK", func(t *testing.T) {
-				t.Parallel()
-
-				var recipientClaims map[string]any
-
-				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
-
-				require.Equal(t, producerClaims, recipientClaims)
-			})
-
-			t.Run("IncorrectHeader", func(t *testing.T) {
-				t.Parallel()
-
-				var recipientClaims map[string]any
-
-				customHeader := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"foo"}`))
-				parts := strings.Split(token, ".")
-				newToken := strings.Join(append([]string{customHeader}, parts[1:]...), ".")
-
-				err := recipient.Consume(t.Context(), newToken, &recipientClaims)
-				require.ErrorIs(t, err, jwt.ErrMismatchRecipientPlugin)
-			})
-
-			t.Run("MalformedSignature", func(t *testing.T) {
-				t.Parallel()
-
-				var recipientClaims map[string]any
-
-				parts := strings.Split(token, ".")
-				newToken := strings.Join(append(parts[:2:2], testutils.UndecodableSegment), ".")
-
-				err := recipient.Consume(t.Context(), newToken, &recipientClaims)
-				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-			})
-
-			t.Run("InvalidSignature", func(t *testing.T) {
-				t.Parallel()
-
-				otherPrivateKey, _, err := jwk.GenerateRSA(testCase.keyPreset)
-				require.NoError(t, err)
-
-				otherSigner := jws.NewRSASigner(otherPrivateKey.Key(), testCase.preset)
-				otherProducer := jwt.NewProducer(jwt.ProducerConfig{
-					Plugins: []jwt.ProducerPlugin{otherSigner},
-				})
-
-				otherToken, err := otherProducer.Issue(t.Context(), producerClaims, nil)
-				require.NoError(t, err)
-
-				var recipientClaims map[string]any
-
-				err = recipient.Consume(t.Context(), otherToken, &recipientClaims)
-				require.ErrorIs(t, err, jws.ErrInvalidSignature)
-			})
-		})
-	}
-}
-
-func TestRSASourcedSigner(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name string
-
-		keyPreset jwk.RSAPreset
-		preset    jws.RSAPreset
-	}{
-		{
-			name:      "RS256",
-			keyPreset: jwk.RS256,
-			preset:    jws.RS256,
-		},
-		{
-			name:      "RS384",
-			keyPreset: jwk.RS384,
-			preset:    jws.RS384,
-		},
-		{
-			name:      "RS512",
-			keyPreset: jwk.RS512,
-			preset:    jws.RS512,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			privateKeys := make([]*jwk.Key[*rsa.PrivateKey], 3)
-			publicKeys := make([]*jwk.Key[*rsa.PublicKey], 3)
-
-			for i := range privateKeys {
-				privateKey, publicKey, err := jwk.GenerateRSA(testCase.keyPreset)
-				require.NoError(t, err)
-
-				privateKeys[i] = privateKey
-				publicKeys[i] = publicKey
-			}
-
-			source := testutils.NewStaticKeysSource(t, privateKeys)
-
-			signer := jws.NewSourcedRSASigner(source, testCase.preset)
-			producer := jwt.NewProducer(jwt.ProducerConfig{
-				Plugins: []jwt.ProducerPlugin{signer},
-			})
-
-			producerClaims := map[string]any{"foo": "bar"}
-			token, err := producer.Issue(t.Context(), producerClaims, nil)
-			require.NoError(t, err)
-
-			t.Run("TryFirstKey", func(t *testing.T) {
-				t.Parallel()
-
-				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKeys[0].Key(), testCase.preset)},
-				})
-
-				var recipientClaims map[string]any
-
-				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
-				require.Equal(t, producerClaims, recipientClaims)
-			})
-
-			t.Run("TrySecondKey", func(t *testing.T) {
-				t.Parallel()
-
-				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKeys[1].Key(), testCase.preset)},
-				})
-
-				var recipientClaims map[string]any
-
-				require.ErrorIs(
-					t,
-					recipient.Consume(t.Context(), token, &recipientClaims),
-					jws.ErrInvalidSignature,
-				)
-			})
-		})
-	}
-}
-
-func TestRSASourcedVerifier(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name string
-
-		keyPreset jwk.RSAPreset
-		preset    jws.RSAPreset
-	}{
-		{
-			name:      "RS256",
-			keyPreset: jwk.RS256,
-			preset:    jws.RS256,
-		},
-		{
-			name:      "RS384",
-			keyPreset: jwk.RS384,
-			preset:    jws.RS384,
-		},
-		{
-			name:      "RS512",
-			keyPreset: jwk.RS512,
-			preset:    jws.RS512,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			privateKeys := make([]*jwk.Key[*rsa.PrivateKey], 3)
-			publicKeys := make([]*jwk.Key[*rsa.PublicKey], 3)
-
-			for i := range privateKeys {
-				privateKey, publicKey, err := jwk.GenerateRSA(testCase.keyPreset)
-				require.NoError(t, err)
-
-				privateKeys[i] = privateKey
-				publicKeys[i] = publicKey
-			}
-
-			source := testutils.NewStaticKeysSource(t, publicKeys)
-
-			signer := jws.NewRSASigner(privateKeys[0].Key(), testCase.preset)
-			producer := jwt.NewProducer(jwt.ProducerConfig{
-				Plugins: []jwt.ProducerPlugin{signer},
-			})
-
-			producerClaims := map[string]any{"foo": "bar"}
-			token, err := producer.Issue(t.Context(), producerClaims, nil)
-			require.NoError(t, err)
-
-			t.Run("SigningKeyFirst", func(t *testing.T) {
-				t.Parallel()
-
-				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(source, testCase.preset)},
-				})
-
-				var recipientClaims map[string]any
-
-				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
-				require.Equal(t, producerClaims, recipientClaims)
-			})
-
-			t.Run("SigningKeySecond", func(t *testing.T) {
-				t.Parallel()
-
-				_, newPublicKey, err := jwk.GenerateRSA(testCase.keyPreset)
-				require.NoError(t, err)
-
-				rotatedSource := testutils.NewStaticKeysSource(
-					t,
-					append([]*jwk.Key[*rsa.PublicKey]{newPublicKey}, publicKeys...),
-				)
-
-				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(rotatedSource, testCase.preset)},
-				})
-
-				var recipientClaims map[string]any
-
-				require.NoError(t, recipient.Consume(t.Context(), token, &recipientClaims))
-				require.Equal(t, producerClaims, recipientClaims)
-			})
-
-			t.Run("KeyMissing", func(t *testing.T) {
-				t.Parallel()
-
-				_, newPublicKey, err := jwk.GenerateRSA(testCase.keyPreset)
-				require.NoError(t, err)
-
-				unrelatedSource := testutils.NewStaticKeysSource(t, []*jwk.Key[*rsa.PublicKey]{newPublicKey})
-
-				recipient := jwt.NewRecipient(jwt.RecipientConfig{
-					Plugins: []jwt.RecipientPlugin{jws.NewSourcedRSAVerifier(unrelatedSource, testCase.preset)},
-				})
-
-				var recipientClaims map[string]any
-
-				require.ErrorIs(
-					t,
-					recipient.Consume(t.Context(), token, &recipientClaims),
-					jws.ErrInvalidSignature,
-				)
-			})
-		})
-	}
-}
-
-func TestRSACrossSchemeRejected(t *testing.T) {
-	t.Parallel()
-
-	privateKey, publicKey, err := jwk.GenerateRSA(jwk.RS256)
-	require.NoError(t, err)
-
-	claims := map[string]any{"foo": "bar"}
-
-	rsToken, err := jwt.NewProducer(jwt.ProducerConfig{
-		Plugins: []jwt.ProducerPlugin{jws.NewRSASigner(privateKey.Key(), jws.RS256)},
-	}).Issue(t.Context(), claims, nil)
-	require.NoError(t, err)
-
-	psToken, err := jwt.NewProducer(jwt.ProducerConfig{
-		Plugins: []jwt.ProducerPlugin{jws.NewRSASigner(privateKey.Key(), jws.PS256)},
-	}).Issue(t.Context(), claims, nil)
-	require.NoError(t, err)
-
-	rsVerifier := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKey.Key(), jws.RS256)},
-	})
-	psVerifier := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{jws.NewRSAVerifier(publicKey.Key(), jws.PS256)},
-	})
-
-	var dst map[string]any
-
-	// Each verifier is pinned to its preset's alg, so a PKCS1v15 (RS*) token and a PSS (PS*) verifier
-	// never match.
-	require.Error(t, psVerifier.Consume(t.Context(), rsToken, &dst))
-	require.Error(t, rsVerifier.Consume(t.Context(), psToken, &dst))
-
-	// Each token still verifies with its matching scheme.
-	require.NoError(t, rsVerifier.Consume(t.Context(), rsToken, &dst))
-	require.NoError(t, psVerifier.Consume(t.Context(), psToken, &dst))
-}
-
-func TestRSAUnknownAlgorithmRejected(t *testing.T) {
+func TestRSASigner(t *testing.T) {
 	t.Parallel()
 
 	privateKey, _, err := jwk.GenerateRSA(jwk.RS256)
 	require.NoError(t, err)
 
 	// A hand-built preset whose algorithm is neither RS* nor PS* fails at signing.
-	signer := jws.NewRSASigner(privateKey.Key(), jws.RSAPreset{Hash: crypto.SHA256, Alg: jwa.Alg("RS999")})
-	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{signer}})
+	t.Run("Error/UnsupportedAlgorithm", func(t *testing.T) {
+		t.Parallel()
 
-	_, err = producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
-	require.ErrorIs(t, err, jws.ErrUnsupportedAlgorithm)
+		signer := jws.NewRSASigner(privateKey.Key(), jws.RSAPreset{Hash: crypto.SHA256, Alg: jwa.Alg("RS999")})
+
+		_, err := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{signer}}).
+			Issue(t.Context(), testClaims, nil)
+		require.ErrorIs(t, err, jws.ErrUnsupportedAlgorithm)
+	})
+}
+
+func TestRSAVerifier(t *testing.T) {
+	t.Parallel()
+
+	privateKey, publicKey, err := jwk.GenerateRSA(jwk.RS256)
+	require.NoError(t, err)
+
+	// RS* and PS* share keys, and each verifier is pinned to its preset's alg, so a PKCS1v15 token
+	// never reaches a PSS verifier, nor the reverse.
+	testCases := []struct {
+		name string
+
+		signedWith   jws.RSAPreset
+		verifiedWith jws.RSAPreset
+	}{
+		{name: "Error/PSSVerifierOnPKCS1Token", signedWith: jws.RS256, verifiedWith: jws.PS256},
+		{name: "Error/PKCS1VerifierOnPSSToken", signedWith: jws.PS256, verifiedWith: jws.RS256},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			token := issue(t, jws.NewRSASigner(privateKey.Key(), testCase.signedWith), "")
+			verifier := jws.NewRSAVerifier(publicKey.Key(), testCase.verifiedWith)
+
+			require.ErrorIs(t, consume(t, verifier, token), jwt.ErrMismatchRecipientPlugin)
+		})
+	}
 }
