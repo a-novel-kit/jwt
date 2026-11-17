@@ -9,17 +9,12 @@ import (
 // segment that is not base64url. It reports a malformed token, and matches [ErrTokenRejected].
 var ErrUnsupportedTokenFormat = fmt.Errorf("%w: unsupported token format", ErrTokenRejected)
 
-// A TokenDecoder splits a compact serialized token into its typed segments. Each JOSE token shape,
-// whether unsecured, signed or encrypted, has its own decoder and segment type.
-type TokenDecoder[R any] interface {
-	Decode(source string) (R, error)
-}
-
 // HeaderDecoder extracts the encoded header, the first segment, from any compact token regardless
 // of its shape.
 type HeaderDecoder struct{}
 
-// Decode implements [TokenDecoder].
+// Decode returns the encoded header of source. It returns [ErrUnsupportedTokenFormat] when source
+// holds a single segment.
 func (decoder *HeaderDecoder) Decode(source string) (string, error) {
 	header, _, found := strings.Cut(source, ".")
 	if !found {
@@ -43,15 +38,11 @@ func (token RawToken) String() string {
 	return token.Header + "." + token.Payload
 }
 
-// Bytes returns String as a byte slice.
-func (token RawToken) Bytes() []byte {
-	return []byte(token.String())
-}
-
 // RawTokenDecoder decodes an unsecured token into its header and payload segments.
 type RawTokenDecoder struct{}
 
-// Decode implements [TokenDecoder].
+// Decode splits source into its header and payload. It returns [ErrUnsupportedTokenFormat] unless
+// source holds exactly two segments.
 func (decoder *RawTokenDecoder) Decode(source string) (*RawToken, error) {
 	// Limit is segments+1, so an over-segmented token still trips the length check below while the cap
 	// bounds the allocation a dot-heavy input can force.
@@ -81,15 +72,11 @@ func (token SignedToken) String() string {
 	return token.Header + "." + token.Payload + "." + token.Signature
 }
 
-// Bytes returns String as a byte slice.
-func (token SignedToken) Bytes() []byte {
-	return []byte(token.String())
-}
-
 // SignedTokenDecoder decodes a JWS compact token into its three segments.
 type SignedTokenDecoder struct{}
 
-// Decode implements [TokenDecoder].
+// Decode splits source into its three segments. It returns [ErrUnsupportedTokenFormat] unless source
+// holds exactly three.
 func (decoder *SignedTokenDecoder) Decode(source string) (*SignedToken, error) {
 	parts := strings.SplitN(source, ".", 4)
 	if len(parts) != 3 {
@@ -123,15 +110,11 @@ func (token EncryptedToken) String() string {
 	return token.Header + "." + token.EncKey + "." + token.IV + "." + token.CipherText + "." + token.Tag
 }
 
-// Bytes returns String as a byte slice.
-func (token EncryptedToken) Bytes() []byte {
-	return []byte(token.String())
-}
-
 // EncryptedTokenDecoder decodes a JWE compact token into its five segments.
 type EncryptedTokenDecoder struct{}
 
-// Decode implements [TokenDecoder].
+// Decode splits source into its five segments. It returns [ErrUnsupportedTokenFormat] unless source
+// holds exactly five.
 func (decoder *EncryptedTokenDecoder) Decode(source string) (*EncryptedToken, error) {
 	parts := strings.SplitN(source, ".", 6)
 	if len(parts) != 5 {
@@ -145,13 +128,4 @@ func (decoder *EncryptedTokenDecoder) Decode(source string) (*EncryptedToken, er
 		CipherText: parts[3],
 		Tag:        parts[4],
 	}, nil
-}
-
-// DecodeToken runs decoder over source and returns the typed segments, inferring the segment type
-// from the decoder passed in.
-//
-// Deprecated: call the decoder directly, as in (&SignedTokenDecoder{}).Decode(source). Its Decode
-// method already returns the typed segments.
-func DecodeToken[R any](source string, decoder TokenDecoder[R]) (R, error) {
-	return decoder.Decode(source)
 }

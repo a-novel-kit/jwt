@@ -176,11 +176,3 @@ func TestEncryptedToken(t *testing.T) {
 		})
 	}
 }
-
-func TestDecodeToken(t *testing.T) {
-	t.Parallel()
-
-	token, err := jwt.DecodeToken("header.payload.signature", &jwt.SignedTokenDecoder{})
-	require.NoError(t, err)
-	require.Equal(t, &jwt.SignedToken{Header: "header", Payload: "payload", Signature: "signature"}, token)
-}
