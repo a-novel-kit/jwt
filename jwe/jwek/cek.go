@@ -1,6 +1,7 @@
 package jwek
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 
@@ -21,21 +22,27 @@ var cekSizes = map[jwa.Enc]int{
 	jwa.A256GCM: 32,
 }
 
-// newCEK returns a random content encryption key sized for the token's "enc". RFC 7516 §5.1
+// freshCEK provides ComputeCEK to the key managers that wrap or encrypt a random content encryption
+// key.
+type freshCEK struct{}
+
+// ComputeCEK returns a random content encryption key sized for the token's "enc". RFC 7516 §5.1
 // requires a fresh key for every token whose key is wrapped or encrypted to the recipient.
 //
 // https://datatracker.ietf.org/doc/html/rfc7516#section-5.1
-func newCEK(header *jwa.JWH) ([]byte, error) {
+func (freshCEK) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
 	size, ok := cekSizes[header.Enc]
 	if !ok {
-		return nil, fmt.Errorf("%w: no content encryption key size for enc %q", jwt.ErrInvalidSecretKey, header.Enc)
+		return nil, fmt.Errorf(
+			"(freshCEK.ComputeCEK) %w: no content encryption key size for enc %q", jwt.ErrInvalidSecretKey, header.Enc,
+		)
 	}
 
 	cek := make([]byte, size)
 
 	_, err := rand.Read(cek)
 	if err != nil {
-		return nil, fmt.Errorf("generate cek: %w", err)
+		return nil, fmt.Errorf("(freshCEK.ComputeCEK) generate cek: %w", err)
 	}
 
 	return cek, nil

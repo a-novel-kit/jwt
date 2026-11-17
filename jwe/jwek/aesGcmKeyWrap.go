@@ -45,6 +45,8 @@ type AESGCMKWManagerConfig struct {
 // AESGCMKWManager implements jwe.CEKManager, wrapping the content encryption key
 // with AES GCM. See RFC 7518 section 4.7.
 type AESGCMKWManager struct {
+	freshCEK
+
 	wrapKey []byte
 
 	alg    jwa.Alg
@@ -74,15 +76,6 @@ func (manager *AESGCMKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*
 	header.Alg = manager.alg
 
 	return header, nil
-}
-
-func (manager *AESGCMKWManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
-	cek, err := newCEK(header)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWManager.ComputeCEK) %w", err)
-	}
-
-	return cek, nil
 }
 
 func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {

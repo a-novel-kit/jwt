@@ -1,7 +1,6 @@
 package internal_test
 
 import (
-	"crypto/aes"
 	"encoding/hex"
 	"testing"
 
@@ -29,21 +28,17 @@ func TestAesKeyWrap(t *testing.T) {
 
 	expected2, _ := hex.DecodeString("A8F9BC1612C68B3FF6E6F4FBE30E71E4769C8B80A32CB8958CD5D17D6B254DA1")
 
-	block0, _ := aes.NewCipher(kek0)
-	block1, _ := aes.NewCipher(kek1)
-	block2, _ := aes.NewCipher(kek2)
-
-	out0, _ := internal.KeyWrap(block0, cek0)
-	out1, _ := internal.KeyWrap(block1, cek1)
-	out2, _ := internal.KeyWrap(block2, cek2)
+	out0, _ := internal.KeyWrap(kek0, cek0)
+	out1, _ := internal.KeyWrap(kek1, cek1)
+	out2, _ := internal.KeyWrap(kek2, cek2)
 
 	require.Equal(t, expected0, out0)
 	require.Equal(t, expected1, out1)
 	require.Equal(t, expected2, out2)
 
-	unwrap0, _ := internal.KeyUnwrap(block0, out0)
-	unwrap1, _ := internal.KeyUnwrap(block1, out1)
-	unwrap2, _ := internal.KeyUnwrap(block2, out2)
+	unwrap0, _ := internal.KeyUnwrap(kek0, out0)
+	unwrap1, _ := internal.KeyUnwrap(kek1, out1)
+	unwrap2, _ := internal.KeyUnwrap(kek2, out2)
 
 	require.Equal(t, cek0, unwrap0)
 	require.Equal(t, cek1, unwrap1)
@@ -58,41 +53,48 @@ func TestAesKeyWrapInvalid(t *testing.T) {
 	// Invalid unwrap input (bit flipped)
 	input0, _ := hex.DecodeString("1EA68C1A8112B447AEF34BD8FB5A7B828D3E862371D2CFE5")
 
-	block, _ := aes.NewCipher(kek)
-
-	_, err := internal.KeyUnwrap(block, input0)
+	_, err := internal.KeyUnwrap(kek, input0)
 	require.Error(t, err, "key unwrap failed to detect invalid input")
 
 	// Invalid unwrap input (truncated)
 	input1, _ := hex.DecodeString("1EA68C1A8112B447AEF34BD8FB5A7B828D3E862371D2CF")
 
-	_, err = internal.KeyUnwrap(block, input1)
+	_, err = internal.KeyUnwrap(kek, input1)
 	require.Error(t, err, "key unwrap failed to detect truncated input")
 
 	// Invalid unwrap input (empty, or the integrity check value with no key block)
-	_, err = internal.KeyUnwrap(block, nil)
+	_, err = internal.KeyUnwrap(kek, nil)
 	require.Error(t, err, "key unwrap accepted empty input")
 
 	integrityOnly, _ := hex.DecodeString("A6A6A6A6A6A6A6A6")
 
-	_, err = internal.KeyUnwrap(block, integrityOnly)
+	_, err = internal.KeyUnwrap(kek, integrityOnly)
 	require.Error(t, err, "key unwrap accepted an integrity check value alone")
 
 	// Invalid wrap input (not multiple of 8)
 	input2, _ := hex.DecodeString("0123456789ABCD")
 
-	_, err = internal.KeyWrap(block, input2)
+	_, err = internal.KeyWrap(kek, input2)
 	require.Error(t, err, "key wrap accepted invalid input")
 
 	// RFC 3394 §2: the key data holds at least two 64-bit blocks, so one block neither wraps nor
 	// unwraps.
 	oneBlock, _ := hex.DecodeString("0011223344556677")
 
-	_, err = internal.KeyWrap(block, oneBlock)
+	_, err = internal.KeyWrap(kek, oneBlock)
 	require.Error(t, err, "key wrap accepted a single block")
 
 	oneBlockWrapped, _ := hex.DecodeString("A6A6A6A6A6A6A6A60011223344556677")
 
-	_, err = internal.KeyUnwrap(block, oneBlockWrapped)
+	_, err = internal.KeyUnwrap(kek, oneBlockWrapped)
 	require.Error(t, err, "key unwrap accepted a single wrapped block")
+
+	// AES takes a 16, 24 or 32-byte key.
+	shortKEK := kek[:15]
+
+	_, err = internal.KeyWrap(shortKEK, make([]byte, 16))
+	require.Error(t, err, "key wrap accepted a short kek")
+
+	_, err = internal.KeyUnwrap(shortKEK, make([]byte, 24))
+	require.Error(t, err, "key unwrap accepted a short kek")
 }
