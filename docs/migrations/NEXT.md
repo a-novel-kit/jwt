@@ -79,6 +79,14 @@ The exported presets are unaffected.
   half. A JWK Set built from `jwk.Public` used to keep `sign`, so the sourced verifiers of `jws`
   skipped every key in it.
 
+- **Only the canonical encoding of a token is accepted.** JWS signatures and the encrypted key,
+  IV, tag and cipher text of a JWE are decoded strictly: a segment whose unused trailing bits are
+  not zero is refused with `jwt.ErrUnsupportedTokenFormat`. RFC 4648 §3.5 requires encoders to zero
+  those bits, and this library always did, so only an altered token changes outcome.
+- **A generated key owns its `key_ops`.** The Generate functions stored the exported preset's
+  operations slice in the key, so editing a key's `KeyOps` rewrote the preset, such as
+  `jwk.RS256`, for the whole process. Each key now gets its own copy.
+
 ## Error messages
 
 Many error messages changed wording. Error text is not part of the API: compare with `errors.Is`
