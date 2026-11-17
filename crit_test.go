@@ -1,7 +1,6 @@
 package jwt_test
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"testing"
 
@@ -70,64 +69,4 @@ func TestCheckCritUnderstood(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestRecipientCrit(t *testing.T) {
-	t.Parallel()
-
-	producer := jwt.NewProducer(jwt.ProducerConfig{
-		Header: jwt.HeaderProducerConfig{Crit: []string{"foo"}},
-	})
-
-	token, err := producer.Issue(t.Context(), map[string]any{"sub": "x"}, map[string]any{"foo": "bar"})
-	require.NoError(t, err)
-
-	t.Run("RejectedByDefault", func(t *testing.T) {
-		t.Parallel()
-
-		// No CriticalHeaders configured: a token that marks "foo" critical must be rejected.
-		recipient := jwt.NewRecipient(jwt.RecipientConfig{})
-
-		var claims map[string]any
-		require.ErrorIs(t, recipient.Consume(t.Context(), token, &claims), jwt.ErrUnsupportedCritHeader)
-	})
-
-	t.Run("AcceptedWhenUnderstood", func(t *testing.T) {
-		t.Parallel()
-
-		recipient := jwt.NewRecipient(jwt.RecipientConfig{
-			Plugins:         []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()},
-			CriticalHeaders: []string{"foo"},
-		})
-
-		var claims map[string]any
-		require.NoError(t, recipient.Consume(t.Context(), token, &claims))
-	})
-}
-
-func TestRecipientMalformedHeader(t *testing.T) {
-	t.Parallel()
-
-	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"x"}`))
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{})
-
-	t.Run("NullHeader", func(t *testing.T) {
-		t.Parallel()
-
-		// A header of JSON null unmarshals to a nil pointer; Consume must reject it, not panic.
-		token := base64.RawURLEncoding.EncodeToString([]byte("null")) + "." + payload
-
-		var claims map[string]any
-		require.ErrorIs(t, recipient.Consume(t.Context(), token, &claims), jwt.ErrUnsupportedTokenFormat)
-	})
-
-	t.Run("EmptyCrit", func(t *testing.T) {
-		t.Parallel()
-
-		// A present-but-empty crit list is invalid per RFC 7515 §4.1.11.
-		token := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none","crit":[]}`)) + "." + payload
-
-		var claims map[string]any
-		require.ErrorIs(t, recipient.Consume(t.Context(), token, &claims), jwt.ErrUnsupportedCritHeader)
-	})
 }

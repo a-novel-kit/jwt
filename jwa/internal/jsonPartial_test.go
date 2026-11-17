@@ -9,6 +9,12 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwa/internal"
 )
 
+// caseVariantType declares registered names whose case variants the partial codec refuses.
+type caseVariantType struct {
+	Alg string `json:"alg,omitempty"`
+	KID string `json:"kid,omitempty"`
+}
+
 func TestMarshalPartial(t *testing.T) {
 	t.Parallel()
 
@@ -33,7 +39,7 @@ func TestMarshalPartial(t *testing.T) {
 			expect: []byte(`{"a":"foo","b":"bar","c":"baz"}`),
 		},
 		{
-			name: "NoExtra",
+			name: "Success/NoExtra",
 
 			value: map[string]string{
 				"a": "foo",
@@ -43,7 +49,7 @@ func TestMarshalPartial(t *testing.T) {
 			expect: []byte(`{"a":"foo","b":"bar"}`),
 		},
 		{
-			name: "Overlap",
+			name: "Error/Overlap",
 
 			value: map[string]string{
 				"a": "foo",
@@ -55,7 +61,7 @@ func TestMarshalPartial(t *testing.T) {
 		},
 		{
 			// The names are sorted, so one input yields one message.
-			name: "SeveralOverlaps",
+			name: "Error/SeveralOverlaps",
 
 			value: map[string]string{
 				"a": "foo",
@@ -85,110 +91,156 @@ func TestMarshalPartial(t *testing.T) {
 			require.JSONEq(t, string(testCase.expect), string(actual))
 		})
 	}
-}
 
-// A registered parameter is reserved whether or not the value being encoded
-// carries one. Every registered parameter in this library is omitempty, so an
-// unset one encodes to nothing and a check against the encoded object would
-// leave exactly the absent parameters open.
-func TestMarshalPartialReservesUnsetMembers(t *testing.T) {
-	t.Parallel()
-
-	type embedded struct {
-		Kid string `json:"kid,omitempty"`
-	}
-
-	type common struct {
-		embedded
-
-		Alg      string `json:"alg,omitempty"`
-		Exp      int64  `json:"exp,omitempty"`
-		Renamed  string `json:"cty,omitempty"`
-		Skipped  string `json:"-"`
-		Untagged string
-	}
-
-	// Nothing is set, so alg, exp, cty and kid are absent from the encoding, and
-	// each is reserved below on the strength of the declaration alone. Untagged
-	// carries no tag and so cannot be omitempty, which is why it is here.
-	require.JSONEq(t, `{"Untagged":""}`, string(mustMarshal(t, common{})))
-
-	declaredNames := []string{"alg", "exp", "cty", "kid", "Untagged"}
-
-	for _, name := range declaredNames {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			_, err := internal.MarshalPartial(common{}, json.RawMessage(`{"`+name+`":"injected"}`))
-			require.ErrorIs(t, err, internal.ErrReservedMember)
-			require.ErrorContains(t, err, name)
-		})
-	}
-
-	t.Run("a field the encoding drops is not reserved", func(t *testing.T) {
+	// encoding/json fills a struct field from a member whose name matches the field's without regard
+	// to case, so a case variant of a registered name is reserved as the name itself is. The Kelvin
+	// sign case covers Unicode folding: encoding/json folds "\u212aid" onto "kid".
+	t.Run("CaseVariants", func(t *testing.T) {
 		t.Parallel()
 
-		// `json:"-"` means the member never appears, so a custom member of that
-		// name collides with nothing.
-		out, err := internal.MarshalPartial(common{}, json.RawMessage(`{"Skipped":"mine"}`))
-		require.NoError(t, err)
-		require.JSONEq(t, `{"Untagged":"","Skipped":"mine"}`, string(out))
+		testCases := []struct {
+			name string
+
+			extra json.RawMessage
+
+			expectNames string
+		}{
+			{
+				name:        "Error/UpperCase",
+				extra:       json.RawMessage(`{"ALG":"none"}`),
+				expectNames: "ALG",
+			},
+			{
+				name:        "Error/UnicodeFold",
+				extra:       json.RawMessage(`{"\u212aid":"attacker-kid"}`),
+				expectNames: "\u212aid",
+			},
+			{
+				name:  "Success/UnrelatedMember",
+				extra: json.RawMessage(`{"algorithm":"custom"}`),
+			},
+		}
+
+		for _, testCase := range testCases {
+			t.Run(testCase.name, func(t *testing.T) {
+				t.Parallel()
+
+				_, err := internal.MarshalPartial(caseVariantType{Alg: "HS256"}, testCase.extra)
+				if testCase.expectNames == "" {
+					require.NoError(t, err)
+
+					return
+				}
+
+				require.ErrorIs(t, err, internal.ErrReservedMember)
+				require.ErrorContains(t, err, testCase.expectNames)
+			})
+		}
 	})
 
-	t.Run("an unrelated member still passes through", func(t *testing.T) {
+	// A registered parameter is reserved whether or not the value being encoded
+	// carries one. Every registered parameter in this library is omitempty, so an
+	// unset one encodes to nothing and a check against the encoded object would
+	// leave exactly the absent parameters open.
+	t.Run("UnsetMembers", func(t *testing.T) {
 		t.Parallel()
 
-		out, err := internal.MarshalPartial(common{Alg: "HS256"}, json.RawMessage(`{"role":"admin"}`))
-		require.NoError(t, err)
-		require.JSONEq(t, `{"Untagged":"","alg":"HS256","role":"admin"}`, string(out))
-	})
-}
+		type embedded struct {
+			Kid string `json:"kid,omitempty"`
+		}
 
-// An embedded field is reserved on the same terms encoding/json encodes it on,
-// which differ by what is embedded. The encoding is asserted first in each case,
-// so the rule is pinned against the encoder rather than against a reading of it.
-func TestMarshalPartialReservesEmbeddedMembers(t *testing.T) {
-	t.Parallel()
+		type common struct {
+			embedded
 
-	type Promoted struct {
-		Kid string `json:"kid,omitempty"`
-	}
+			Alg      string `json:"alg,omitempty"`
+			Exp      int64  `json:"exp,omitempty"`
+			Renamed  string `json:"cty,omitempty"`
+			Skipped  string `json:"-"`
+			Untagged string
+		}
 
-	type Named string
+		// Nothing is set, so alg, exp, cty and kid are absent from the encoding, and
+		// each is reserved below on the strength of the declaration alone. Untagged
+		// carries no tag and so cannot be omitempty, which is why it is here.
+		require.JSONEq(t, `{"Untagged":""}`, string(mustMarshal(t, common{})))
 
-	type hidden string
+		declaredNames := []string{"alg", "exp", "cty", "kid", "Untagged"}
 
-	type Empty struct{}
+		for _, name := range declaredNames {
+			t.Run("Error/"+name, func(t *testing.T) {
+				t.Parallel()
 
-	type common struct {
-		Promoted // a struct: promotes kid
-		Named    // not a struct: encodes under its type name
-		hidden   // not a struct and unexported: encodes nothing
-		Empty    // a struct with nothing to promote
-	}
+				_, err := internal.MarshalPartial(common{}, json.RawMessage(`{"`+name+`":"injected"}`))
+				require.ErrorIs(t, err, internal.ErrReservedMember)
+				require.ErrorContains(t, err, name)
+			})
+		}
 
-	require.JSONEq(t, `{"Named":""}`, string(mustMarshal(t, common{hidden: "set"})),
-		"the encoder names an embedded non-struct after its type and drops an unexported one")
-
-	encodedNames := []string{"kid", "Named"}
-
-	for _, name := range encodedNames {
-		t.Run(name, func(t *testing.T) {
+		t.Run("Success/DroppedField", func(t *testing.T) {
 			t.Parallel()
 
-			_, err := internal.MarshalPartial(common{}, json.RawMessage(`{"`+name+`":"injected"}`))
-			require.ErrorIs(t, err, internal.ErrReservedMember)
+			// `json:"-"` means the member never appears, so a custom member of that
+			// name collides with nothing.
+			out, err := internal.MarshalPartial(common{}, json.RawMessage(`{"Skipped":"mine"}`))
+			require.NoError(t, err)
+			require.JSONEq(t, `{"Untagged":"","Skipped":"mine"}`, string(out))
 		})
-	}
 
-	t.Run("an embedded type that encodes nothing reserves nothing", func(t *testing.T) {
+		t.Run("Success/UnrelatedMember", func(t *testing.T) {
+			t.Parallel()
+
+			out, err := internal.MarshalPartial(common{Alg: "HS256"}, json.RawMessage(`{"role":"admin"}`))
+			require.NoError(t, err)
+			require.JSONEq(t, `{"Untagged":"","alg":"HS256","role":"admin"}`, string(out))
+		})
+	})
+
+	// An embedded field is reserved on the same terms encoding/json encodes it on,
+	// which differ by what is embedded. The encoding is asserted first in each case,
+	// so the rule is pinned against the encoder rather than against a reading of it.
+	t.Run("EmbeddedMembers", func(t *testing.T) {
 		t.Parallel()
 
-		// Empty promotes no member and hidden encodes none, so neither type name
-		// is taken.
-		out, err := internal.MarshalPartial(common{}, json.RawMessage(`{"Empty":1,"hidden":2}`))
-		require.NoError(t, err)
-		require.JSONEq(t, `{"Named":"","Empty":1,"hidden":2}`, string(out))
+		type Promoted struct {
+			Kid string `json:"kid,omitempty"`
+		}
+
+		type Named string
+
+		type hidden string
+
+		type Empty struct{}
+
+		type common struct {
+			Promoted // a struct: promotes kid
+			Named    // not a struct: encodes under its type name
+			hidden   // not a struct and unexported: encodes nothing
+			Empty    // a struct with nothing to promote
+		}
+
+		require.JSONEq(t, `{"Named":""}`, string(mustMarshal(t, common{hidden: "set"})),
+			"the encoder names an embedded non-struct after its type and drops an unexported one")
+
+		encodedNames := []string{"kid", "Named"}
+
+		for _, name := range encodedNames {
+			t.Run("Error/"+name, func(t *testing.T) {
+				t.Parallel()
+
+				_, err := internal.MarshalPartial(common{}, json.RawMessage(`{"`+name+`":"injected"}`))
+				require.ErrorIs(t, err, internal.ErrReservedMember)
+			})
+		}
+
+		t.Run("Success/NothingEncoded", func(t *testing.T) {
+			t.Parallel()
+
+			// Empty promotes no member and hidden encodes none, so neither type name
+			// is taken.
+			out, err := internal.MarshalPartial(common{}, json.RawMessage(`{"Empty":1,"hidden":2}`))
+			require.NoError(t, err)
+			require.JSONEq(t, `{"Named":"","Empty":1,"hidden":2}`, string(out))
+		})
 	})
 }
 
@@ -232,7 +284,7 @@ func TestUnmarshalPartial(t *testing.T) {
 			extra: json.RawMessage(`{"c":"baz"}`),
 		},
 		{
-			name: "NoCustomMembers",
+			name: "Success/NoCustomMembers",
 
 			src: []byte(`{"a":"foo","b":"bar"}`),
 
@@ -254,155 +306,102 @@ func TestUnmarshalPartial(t *testing.T) {
 			require.JSONEq(t, string(testCase.extra), string(extra))
 		})
 	}
-}
 
-// The pair has to compose: decoding an object and encoding the result back must
-// reproduce it. Without this, every registered member lands in the custom half
-// on the way in and is rejected as an override on the way out.
-func TestPartialRoundTrip(t *testing.T) {
-	t.Parallel()
+	t.Run("CaseVariants", func(t *testing.T) {
+		t.Parallel()
 
-	type common struct {
-		Kty string `json:"kty,omitempty"`
-		Kid string `json:"kid,omitempty"`
-		Alg string `json:"alg,omitempty"`
-	}
+		testCases := []struct {
+			name string
 
-	testCases := []struct {
-		name string
-		src  string
-	}{
-		{
-			name: "registered and custom members",
-			src:  `{"kty":"EC","kid":"k1","alg":"ES256","x":"abc","crv":"P-256"}`,
-		},
-		{
-			name: "registered members only",
-			src:  `{"kty":"oct","kid":"k1"}`,
-		},
-		{
-			name: "custom members only",
-			src:  `{"x":"abc","crv":"P-256"}`,
-		},
-		{
-			name: "no members at all",
-			src:  `{}`,
-		},
-	}
+			src []byte
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
+			expectNames string
+		}{
+			{
+				// encoding/json keeps the last member it matches, so alg would decode as none here, while
+				// a parser matching names exactly reads ES256.
+				name:        "Error/Duplicate",
+				src:         []byte(`{"alg":"ES256","ALG":"none"}`),
+				expectNames: "ALG",
+			},
+			{
+				name:        "Error/VariantAlone",
+				src:         []byte(`{"Alg":"none"}`),
+				expectNames: "Alg",
+			},
+			{
+				name:        "Error/UnicodeFold",
+				src:         []byte(`{"kid":"kid-1","\u212aid":"attacker-kid"}`),
+				expectNames: "\u212aid",
+			},
+			{
+				name: "Success/ExactNames",
+				src:  []byte(`{"alg":"ES256","kid":"kid-1","algorithm":"custom"}`),
+			},
+		}
 
-			decoded, custom, err := internal.UnmarshalPartial[common]([]byte(testCase.src))
-			require.NoError(t, err)
+		for _, testCase := range testCases {
+			t.Run(testCase.name, func(t *testing.T) {
+				t.Parallel()
 
-			encoded, err := internal.MarshalPartial(decoded, custom)
-			require.NoError(t, err)
-			require.JSONEq(t, testCase.src, string(encoded))
-		})
-	}
-}
+				_, _, err := internal.UnmarshalPartial[caseVariantType](testCase.src)
+				if testCase.expectNames == "" {
+					require.NoError(t, err)
 
-// encoding/json fills a struct field from a member whose name matches the field's
-// without regard to case, so a case variant of a registered name is reserved as
-// the name itself is. The Kelvin sign case covers Unicode folding: encoding/json
-// folds "\u212aid" onto "kid".
+					return
+				}
 
-type caseVariantType struct {
-	Alg string `json:"alg,omitempty"`
-	KID string `json:"kid,omitempty"`
-}
+				require.ErrorIs(t, err, internal.ErrReservedMember)
+				require.ErrorContains(t, err, testCase.expectNames)
+			})
+		}
+	})
 
-func TestMarshalPartialReservesCaseVariants(t *testing.T) {
-	t.Parallel()
+	// The pair has to compose: decoding an object and encoding the result back must
+	// reproduce it. Without this, every registered member lands in the custom half
+	// on the way in and is rejected as an override on the way out.
+	t.Run("RoundTrip", func(t *testing.T) {
+		t.Parallel()
 
-	testCases := []struct {
-		name string
+		type common struct {
+			Kty string `json:"kty,omitempty"`
+			Kid string `json:"kid,omitempty"`
+			Alg string `json:"alg,omitempty"`
+		}
 
-		extra json.RawMessage
+		testCases := []struct {
+			name string
+			src  string
+		}{
+			{
+				name: "Success/RegisteredAndCustomMembers",
+				src:  `{"kty":"EC","kid":"k1","alg":"ES256","x":"abc","crv":"P-256"}`,
+			},
+			{
+				name: "Success/RegisteredMembersOnly",
+				src:  `{"kty":"oct","kid":"k1"}`,
+			},
+			{
+				name: "Success/CustomMembersOnly",
+				src:  `{"x":"abc","crv":"P-256"}`,
+			},
+			{
+				name: "Success/NoMembers",
+				src:  `{}`,
+			},
+		}
 
-		expectNames string
-	}{
-		{
-			name:        "Error/UpperCase",
-			extra:       json.RawMessage(`{"ALG":"none"}`),
-			expectNames: "ALG",
-		},
-		{
-			name:        "Error/UnicodeFold",
-			extra:       json.RawMessage(`{"\u212aid":"attacker-kid"}`),
-			expectNames: "\u212aid",
-		},
-		{
-			name:  "Success/UnrelatedMember",
-			extra: json.RawMessage(`{"algorithm":"custom"}`),
-		},
-	}
+		for _, testCase := range testCases {
+			t.Run(testCase.name, func(t *testing.T) {
+				t.Parallel()
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			_, err := internal.MarshalPartial(caseVariantType{Alg: "HS256"}, testCase.extra)
-			if testCase.expectNames == "" {
+				decoded, custom, err := internal.UnmarshalPartial[common]([]byte(testCase.src))
 				require.NoError(t, err)
 
-				return
-			}
-
-			require.ErrorIs(t, err, internal.ErrReservedMember)
-			require.ErrorContains(t, err, testCase.expectNames)
-		})
-	}
-}
-
-func TestUnmarshalPartialRefusesCaseVariants(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name string
-
-		src []byte
-
-		expectNames string
-	}{
-		{
-			// encoding/json keeps the last member it matches, so alg would decode as none here, while
-			// a parser matching names exactly reads ES256.
-			name:        "Error/Duplicate",
-			src:         []byte(`{"alg":"ES256","ALG":"none"}`),
-			expectNames: "ALG",
-		},
-		{
-			name:        "Error/VariantAlone",
-			src:         []byte(`{"Alg":"none"}`),
-			expectNames: "Alg",
-		},
-		{
-			name:        "Error/UnicodeFold",
-			src:         []byte(`{"kid":"kid-1","\u212aid":"attacker-kid"}`),
-			expectNames: "\u212aid",
-		},
-		{
-			name: "Success/ExactNames",
-			src:  []byte(`{"alg":"ES256","kid":"kid-1","algorithm":"custom"}`),
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			_, _, err := internal.UnmarshalPartial[caseVariantType](testCase.src)
-			if testCase.expectNames == "" {
+				encoded, err := internal.MarshalPartial(decoded, custom)
 				require.NoError(t, err)
-
-				return
-			}
-
-			require.ErrorIs(t, err, internal.ErrReservedMember)
-			require.ErrorContains(t, err, testCase.expectNames)
-		})
-	}
+				require.JSONEq(t, testCase.src, string(encoded))
+			})
+		}
+	})
 }

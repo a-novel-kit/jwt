@@ -33,7 +33,7 @@ func TestClaimsChecker(t *testing.T) {
 		expectErr error
 	}{
 		{
-			name: "Minimalistic",
+			name: "Success",
 
 			config: &jwp.ClaimsCheckerConfig{},
 
@@ -44,7 +44,7 @@ func TestClaimsChecker(t *testing.T) {
 		},
 		{
 			// A JSON null payload is no claims set, so no check can read it.
-			name: "NullClaims",
+			name: "Error/NullClaims",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{jwp.NewClaimsCheckTimestamp(0, false)},
@@ -87,7 +87,7 @@ func TestClaimsChecker(t *testing.T) {
 			},
 		},
 		{
-			name: "WithTarget/InvalidAudience",
+			name: "WithTarget/Error/InvalidAudience",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -114,7 +114,7 @@ func TestClaimsChecker(t *testing.T) {
 		{
 			// encoding/json fills Iss from the last match, so the target check alone would accept these
 			// claims, whose iss is fake-issuer. The claims set is refused before any check runs.
-			name: "WithTarget/CaseVariantIssuer",
+			name: "WithTarget/Error/CaseVariantIssuer",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -134,7 +134,7 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwa.ErrReservedMember,
 		},
 		{
-			name: "WithTarget/InvalidIssuer",
+			name: "WithTarget/Error/InvalidIssuer",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -159,7 +159,7 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwp.ErrInvalidClaims,
 		},
 		{
-			name: "WithTarget/InvalidSubject",
+			name: "WithTarget/Error/InvalidSubject",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -205,7 +205,7 @@ func TestClaimsChecker(t *testing.T) {
 			},
 		},
 		{
-			name: "NotBefore/Failure",
+			name: "NotBefore/Error",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -245,7 +245,7 @@ func TestClaimsChecker(t *testing.T) {
 			},
 		},
 		{
-			name: "Exp/Failure",
+			name: "Exp/Error",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -265,7 +265,7 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwp.ErrInvalidClaims,
 		},
 		{
-			name: "Exp/Failure/Required",
+			name: "Exp/Error/Required",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -285,7 +285,7 @@ func TestClaimsChecker(t *testing.T) {
 		},
 		{
 			// A negative exp is a bound in the past, so the token has expired.
-			name: "Exp/Failure/Negative",
+			name: "Exp/Error/Negative",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -304,7 +304,7 @@ func TestClaimsChecker(t *testing.T) {
 			expectErr: jwp.ErrInvalidClaims,
 		},
 		{
-			name: "Exp/Failure/NegativeRequired",
+			name: "Exp/Error/NegativeRequired",
 
 			config: &jwp.ClaimsCheckerConfig{
 				Checks: []jwp.ClaimsCheck{
@@ -389,53 +389,80 @@ func TestClaimsChecker(t *testing.T) {
 			require.Equal(t, testCase.expect, testCase.dst)
 		})
 	}
-}
 
-func TestClaimsCheckerCustomDeserializer(t *testing.T) {
-	t.Parallel()
+	t.Run("Success/CustomDeserializer", func(t *testing.T) {
+		t.Parallel()
 
-	called := false
-	checker := jwp.NewClaimsChecker(&jwp.ClaimsCheckerConfig{
-		Deserializer: func(raw []byte, dst any) error {
-			called = true
+		called := false
+		checker := jwp.NewClaimsChecker(&jwp.ClaimsCheckerConfig{
+			Deserializer: func(raw []byte, dst any) error {
+				called = true
 
-			return json.Unmarshal(raw, dst)
-		},
+				return json.Unmarshal(raw, dst)
+			},
+		})
+
+		var dst map[string]any
+
+		// A configured Deserializer runs in place of json.Unmarshal.
+		require.NoError(t, checker.Unmarshal([]byte(`{"foo":"bar"}`), &dst))
+		require.True(t, called, "configured Deserializer should be used")
+		require.Equal(t, map[string]any{"foo": "bar"}, dst)
 	})
 
-	var dst map[string]any
+	t.Run("Success/DefaultDeserializer", func(t *testing.T) {
+		t.Parallel()
 
-	// A configured Deserializer runs in place of json.Unmarshal.
-	require.NoError(t, checker.Unmarshal([]byte(`{"foo":"bar"}`), &dst))
-	require.True(t, called, "configured Deserializer should be used")
-	require.Equal(t, map[string]any{"foo": "bar"}, dst)
+		// A checker with no configured Deserializer falls back to json.Unmarshal.
+		checker := jwp.NewClaimsChecker(&jwp.ClaimsCheckerConfig{})
+
+		var dst map[string]any
+
+		require.NoError(t, checker.Unmarshal([]byte(`{"foo":"bar"}`), &dst))
+		require.Equal(t, map[string]any{"foo": "bar"}, dst)
+	})
 }
 
-func TestClaimsCheckerNilDeserializer(t *testing.T) {
+func TestClaimsCheckTarget(t *testing.T) {
 	t.Parallel()
 
-	// A checker with no configured Deserializer falls back to json.Unmarshal.
-	checker := jwp.NewClaimsChecker(&jwp.ClaimsCheckerConfig{})
-
-	var dst map[string]any
-
-	require.NoError(t, checker.Unmarshal([]byte(`{"foo":"bar"}`), &dst))
-	require.Equal(t, map[string]any{"foo": "bar"}, dst)
-}
-
-func TestClaimsCheckTargetAudienceMembership(t *testing.T) {
-	t.Parallel()
-
-	// A token addressed to several audiences: a recipient passes iff it names one of them.
+	// A token addressed to several audiences: a recipient passes if it names one of them.
 	claims := &jwa.Claims{ClaimsCommon: jwa.ClaimsCommon{Aud: jwa.Audience{"svc-a", "svc-b"}}}
 
-	member := jwp.NewClaimsCheckTarget(jwt.TargetConfig{Audience: jwa.Audience{"svc-b"}})
-	require.NoError(t, member.CheckClaims(claims))
+	testCases := []struct {
+		name string
 
-	stranger := jwp.NewClaimsCheckTarget(jwt.TargetConfig{Audience: jwa.Audience{"svc-c"}})
-	require.Error(t, stranger.CheckClaims(claims))
+		target jwt.TargetConfig
 
-	// An empty target audience opts out of the check.
-	optOut := jwp.NewClaimsCheckTarget(jwt.TargetConfig{})
-	require.NoError(t, optOut.CheckClaims(claims))
+		expectErr bool
+	}{
+		{
+			name:   "Success/AudienceMember",
+			target: jwt.TargetConfig{Audience: jwa.Audience{"svc-b"}},
+		},
+		{
+			name:      "Error/AudienceStranger",
+			target:    jwt.TargetConfig{Audience: jwa.Audience{"svc-c"}},
+			expectErr: true,
+		},
+		{
+			// An empty target audience opts out of the check.
+			name: "Success/NoAudience",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := jwp.NewClaimsCheckTarget(testCase.target).CheckClaims(claims)
+			if testCase.expectErr {
+				require.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
 }

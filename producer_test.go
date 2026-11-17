@@ -2,7 +2,9 @@ package jwt_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,6 +26,38 @@ func (fake *fakeProducerPlugin) Header(_ context.Context, header *jwa.JWH) (*jwa
 
 func (fake *fakeProducerPlugin) Transform(_ context.Context, _ *jwa.JWH, token string) (string, error) {
 	return fake.token(token), fake.tokenErr
+}
+
+// signingPlugin stands in for a signer. It stamps the algorithm on the header, the value a custom
+// header member must not replace.
+type signingPlugin struct{ alg jwa.Alg }
+
+func (plugin *signingPlugin) Header(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
+	header.Alg = plugin.alg
+
+	return header, nil
+}
+
+func (plugin *signingPlugin) Transform(_ context.Context, _ *jwa.JWH, token string) (string, error) {
+	return token + ".signature", nil
+}
+
+func newSigningProducer(alg jwa.Alg) *jwt.Producer {
+	return jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{&signingPlugin{alg: alg}},
+	})
+}
+
+func decodeSegment(t *testing.T, token string, index int) string {
+	t.Helper()
+
+	segments := strings.Split(token, ".")
+	require.Greater(t, len(segments), index)
+
+	raw, err := base64.RawURLEncoding.DecodeString(segments[index])
+	require.NoError(t, err)
+
+	return string(raw)
 }
 
 // withPayload returns a token transform that swaps the payload segment of a "header.payload" token.
@@ -57,7 +91,7 @@ func TestProducer(t *testing.T) {
 		expectErr   error
 	}{
 		{
-			name: "Minimalistic",
+			name: "Success",
 
 			config: jwt.ProducerConfig{},
 
@@ -66,7 +100,7 @@ func TestProducer(t *testing.T) {
 			expectToken: "eyJhbGciOiJub25lIn0.eyJmb28iOiJiYXIifQ.",
 		},
 		{
-			name: "CustomHeader",
+			name: "Success/CustomHeader",
 
 			config: jwt.ProducerConfig{},
 
@@ -76,7 +110,7 @@ func TestProducer(t *testing.T) {
 			expectToken: "eyJhbGciOiJub25lIiwidGVzdCI6dHJ1ZX0.eyJmb28iOiJiYXIifQ.",
 		},
 		{
-			name: "Plugins",
+			name: "Success/Plugins",
 
 			config: jwt.ProducerConfig{
 				StaticPlugins: []jwt.ProducerStaticPlugin{
@@ -115,7 +149,7 @@ func TestProducer(t *testing.T) {
 		},
 		{
 			// A claim a plugin replicates in the header is checked like one from the header config.
-			name: "PluginReplicatedClaim",
+			name: "Error/PluginReplicatedClaim",
 
 			config: jwt.ProducerConfig{
 				StaticPlugins: []jwt.ProducerStaticPlugin{
@@ -134,7 +168,7 @@ func TestProducer(t *testing.T) {
 			expectErr: jwt.ErrReplicatedClaimMismatch,
 		},
 		{
-			name: "StaticPluginError",
+			name: "Error/StaticPlugin",
 
 			config: jwt.ProducerConfig{
 				StaticPlugins: []jwt.ProducerStaticPlugin{
@@ -150,7 +184,7 @@ func TestProducer(t *testing.T) {
 			expectErr: errFoo,
 		},
 		{
-			name: "PluginHeaderError",
+			name: "Error/PluginHeader",
 
 			config: jwt.ProducerConfig{
 				Plugins: []jwt.ProducerPlugin{
@@ -167,7 +201,7 @@ func TestProducer(t *testing.T) {
 			expectErr: errFoo,
 		},
 		{
-			name: "PluginTransformError",
+			name: "Error/PluginTransform",
 
 			config: jwt.ProducerConfig{
 				Plugins: []jwt.ProducerPlugin{
@@ -204,7 +238,7 @@ func TestProducer(t *testing.T) {
 		})
 	}
 
-	t.Run("UnmarshalableClaims", func(t *testing.T) {
+	t.Run("Error/UnmarshalableClaims", func(t *testing.T) {
 		t.Parallel()
 
 		producer := jwt.NewProducer(jwt.ProducerConfig{})
@@ -213,12 +247,43 @@ func TestProducer(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("UnmarshalableHeader", func(t *testing.T) {
+	t.Run("Error/UnmarshalableHeader", func(t *testing.T) {
 		t.Parallel()
 
 		producer := jwt.NewProducer(jwt.ProducerConfig{})
 
 		_, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, map[string]any{"bad": make(chan int)})
 		require.Error(t, err)
+	})
+
+	// A signer checks the alg struct field, and a custom member joins the encoding only inside
+	// MarshalJSON, after every such check. The encoding is therefore what refuses the override.
+	t.Run("Error/ReservedCustomHeader", func(t *testing.T) {
+		t.Parallel()
+
+		producer := newSigningProducer(jwa.HS256)
+
+		_, err := producer.Issue(t.Context(), map[string]any{"role": "user"}, map[string]any{
+			"alg": "none",
+			"kid": "attacker-kid",
+		})
+
+		require.ErrorIs(t, err, jwa.ErrReservedMember)
+		require.ErrorContains(t, err, "alg")
+		require.ErrorContains(t, err, "kid")
+	})
+
+	t.Run("Success/UnreservedCustomHeader", func(t *testing.T) {
+		t.Parallel()
+
+		producer := newSigningProducer(jwa.HS256)
+
+		token, err := producer.Issue(t.Context(), map[string]any{"role": "user"}, map[string]any{
+			"myapp-tenant": "acme",
+		})
+		require.NoError(t, err)
+
+		header := decodeSegment(t, token, 0)
+		require.JSONEq(t, `{"alg":"HS256","myapp-tenant":"acme"}`, header)
 	})
 }

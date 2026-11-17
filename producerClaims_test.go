@@ -14,7 +14,7 @@ import (
 func TestNewBasicClaims(t *testing.T) {
 	t.Parallel()
 
-	t.Run("DefaultsOnly", func(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
 		t.Parallel()
 
 		claims, err := jwt.NewBasicClaims(nil, jwt.ClaimsProducerConfig{})
@@ -30,7 +30,7 @@ func TestNewBasicClaims(t *testing.T) {
 		require.Empty(t, claims.Exp)
 	})
 
-	t.Run("WithExpiration", func(t *testing.T) {
+	t.Run("Success/Expiration", func(t *testing.T) {
 		t.Parallel()
 
 		claims, err := jwt.NewBasicClaims(nil, jwt.ClaimsProducerConfig{
@@ -48,7 +48,7 @@ func TestNewBasicClaims(t *testing.T) {
 		require.Empty(t, claims.Aud)
 	})
 
-	t.Run("WithTarget", func(t *testing.T) {
+	t.Run("Success/Target", func(t *testing.T) {
 		t.Parallel()
 
 		claims, err := jwt.NewBasicClaims(nil, jwt.ClaimsProducerConfig{
@@ -71,7 +71,7 @@ func TestNewBasicClaims(t *testing.T) {
 		require.Empty(t, claims.Exp)
 	})
 
-	t.Run("WithCustomFields", func(t *testing.T) {
+	t.Run("Success/CustomFields", func(t *testing.T) {
 		t.Parallel()
 
 		customClaims := map[string]any{"foo": "bar"}
@@ -83,5 +83,51 @@ func TestNewBasicClaims(t *testing.T) {
 		require.NoError(t, json.Unmarshal(claims.Payload, &decodedCustom))
 
 		require.Equal(t, customClaims, decodedCustom)
+	})
+
+	// The success half of Error/ReservedCustomFields: an unreserved custom member joins the encoding
+	// beside the registered claims NewBasicClaims sets.
+	t.Run("Success/UnreservedCustomFields", func(t *testing.T) {
+		t.Parallel()
+
+		claims, err := jwt.NewBasicClaims(
+			map[string]any{"role": "admin"},
+			jwt.ClaimsProducerConfig{TTL: time.Hour},
+		)
+		require.NoError(t, err)
+
+		encoded, err := json.Marshal(claims)
+		require.NoError(t, err)
+
+		var payload map[string]any
+
+		require.NoError(t, json.Unmarshal(encoded, &payload))
+		require.Equal(t, "admin", payload["role"])
+		require.NotZero(t, payload["exp"], "the producer's own exp must survive")
+	})
+
+	t.Run("Error/ReservedCustomFields", func(t *testing.T) {
+		t.Parallel()
+
+		registeredClaims := []string{"exp", "sub", "iss", "aud", "jti", "nbf", "iat"}
+
+		for _, name := range registeredClaims {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+
+				claims, err := jwt.NewBasicClaims(
+					map[string]any{name: "injected"},
+					jwt.ClaimsProducerConfig{TTL: time.Hour},
+				)
+				require.NoError(t, err)
+
+				// NewBasicClaims only stores the payload; the merge happens when the
+				// claims are encoded, which is where every earlier check has already
+				// finished.
+				_, err = json.Marshal(claims)
+				require.ErrorIs(t, err, jwa.ErrReservedMember)
+				require.ErrorContains(t, err, name)
+			})
+		}
 	})
 }
