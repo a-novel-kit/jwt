@@ -182,7 +182,7 @@ func consumeECDSA(preset ECDSAPreset) keyPair[*ecdsa.PrivateKey, *ecdsa.PublicKe
 // A SourcedECDSASigner signs like an [ECDSASigner] but resolves its key from a [jwk.Source] at each
 // call, so the plugin follows key rotation. Build one with [NewSourcedECDSASigner].
 type SourcedECDSASigner struct {
-	sourcedSigner[*ecdsa.PrivateKey]
+	*sourcedSigner[*ecdsa.PrivateKey]
 }
 
 // NewSourcedECDSASigner returns a [jwt.ProducerPlugin] that signs tokens with ECDSA, drawing the key
@@ -200,7 +200,7 @@ func NewSourcedECDSASigner(source *jwk.Source, preset ECDSAPreset) *SourcedECDSA
 // [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source. Build one with [NewSourcedECDSAVerifier].
 type SourcedECDSAVerifier struct {
-	sourcedVerifier[*ecdsa.PublicKey]
+	*sourcedVerifier[*ecdsa.PublicKey]
 }
 
 // NewSourcedECDSAVerifier returns a [jwt.RecipientPlugin] that verifies ECDSA-signed tokens against

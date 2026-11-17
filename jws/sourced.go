@@ -17,8 +17,9 @@ import (
 type keyDecoder[K any] func(key *jwa.JWK) (K, error)
 
 // A sourcedSigner signs with the key a [jwk.Source] holds for the token, resolved at each call, so
-// the signer follows key rotation. The exported Sourced*Signer types embed it, each with the decoder
-// of its family and the single-key signer newSigner builds.
+// the signer follows key rotation. The exported Sourced*Signer types embed a pointer to it, which
+// keeps them comparable, each with the decoder of its family and the single-key signer newSigner
+// builds.
 type sourcedSigner[K any] struct {
 	source    *jwk.Source
 	keys      *jwk.Decoder[K]
@@ -29,8 +30,8 @@ type sourcedSigner[K any] struct {
 // keys whose "key_ops" permit signing.
 func newSourcedSigner[K any](
 	source *jwk.Source, decode keyDecoder[K], newSigner func(key K) jwt.ProducerPlugin,
-) sourcedSigner[K] {
-	return sourcedSigner[K]{
+) *sourcedSigner[K] {
+	return &sourcedSigner[K]{
 		source:    source,
 		keys:      jwk.NewDecoder(source, permitting(jwa.KeyOpSign, decode)),
 		newSigner: newSigner,
@@ -64,8 +65,8 @@ func (signer *sourcedSigner[K]) Transform(ctx context.Context, header *jwa.JWH, 
 
 // A sourcedVerifier verifies with the keys a [jwk.Source] holds, resolved at each call. When the
 // token names a KID, it tries only that key. Otherwise it tries every key of its family. The
-// exported Sourced*Verifier types embed it, each with the decoder of its family and the single-key
-// verifier newVerifier builds.
+// exported Sourced*Verifier types embed a pointer to it, which keeps them comparable, each with the
+// decoder of its family and the single-key verifier newVerifier builds.
 type sourcedVerifier[K any] struct {
 	source      *jwk.Source
 	keys        *jwk.Decoder[K]
@@ -76,8 +77,8 @@ type sourcedVerifier[K any] struct {
 // to keys whose "key_ops" permit verification.
 func newSourcedVerifier[K any](
 	source *jwk.Source, decode keyDecoder[K], newVerifier func(key K) jwt.RecipientPlugin,
-) sourcedVerifier[K] {
-	return sourcedVerifier[K]{
+) *sourcedVerifier[K] {
+	return &sourcedVerifier[K]{
 		source:      source,
 		keys:        jwk.NewDecoder(source, permitting(jwa.KeyOpVerify, decode)),
 		newVerifier: newVerifier,

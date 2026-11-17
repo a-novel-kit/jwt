@@ -144,7 +144,7 @@ func consumeHMAC(alg jwa.Alg) keyDecoder[[]byte] {
 // A SourcedHMACSigner signs like an [HMACSigner] but resolves its secret from a [jwk.Source] at each
 // call, so the plugin follows key rotation. Build one with [NewSourcedHMACSigner].
 type SourcedHMACSigner struct {
-	sourcedSigner[[]byte]
+	*sourcedSigner[[]byte]
 }
 
 // NewSourcedHMACSigner returns a [jwt.ProducerPlugin] that signs tokens with HMAC, drawing the
@@ -153,16 +153,16 @@ type SourcedHMACSigner struct {
 //
 // See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
 func NewSourcedHMACSigner(source *jwk.Source, preset HMACPreset) *SourcedHMACSigner {
-	return &SourcedHMACSigner{newSourcedSigner(source, consumeHMAC(preset.Alg), func(key []byte) jwt.ProducerPlugin {
-		return NewHMACSigner(key, preset)
-	})}
+	newSigner := func(key []byte) jwt.ProducerPlugin { return NewHMACSigner(key, preset) }
+
+	return &SourcedHMACSigner{newSourcedSigner(source, consumeHMAC(preset.Alg), newSigner)}
 }
 
 // A SourcedHMACVerifier verifies like an [HMACVerifier] but resolves candidate secrets from a
 // [jwk.Source] at each call. When the token names a KID, it tries only that secret. Otherwise
 // it tries every secret in the source. Build one with [NewSourcedHMACVerifier].
 type SourcedHMACVerifier struct {
-	sourcedVerifier[[]byte]
+	*sourcedVerifier[[]byte]
 }
 
 // NewSourcedHMACVerifier returns a [jwt.RecipientPlugin] that verifies HMAC-signed tokens against
@@ -170,7 +170,7 @@ type SourcedHMACVerifier struct {
 //
 // See RFC 7518, section 3.2: https://datatracker.ietf.org/doc/html/rfc7518#section-3.2
 func NewSourcedHMACVerifier(source *jwk.Source, preset HMACPreset) *SourcedHMACVerifier {
-	return &SourcedHMACVerifier{newSourcedVerifier(source, consumeHMAC(preset.Alg), func(key []byte) jwt.RecipientPlugin {
-		return NewHMACVerifier(key, preset)
-	})}
+	newVerifier := func(key []byte) jwt.RecipientPlugin { return NewHMACVerifier(key, preset) }
+
+	return &SourcedHMACVerifier{newSourcedVerifier(source, consumeHMAC(preset.Alg), newVerifier)}
 }

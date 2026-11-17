@@ -106,7 +106,7 @@ func (verifier *MLDSAVerifier) Transform(_ context.Context, header *jwa.JWH, raw
 // call, so the plugin follows key rotation. Without a KID it signs with the first ML-DSA key the
 // source lists, whatever its level. Build one with [NewSourcedMLDSASigner].
 type SourcedMLDSASigner struct {
-	sourcedSigner[*mldsa.PrivateKey]
+	*sourcedSigner[*mldsa.PrivateKey]
 }
 
 // NewSourcedMLDSASigner returns a [jwt.ProducerPlugin] that signs tokens with ML-DSA, drawing the key
@@ -123,7 +123,7 @@ func NewSourcedMLDSASigner(source *jwk.Source) *SourcedMLDSASigner {
 // [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source bound to the token's algorithm. Build one with [NewSourcedMLDSAVerifier].
 type SourcedMLDSAVerifier struct {
-	sourced sourcedVerifier[*mldsa.PublicKey]
+	sourced *sourcedVerifier[*mldsa.PublicKey]
 }
 
 // NewSourcedMLDSAVerifier returns a [jwt.RecipientPlugin] that verifies ML-DSA-signed tokens against

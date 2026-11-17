@@ -207,7 +207,7 @@ func consumeRSA(alg jwa.Alg) keyPair[*rsa.PrivateKey, *rsa.PublicKey] {
 // A SourcedRSASigner signs like an [RSASigner] but resolves its key from a [jwk.Source] at each
 // call, so the plugin follows key rotation. Build one with [NewSourcedRSASigner].
 type SourcedRSASigner struct {
-	sourcedSigner[*rsa.PrivateKey]
+	*sourcedSigner[*rsa.PrivateKey]
 }
 
 // NewSourcedRSASigner returns a [jwt.ProducerPlugin] that signs tokens with RSA, drawing the key from
@@ -225,7 +225,7 @@ func NewSourcedRSASigner(source *jwk.Source, preset RSAPreset) *SourcedRSASigner
 // [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source. Build one with [NewSourcedRSAVerifier].
 type SourcedRSAVerifier struct {
-	sourcedVerifier[*rsa.PublicKey]
+	*sourcedVerifier[*rsa.PublicKey]
 }
 
 // NewSourcedRSAVerifier returns a [jwt.RecipientPlugin] that verifies RSA-signed tokens against keys

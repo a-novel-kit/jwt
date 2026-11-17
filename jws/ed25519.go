@@ -89,7 +89,7 @@ func (verifier *ED25519Verifier) Transform(_ context.Context, header *jwa.JWH, r
 
 // checkED25519Key fails unless key holds size bytes. crypto/ed25519 panics on a key of any other
 // length, so the plugins check it first, as every other family checks its key.
-func checkED25519Key[K ed25519.PrivateKey | ed25519.PublicKey](key K, size int) error {
+func checkED25519Key(key []byte, size int) error {
 	if len(key) != size {
 		return fmt.Errorf("%w: Ed25519 key is %d bytes, need %d", jwt.ErrInvalidSecretKey, len(key), size)
 	}
@@ -100,7 +100,7 @@ func checkED25519Key[K ed25519.PrivateKey | ed25519.PublicKey](key K, size int) 
 // A SourcedED25519Signer signs like an [ED25519Signer] but resolves its key from a [jwk.Source] at
 // each call, so the plugin follows key rotation. Build one with [NewSourcedED25519Signer].
 type SourcedED25519Signer struct {
-	sourcedSigner[ed25519.PrivateKey]
+	*sourcedSigner[ed25519.PrivateKey]
 }
 
 // NewSourcedED25519Signer returns a [jwt.ProducerPlugin] that signs tokens with Ed25519,
@@ -130,7 +130,7 @@ func newED25519Signer(alg jwa.Alg) func(key ed25519.PrivateKey) jwt.ProducerPlug
 // [jwk.Source] at each call. When the token names a KID, it tries only that key. Otherwise it tries
 // every key in the source. Build one with [NewSourcedED25519Verifier].
 type SourcedED25519Verifier struct {
-	sourcedVerifier[ed25519.PublicKey]
+	*sourcedVerifier[ed25519.PublicKey]
 }
 
 // NewSourcedED25519Verifier returns a [jwt.RecipientPlugin] that verifies Ed25519-signed tokens
