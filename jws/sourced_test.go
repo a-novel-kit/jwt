@@ -15,10 +15,13 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jws"
 )
 
-// foreignKey returns keys of another family than signatureCases[i], which its plugins skip. Half
-// the table away, the case always belongs to another family.
-func foreignKey(i int) signatureKeys {
-	return signatureCases[(i+len(signatureCases)/2)%len(signatureCases)].newKeys()
+// foreignKeys returns keys of a family other than alg's, which its plugins skip.
+func foreignKeys(alg jwa.Alg) signatureKeys {
+	if alg == jwa.Ed25519 {
+		return hmacCase(jwk.HS256, jws.HS256).newKeys()
+	}
+
+	return ed25519Case().newKeys()
 }
 
 // errFetch is the failure of a source that cannot reach its keys.
@@ -34,12 +37,12 @@ func failingSource() *jwk.Source {
 func TestSourcedSigner(t *testing.T) {
 	t.Parallel()
 
-	for i, testCase := range signatureCases {
+	for _, testCase := range signatureCases {
 		t.Run(string(testCase.alg), func(t *testing.T) {
 			t.Parallel()
 
 			first, second := testCase.newKeys(), testCase.newKeys()
-			signer, _ := testCase.newSourced(newSource(foreignKey(i).signing, first.signing, second.signing))
+			signer, _ := testCase.newSourced(newSource(foreignKeys(testCase.alg).signing, first.signing, second.signing))
 
 			// Without a key ID, the signer takes the first key of its family and names it, so
 			// recipients can select it.
@@ -108,7 +111,7 @@ func TestSourcedSigner(t *testing.T) {
 func TestSourcedVerifier(t *testing.T) {
 	t.Parallel()
 
-	for i, testCase := range signatureCases {
+	for _, testCase := range signatureCases {
 		t.Run(string(testCase.alg), func(t *testing.T) {
 			t.Parallel()
 
@@ -124,23 +127,13 @@ func TestSourcedVerifier(t *testing.T) {
 			}{
 				{name: "Success/SigningKeyFirst", keys: []*jwa.JWK{signing.verification, other.verification}},
 				{name: "Success/SigningKeySecond", keys: []*jwa.JWK{other.verification, signing.verification}},
-				{name: "Success/OtherFamilyFirst", keys: []*jwa.JWK{foreignKey(i).verification, signing.verification}},
+				{name: "Success/OtherFamilyFirst", keys: []*jwa.JWK{foreignKeys(testCase.alg).verification, signing.verification}},
 				{name: "Error/KeyMissing", keys: []*jwa.JWK{other.verification}, expectErr: jws.ErrInvalidSignature},
 				{
 					name:      "Error/SignOnlyKey",
 					keys:      []*jwa.JWK{withKeyOps(signing.verification, jwa.KeyOpSign)},
 					expectErr: jws.ErrInvalidSignature,
 				},
-			}
-
-			// A source exposing private material is misconfigured, so its keys are skipped. An HMAC
-			// secret has no public half to expose instead.
-			if signing.signing != signing.verification {
-				keyLists = append(keyLists, struct {
-					name      string
-					keys      []*jwa.JWK
-					expectErr error
-				}{name: "Error/PrivateKeyExposed", keys: []*jwa.JWK{signing.signing}, expectErr: jws.ErrInvalidSignature})
 			}
 
 			for _, keyList := range keyLists {
@@ -150,6 +143,19 @@ func TestSourcedVerifier(t *testing.T) {
 					_, verifier := testCase.newSourced(newSource(keyList.keys...))
 
 					require.ErrorIs(t, consume(t, verifier, token), keyList.expectErr)
+				})
+			}
+
+			// A source exposing private material is misconfigured, so its keys are skipped. The key is
+			// labeled for verification, so only the exposure check refuses it. An HMAC secret has no
+			// public half to expose instead.
+			if signing.signing != signing.verification {
+				t.Run("Error/PrivateKeyExposed", func(t *testing.T) {
+					t.Parallel()
+
+					_, verifier := testCase.newSourced(newSource(withKeyOps(signing.signing, jwa.KeyOpVerify)))
+
+					require.ErrorIs(t, consume(t, verifier, token), jws.ErrInvalidSignature)
 				})
 			}
 

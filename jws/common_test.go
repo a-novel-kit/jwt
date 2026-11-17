@@ -101,6 +101,37 @@ func TestSignerVerifier(t *testing.T) {
 				require.ErrorIs(t, consume(t, keys.verifier, truncated), jws.ErrInvalidSignature)
 			})
 
+			// A lenient decoder ignores the unused trailing bits of the last character, so setting one
+			// gives a second token string that decodes to the same signature.
+			t.Run("Error/NonCanonicalSignature", func(t *testing.T) {
+				t.Parallel()
+
+				parts := strings.Split(token, ".")
+
+				variant, ok := nonCanonical(parts[2])
+				if !ok {
+					t.Skip("a signature of a multiple of 3 bytes leaves no unused bit")
+				}
+
+				original, err := base64.RawURLEncoding.DecodeString(parts[2])
+				require.NoError(t, err)
+				lenient, err := base64.RawURLEncoding.DecodeString(variant)
+				require.NoError(t, err)
+				require.Equal(t, original, lenient)
+
+				err = consume(t, keys.verifier, strings.Join(append(parts[:2:2], variant), "."))
+				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
+			})
+
+			t.Run("Error/TamperedPayload", func(t *testing.T) {
+				t.Parallel()
+
+				parts := strings.Split(token, ".")
+				parts[1] = base64.RawURLEncoding.EncodeToString([]byte(`{"foo":"baz"}`))
+
+				require.ErrorIs(t, consume(t, keys.verifier, strings.Join(parts, ".")), jws.ErrInvalidSignature)
+			})
+
 			// The signature covers the payload segment as written, so only decoding it fails.
 			t.Run("Error/MalformedPayload", func(t *testing.T) {
 				t.Parallel()
@@ -127,6 +158,16 @@ func TestSignerVerifier(t *testing.T) {
 				key.Alg = testCase.alg
 				key.Use = jwa.UseSig
 				key.KeyOps = jwa.KeyOps{jwa.KeyOpSign, jwa.KeyOpVerify}
+
+				// HMAC and RSASSA-PKCS1-v1_5 are deterministic, so signing the RFC's input must
+				// reproduce its token. ECDSA signatures are randomized, so those rows only verify.
+				if key.KTY != jwa.KTYEC {
+					signer, _ := testCase.newSourced(newSource(key))
+
+					signed, err := signer.Transform(t.Context(), &jwa.JWH{}, vector.JWS[0]+"."+vector.JWS[1])
+					require.NoError(t, err)
+					require.Equal(t, strings.Join(vector.JWS, "."), signed)
+				}
 
 				if key.KTY != jwa.KTYOct {
 					var err error
@@ -234,7 +275,7 @@ func TestCheckKey(t *testing.T) {
 			name:     "Error/ShortED25519Key",
 			alg:      jwa.Ed25519,
 			signer:   jws.NewED25519Signer(make(ed25519.PrivateKey, ed25519.SeedSize)),
-			verifier: jws.NewED25519Verifier(make(ed25519.PublicKey, ed25519.SignatureSize)),
+			verifier: jws.NewED25519Verifier(make(ed25519.PublicKey, ed25519.PublicKeySize-1)),
 		},
 		{
 			name:     "Error/NilED25519Key",

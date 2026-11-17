@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -226,4 +227,19 @@ func readVector(t *testing.T, name string, dst any) {
 	raw, err := os.ReadFile("testdata/" + name)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(raw, dst))
+}
+
+// nonCanonical returns segment with an unused trailing bit set, which a lenient base64url decoder
+// reads as the same bytes. It reports false when the encoded bytes leave no unused bit, as a
+// multiple of 3 bytes does.
+func nonCanonical(segment string) (string, bool) {
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+	if len(segment)%4 == 0 {
+		return "", false
+	}
+
+	last := strings.IndexByte(alphabet, segment[len(segment)-1])
+
+	return segment[:len(segment)-1] + string(alphabet[last^1]), true
 }
