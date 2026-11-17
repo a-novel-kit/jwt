@@ -17,9 +17,9 @@ import (
 type keyDecoder[K any] func(key *jwa.JWK) (K, error)
 
 // A sourcedSigner signs with the key a [jwk.Source] holds for the token, resolved at each call, so
-// the signer follows key rotation. The exported Sourced*Signer types embed a pointer to it, which
-// keeps them comparable, each with the decoder of its family and the single-key signer newSigner
-// builds.
+// the signer follows key rotation. The exported Sourced*Signer types embed a pointer to it, each
+// with the decoder of its family and the single-key signer newSigner builds. The pointer keeps those
+// types comparable.
 type sourcedSigner[K any] struct {
 	source    *jwk.Source
 	keys      *jwk.Decoder[K]
@@ -65,8 +65,8 @@ func (signer *sourcedSigner[K]) Transform(ctx context.Context, header *jwa.JWH, 
 
 // A sourcedVerifier verifies with the keys a [jwk.Source] holds, resolved at each call. When the
 // token names a KID, it tries only that key. Otherwise it tries every key of its family. The
-// exported Sourced*Verifier types embed a pointer to it, which keeps them comparable, each with the
-// decoder of its family and the single-key verifier newVerifier builds.
+// exported Sourced*Verifier types embed a pointer to it, each with the decoder of its family and the
+// single-key verifier newVerifier builds. The pointer keeps those types comparable.
 type sourcedVerifier[K any] struct {
 	source      *jwk.Source
 	keys        *jwk.Decoder[K]
