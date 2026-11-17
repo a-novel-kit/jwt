@@ -2,6 +2,7 @@ package jwe_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,7 +10,9 @@ import (
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe"
+	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
@@ -142,6 +145,40 @@ func TestAESGCM(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestAESGCMDecryption(t *testing.T) {
+	t.Parallel()
+
+	// https://datatracker.ietf.org/doc/html/rfc7516#appendix-A.1
+	t.Run("Success/RFC7516A1", func(t *testing.T) {
+		t.Parallel()
+
+		example := mustLoadRFCExample(t, "RFC7516A1")
+
+		var keyPayload serializers.RSAPayload
+
+		require.NoError(t, json.Unmarshal(example.JWK, &keyPayload))
+
+		privateKey, _, err := serializers.DecodeRSA(&keyPayload)
+		require.NoError(t, err)
+
+		decoder := jwek.NewRSAOAEPKeyEncDecoder(
+			&jwek.RSAOAEPKeyEncDecoderConfig{EncKey: privateKey},
+			jwek.RSAOAEP, //nolint:staticcheck // The example encrypts the key with RSA-OAEP over SHA-1.
+		)
+		recipient := jwt.NewRecipient(jwt.RecipientConfig{
+			Plugins: []jwt.RecipientPlugin{
+				jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{CEKDecoder: decoder}, jwe.A256GCM),
+			},
+			Deserializer: rawDeserializer,
+		})
+
+		var plaintext []byte
+
+		require.NoError(t, recipient.Consume(t.Context(), example.Compact(), &plaintext))
+		require.Equal(t, example.Plaintext, string(plaintext))
+	})
 }
 
 func TestAESGCMBadIV(t *testing.T) {

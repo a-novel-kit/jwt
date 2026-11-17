@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,9 @@ import (
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe"
+	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 	"github.com/a-novel-kit/jwt/v2/testutils"
 )
 
@@ -147,6 +150,66 @@ func TestAESCBC(t *testing.T) {
 				require.ErrorIs(t, err, jwt.ErrTokenRejected)
 			})
 		}
+	}
+}
+
+func TestAESCBCDecryption(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+
+		// decoder recovers the content encryption key of the example's token.
+		decoder func(t *testing.T, example rfcExample) jwe.CEKDecoder
+	}{
+		{
+			// https://datatracker.ietf.org/doc/html/rfc7516#appendix-A.3
+			name: "RFC7516A3",
+			decoder: func(t *testing.T, example rfcExample) jwe.CEKDecoder {
+				t.Helper()
+
+				var keyPayload serializers.OctPayload
+
+				require.NoError(t, json.Unmarshal(example.JWK, &keyPayload))
+
+				wrapKey, err := serializers.DecodeOct(&keyPayload)
+				require.NoError(t, err)
+
+				return jwek.NewAESKWDecoder(&jwek.AESKWDecoderConfig{WrapKey: wrapKey}, jwek.A128KW)
+			},
+		},
+		{
+			// https://datatracker.ietf.org/doc/html/rfc7517#appendix-C
+			name: "RFC7517C",
+			decoder: func(t *testing.T, example rfcExample) jwe.CEKDecoder {
+				t.Helper()
+
+				return jwek.NewPBES2KeyEncKWDecoder(
+					&jwek.PBES2KeyEncKWDecoderConfig{Secret: example.Password}, jwek.PBES2A128KW,
+				)
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run("Success/"+testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			example := mustLoadRFCExample(t, testCase.name)
+			recipient := jwt.NewRecipient(jwt.RecipientConfig{
+				Plugins: []jwt.RecipientPlugin{
+					jwe.NewAESCBCDecryption(
+						&jwe.AESCBCDecryptionConfig{CEKDecoder: testCase.decoder(t, example)}, jwe.A128CBCHS256,
+					),
+				},
+				Deserializer: rawDeserializer,
+			})
+
+			var plaintext []byte
+
+			require.NoError(t, recipient.Consume(t.Context(), example.Compact(), &plaintext))
+			require.Equal(t, example.Plaintext, string(plaintext))
+		})
 	}
 }
 
