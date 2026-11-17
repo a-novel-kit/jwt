@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/mldsa"
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
@@ -14,7 +15,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
-	"github.com/a-novel-kit/jwt/v2/jwk/generators"
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
@@ -55,10 +55,8 @@ func signatureHeader(kty jwa.KTY, alg jwa.Alg, op jwa.KeyOp) jwa.JWKCommon {
 // newOctKey generates a random secret of keySize bytes and serializes it as an "oct" JSON Web Key
 // under header, stamped with a fresh key ID.
 func newOctKey(header jwa.JWKCommon, keySize int) (*Key[[]byte], error) {
-	key, err := generators.NewOct(keySize)
-	if err != nil {
-		return nil, fmt.Errorf("generate key: %w", err)
-	}
+	key := make([]byte, keySize)
+	_, _ = rand.Read(key) // never fails: it crashes the program instead
 
 	payload, err := json.Marshal(serializers.EncodeOct(key))
 	if err != nil {
