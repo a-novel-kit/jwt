@@ -15,7 +15,7 @@ func PKCS7Padding(plainText []byte, blockSize int) []byte {
 	copy(padded, plainText)
 
 	for i := len(plainText); i < len(padded); i++ {
-		padded[i] = byte(padding)
+		padded[i] = byte(padding) //nolint:gosec // At most blockSize, the 16-byte AES block.
 	}
 
 	return padded

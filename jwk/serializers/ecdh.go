@@ -110,7 +110,7 @@ func EncodeECDH[Key *ecdh.PublicKey | *ecdh.PrivateKey](key Key) (*ECDHPayload, 
 
 	var privateKey *ecdh.PrivateKey
 	if !ok {
-		privateKey = any(key).(*ecdh.PrivateKey)
+		privateKey, _ = any(key).(*ecdh.PrivateKey) // Key allows no other type.
 		publicKey = privateKey.PublicKey()
 	}
 

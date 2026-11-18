@@ -44,7 +44,7 @@ func Derive(z []byte, alg string, keySize int, apu, apv []byte) ([]byte, error) 
 		return nil, fmt.Errorf("%w: %d", ErrDataTooLarge, keySize)
 	}
 
-	binary.BigEndian.PutUint32(supPubInfo, uint32(keySize*8))
+	binary.BigEndian.PutUint32(supPubInfo, uint32(keySize*8)) //nolint:gosec // At most 0xFFFFFFF*8, checked above.
 
 	// SuppPrivInfo is unused here and stays empty.
 	var supPrivInfo []byte
@@ -62,7 +62,7 @@ func prefixBlock(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %d", ErrDataTooLarge, len(data))
 	}
 
-	binary.BigEndian.PutUint32(out, uint32(len(data)))
+	binary.BigEndian.PutUint32(out, uint32(len(data))) //nolint:gosec // At most 0xFFFFFFF, checked above.
 	copy(out[4:], data)
 
 	return out, nil

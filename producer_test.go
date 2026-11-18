@@ -87,8 +87,8 @@ func TestProducer(t *testing.T) {
 		customClaims any
 		customHeader any
 
-		expectToken string
-		expectErr   error
+		expect    string
+		expectErr error
 	}{
 		{
 			name: "Success",
@@ -97,7 +97,7 @@ func TestProducer(t *testing.T) {
 
 			customClaims: map[string]any{"foo": "bar"},
 
-			expectToken: "eyJhbGciOiJub25lIn0.eyJmb28iOiJiYXIifQ.",
+			expect: "eyJhbGciOiJub25lIn0.eyJmb28iOiJiYXIifQ.",
 		},
 		{
 			name: "Success/CustomHeader",
@@ -107,7 +107,7 @@ func TestProducer(t *testing.T) {
 			customClaims: map[string]any{"foo": "bar"},
 			customHeader: map[string]any{"test": true},
 
-			expectToken: "eyJhbGciOiJub25lIiwidGVzdCI6dHJ1ZX0.eyJmb28iOiJiYXIifQ.",
+			expect: "eyJhbGciOiJub25lIiwidGVzdCI6dHJ1ZX0.eyJmb28iOiJiYXIifQ.",
 		},
 		{
 			name: "Success/Plugins",
@@ -145,7 +145,7 @@ func TestProducer(t *testing.T) {
 
 			customClaims: map[string]any{"foo": "bar"},
 			// {"cty":"test","alg":"test-alg","kid":"static-key-id"}.abcdefghi
-			expectToken: "eyJraWQiOiJzdGF0aWMta2V5LWlkIiwiY3R5IjoidGVzdCIsImFsZyI6InRlc3QtYWxnIn0.abcdefghi",
+			expect: "eyJraWQiOiJzdGF0aWMta2V5LWlkIiwiY3R5IjoidGVzdCIsImFsZyI6InRlc3QtYWxnIn0.abcdefghi",
 		},
 		{
 			// A claim a plugin replicates in the header is checked like one from the header config.
@@ -233,7 +233,7 @@ func TestProducer(t *testing.T) {
 			require.ErrorIs(t, err, testCase.expectErr)
 
 			if testCase.expectErr == nil {
-				require.Equal(t, testCase.expectToken, token)
+				require.Equal(t, testCase.expect, token)
 			}
 		})
 	}

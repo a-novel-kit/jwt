@@ -51,7 +51,7 @@ func TestCEKManager(t *testing.T) {
 		wrongDecoder jwe.CEKDecoder
 	}
 
-	var testCases []keyManagementCase
+	var testCases []keyManagementCase //nolint:prealloc // Built once, from the preset lists below.
 
 	for _, preset := range []jwek.KeyWrapPreset{jwek.A128KW, jwek.A192KW, jwek.A256KW} {
 		wrapKey := randomKey(preset.KeyLen)

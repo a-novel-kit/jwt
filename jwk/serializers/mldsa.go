@@ -70,7 +70,7 @@ func EncodeMLDSA[Key *mldsa.PublicKey | *mldsa.PrivateKey](key Key) *MLDSAPayloa
 		return &MLDSAPayload{Pub: base64.RawURLEncoding.EncodeToString(publicKey.Bytes())}
 	}
 
-	privateKey := any(key).(*mldsa.PrivateKey)
+	privateKey, _ := any(key).(*mldsa.PrivateKey) // Key allows no other type.
 
 	return &MLDSAPayload{
 		Pub:  base64.RawURLEncoding.EncodeToString(privateKey.PublicKey().Bytes()),

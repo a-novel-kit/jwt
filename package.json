@@ -1,7 +1,7 @@
 {
   "name": "jwt",
   "version": "2.6.1",
-  "license": "AGPL-3.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "format": "pnpm format:go && pnpm format:prettier",

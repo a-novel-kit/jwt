@@ -157,7 +157,7 @@ func EncodeRSA[Key *rsa.PublicKey | *rsa.PrivateKey](key Key) *RSAPayload {
 		}
 	}
 
-	privKey := any(key).(*rsa.PrivateKey)
+	privKey, _ := any(key).(*rsa.PrivateKey) // Key allows no other type.
 
 	privKey.Precompute()
 
