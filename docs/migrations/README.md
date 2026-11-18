@@ -3,6 +3,7 @@
 Each guide documents the **consumer action** a release requires, newest first. A release with no
 required action has no guide here.
 
+- [v2.7.0](./v2.7.0.md): This release removes exports nothing used, renames the plugin that accepts unsecured tokens, and fixes two keys the library mishandled. No repository in the `a-novel` or `a-novel-kit` organizations uses a removed or renamed symbol.
 - [v2.6.1](v2.6.1.md): unsecured token form, RFC checks on headers, claims, salts and keys
 - [v2.5.0](v2.5.0.md): RSA-OAEP key operations, mismatched EC keys rejected, replicated header claims enforced
 - [v2.3.0](v2.3.0.md): RFC conformance, per-token JWE keys, Ed25519 and ML-DSA
