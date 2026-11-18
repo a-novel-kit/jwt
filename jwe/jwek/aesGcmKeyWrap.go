@@ -66,7 +66,7 @@ func NewAESGCMKWManager(
 
 func (manager *AESGCMKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(AESGCMKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("%w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
 	header.Alg = manager.alg
@@ -77,19 +77,19 @@ func (manager *AESGCMKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*
 func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
 	if len(manager.wrapKey) != manager.keyLen {
 		return nil, fmt.Errorf(
-			"(AESGCMKWManager.EncryptCEK) invalid wrap key length: expected %d, got %d",
+			"invalid wrap key length: expected %d, got %d",
 			manager.keyLen, len(manager.wrapKey),
 		)
 	}
 
 	block, err := aes.NewCipher(manager.wrapKey)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) create cipher: %w", err)
+		return nil, fmt.Errorf("create cipher: %w", err)
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) create AEAD: %w", err)
+		return nil, fmt.Errorf("create AEAD: %w", err)
 	}
 
 	iv := make([]byte, aesgcm.NonceSize())
@@ -140,60 +140,60 @@ func NewAESGCMKWDecoder(config *AESGCMKWDecoderConfig, preset KeyWrapPreset) *AE
 func (decoder *AESGCMKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
 	if header.Alg != decoder.alg {
 		return nil, fmt.Errorf(
-			"(AESGCMKWDecoder.ComputeCEK) %w: invalid algorithm %s, expected %s",
+			"%w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, decoder.alg,
 		)
 	}
 
 	if len(decoder.wrapKey) != decoder.keyLen {
 		return nil, fmt.Errorf(
-			"(AESGCMKWDecoder.ComputeCEK) invalid wrap key length: expected %d, got %d",
+			"invalid wrap key length: expected %d, got %d",
 			decoder.keyLen, len(decoder.wrapKey),
 		)
 	}
 
 	if len(encKey) == 0 {
 		return nil, fmt.Errorf(
-			"(AESGCMKWDecoder.ComputeCEK) %w: unexpected enc key (should not be empty)",
+			"%w: unexpected enc key (should not be empty)",
 			jwt.ErrUnsupportedTokenFormat,
 		)
 	}
 
 	iv, err := base64.RawURLEncoding.DecodeString(header.IV)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) %w: decode IV: %w", jwt.ErrUnsupportedTokenFormat, err)
+		return nil, fmt.Errorf("%w: decode IV: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	tag, err := base64.RawURLEncoding.DecodeString(header.Tag)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) %w: decode tag: %w", jwt.ErrUnsupportedTokenFormat, err)
+		return nil, fmt.Errorf("%w: decode tag: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	if len(iv) != 12 {
 		return nil, fmt.Errorf(
-			"(AESGCMKWDecoder.ComputeCEK) %w: invalid IV size: expected 12, got %d", jwt.ErrUnsupportedTokenFormat, len(iv),
+			"%w: invalid IV size: expected 12, got %d", jwt.ErrUnsupportedTokenFormat, len(iv),
 		)
 	}
 
 	if len(tag) != 16 {
 		return nil, fmt.Errorf(
-			"(AESGCMKWDecoder.ComputeCEK) %w: invalid tag size: expected 16, got %d", jwt.ErrUnsupportedTokenFormat, len(tag),
+			"%w: invalid tag size: expected 16, got %d", jwt.ErrUnsupportedTokenFormat, len(tag),
 		)
 	}
 
 	block, err := aes.NewCipher(decoder.wrapKey)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) create cipher: %w", err)
+		return nil, fmt.Errorf("create cipher: %w", err)
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) create AEAD: %w", err)
+		return nil, fmt.Errorf("create AEAD: %w", err)
 	}
 
 	cek, err := aesgcm.Open(nil, iv, slices.Concat(encKey, tag), []byte{})
 	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWDecoder.ComputeCEK) %w: decrypt CEK: %w", jwt.ErrTokenRejected, err)
+		return nil, fmt.Errorf("%w: decrypt CEK: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

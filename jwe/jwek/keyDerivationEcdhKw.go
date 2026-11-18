@@ -74,7 +74,7 @@ func NewECDHKeyAgrKWManager(
 
 func (manager *ECDHKeyAgrKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("%w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
 	header.JWHKeyAgreement = jwa.JWHKeyAgreement{
@@ -89,22 +89,22 @@ func (manager *ECDHKeyAgrKWManager) SetHeader(_ context.Context, header *jwa.JWH
 func (manager *ECDHKeyAgrKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
 	z, err := ephemeralAgreement(header, manager.config.RecipientKey)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) %w", err)
+		return nil, err
 	}
 
 	apu, apv, err := agreementInfo(header)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) %w", err)
+		return nil, err
 	}
 
 	wrapKey, err := internal.Derive(z, string(manager.alg), manager.keyLen, apu, apv)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) derive key: %w", err)
+		return nil, fmt.Errorf("derive key: %w", err)
 	}
 
 	wrapped, err := internal.KeyWrap(wrapKey, cek)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWManager.EncryptCEK) wrap key: %w", err)
+		return nil, fmt.Errorf("wrap key: %w", err)
 	}
 
 	return wrapped, nil
@@ -143,36 +143,36 @@ func NewECDHKeyAgrKWDecoder(config *ECDHKeyAgrKWDecoderConfig, preset KeyWrapPre
 func (decoder *ECDHKeyAgrKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
 	if header.Alg != decoder.alg {
 		return nil, fmt.Errorf(
-			"(ECDHKeyAgrKWDecoder.ComputeCEK) %w: invalid algorithm %s, expected %s",
+			"%w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, decoder.alg,
 		)
 	}
 
 	if len(encKey) == 0 {
 		return nil, fmt.Errorf(
-			"(ECDHKeyAgrKWDecoder.ComputeCEK) %w: missing enc key",
+			"%w: missing enc key",
 			jwt.ErrUnsupportedTokenFormat,
 		)
 	}
 
 	z, err := recipientAgreement(header, decoder.config.RecipientKey)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) %w", err)
+		return nil, err
 	}
 
 	apu, apv, err := agreementInfo(header)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) %w: %w", jwt.ErrUnsupportedTokenFormat, err)
+		return nil, fmt.Errorf("%w: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
 	kek, err := internal.Derive(z, string(decoder.alg), decoder.keyLen, apu, apv)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) derive key: %w", err)
+		return nil, fmt.Errorf("derive key: %w", err)
 	}
 
 	cek, err := internal.KeyUnwrap(kek, encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(ECDHKeyAgrKWDecoder.ComputeCEK) %w: unwrap key: %w", jwt.ErrTokenRejected, err)
+		return nil, fmt.Errorf("%w: unwrap key: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

@@ -27,7 +27,7 @@ func NewDirectKeyManager(cek []byte) *DirectKeyManager {
 
 func (manager *DirectKeyManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(DirectKeyManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("%w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
 	header.Alg = jwa.DIR
@@ -68,7 +68,7 @@ func NewDirectKeyDecoder(config *DirectKeyDecoderConfig) *DirectKeyDecoder {
 func (decoder *DirectKeyDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
 	if header.Alg != jwa.DIR {
 		return nil, fmt.Errorf(
-			"(DirectKeyDecoder.ComputeCEK) %w: invalid algorithm %s, expected %s",
+			"%w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, jwa.DIR,
 		)
 	}
@@ -76,7 +76,7 @@ func (decoder *DirectKeyDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, 
 	// RFC 7518 §4.5 and RFC 7516 §5.2 step 10: direct encryption carries an empty encrypted key.
 	if len(encKey) != 0 {
 		return nil, fmt.Errorf(
-			"(DirectKeyDecoder.ComputeCEK) %w: unexpected enc key (should be empty)", jwt.ErrUnsupportedTokenFormat,
+			"%w: unexpected enc key (should be empty)", jwt.ErrUnsupportedTokenFormat,
 		)
 	}
 

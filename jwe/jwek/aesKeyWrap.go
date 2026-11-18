@@ -70,7 +70,7 @@ func NewAESKWManager(config *AESKWManagerConfig, preset KeyWrapPreset) *AESKWMan
 
 func (manager *AESKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(AESKWManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("%w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
 	header.Alg = manager.alg
@@ -81,14 +81,14 @@ func (manager *AESKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa
 func (manager *AESKWManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byte) ([]byte, error) {
 	if len(manager.wrapKey) != manager.keyLen {
 		return nil, fmt.Errorf(
-			"(AESKWManager.EncryptCEK) invalid wrap key length: expected %d, got %d",
+			"invalid wrap key length: expected %d, got %d",
 			manager.keyLen, len(manager.wrapKey),
 		)
 	}
 
 	wrapped, err := internal.KeyWrap(manager.wrapKey, cek)
 	if err != nil {
-		return nil, fmt.Errorf("(AESKWManager.EncryptCEK) wrap key: %w", err)
+		return nil, fmt.Errorf("wrap key: %w", err)
 	}
 
 	return wrapped, nil
@@ -125,28 +125,28 @@ func NewAESKWDecoder(secret *AESKWDecoderConfig, preset KeyWrapPreset) *AESKWDec
 func (decoder *AESKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
 	if header.Alg != decoder.alg {
 		return nil, fmt.Errorf(
-			"(AESKWDecoder.ComputeCEK) %w: invalid algorithm %s, expected %s",
+			"%w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, decoder.alg,
 		)
 	}
 
 	if len(decoder.wrapKey) != decoder.keyLen {
 		return nil, fmt.Errorf(
-			"(AESKWDecoder.ComputeCEK) invalid wrap key length: expected %d, got %d",
+			"invalid wrap key length: expected %d, got %d",
 			decoder.keyLen, len(decoder.wrapKey),
 		)
 	}
 
 	if len(encKey) == 0 {
 		return nil, fmt.Errorf(
-			"(AESKWDecoder.ComputeCEK) %w: unexpected enc key (should not be empty)",
+			"%w: unexpected enc key (should not be empty)",
 			jwt.ErrUnsupportedTokenFormat,
 		)
 	}
 
 	cek, err := internal.KeyUnwrap(decoder.wrapKey, encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(AESKWDecoder.ComputeCEK) %w: unwrap key: %w", jwt.ErrTokenRejected, err)
+		return nil, fmt.Errorf("%w: unwrap key: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

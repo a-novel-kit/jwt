@@ -1,8 +1,6 @@
 package jwk
 
 import (
-	"fmt"
-
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
@@ -142,7 +140,7 @@ var (
 func GenerateAES(preset AESPreset) (*Key[[]byte], error) {
 	key, err := newOctKey(aesHeader(preset), preset.KeySize)
 	if err != nil {
-		return nil, fmt.Errorf("(GenerateAES) %w", err)
+		return nil, err
 	}
 
 	return key, nil
@@ -155,7 +153,7 @@ func GenerateAES(preset AESPreset) (*Key[[]byte], error) {
 func ConsumeAES(source *jwa.JWK, preset AESPreset) (*Key[[]byte], error) {
 	key, err := consumeOct(source, aesHeader(preset))
 	if err != nil {
-		return nil, fmt.Errorf("(ConsumeAES) %w", err)
+		return nil, err
 	}
 
 	return key, nil

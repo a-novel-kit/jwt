@@ -90,7 +90,7 @@ func NewRSAOAEPKeyEncManager(
 func (manager *RSAOAEPKeyEncManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
 		return nil, fmt.Errorf(
-			"(RSAOAEPKeyEncManager.SetHeader) %w: alg field already set",
+			"%w: alg field already set",
 			jwt.ErrConflictingHeader,
 		)
 	}
@@ -103,12 +103,12 @@ func (manager *RSAOAEPKeyEncManager) SetHeader(_ context.Context, header *jwa.JW
 func (manager *RSAOAEPKeyEncManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byte) ([]byte, error) {
 	err := checkRSAOAEPKey(manager.encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(RSAOAEPKeyEncManager.EncryptCEK) %w", err)
+		return nil, err
 	}
 
 	encoded, err := rsa.EncryptOAEPWithOptions(rand.Reader, manager.encKey, cek, &rsa.OAEPOptions{Hash: manager.hash})
 	if err != nil {
-		return nil, fmt.Errorf("(RSAOAEPKeyEncManager.EncryptCEK) encrypt: %w", err)
+		return nil, fmt.Errorf("encrypt: %w", err)
 	}
 
 	return encoded, nil
@@ -147,30 +147,30 @@ func NewRSAOAEPKeyEncDecoder(
 func (decoder *RSAOAEPKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
 	if header.Alg != decoder.alg {
 		return nil, fmt.Errorf(
-			"(RSAOAEPKeyEncDecoder.ComputeCEK) %w: invalid algorithm %s, expected %s",
+			"%w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, decoder.alg,
 		)
 	}
 
 	if len(encKey) == 0 {
 		return nil, fmt.Errorf(
-			"(RSAOAEPKeyEncDecoder.ComputeCEK) %w: missing enc key",
+			"%w: missing enc key",
 			jwt.ErrUnsupportedTokenFormat,
 		)
 	}
 
 	if decoder.encKey == nil {
-		return nil, fmt.Errorf("(RSAOAEPKeyEncDecoder.ComputeCEK) %w: nil RSA key", jwt.ErrInvalidSecretKey)
+		return nil, fmt.Errorf("%w: nil RSA key", jwt.ErrInvalidSecretKey)
 	}
 
 	err := checkRSAOAEPKey(&decoder.encKey.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("(RSAOAEPKeyEncDecoder.ComputeCEK) %w", err)
+		return nil, err
 	}
 
 	cek, err := decoder.encKey.Decrypt(nil, encKey, &rsa.OAEPOptions{Hash: decoder.hash})
 	if err != nil {
-		return nil, fmt.Errorf("(RSAOAEPKeyEncDecoder.ComputeCEK) %w: decrypt: %w", jwt.ErrTokenRejected, err)
+		return nil, fmt.Errorf("%w: decrypt: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

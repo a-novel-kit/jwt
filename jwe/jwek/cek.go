@@ -43,7 +43,7 @@ type freshCEK struct{}
 func (freshCEK) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
 	size, err := cekSize(header.Enc)
 	if err != nil {
-		return nil, fmt.Errorf("(freshCEK.ComputeCEK) %w", err)
+		return nil, err
 	}
 
 	cek := make([]byte, size)

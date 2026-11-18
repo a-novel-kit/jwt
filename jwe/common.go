@@ -63,18 +63,18 @@ type contentEncryption struct {
 // "alg".
 func (enc *contentEncryption) Header(ctx context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if header.Enc != "" {
-		return nil, fmt.Errorf("(contentEncryption.Header) %w: enc field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("%w: enc field already set", jwt.ErrConflictingHeader)
 	}
 
 	header, err := enc.cekManager.SetHeader(ctx, header)
 	if err != nil {
-		return nil, fmt.Errorf("(contentEncryption.Header) set key derivation header: %w", err)
+		return nil, fmt.Errorf("set key derivation header: %w", err)
 	}
 
 	// A CEKManager may pin the token to one enc, which this plugin must then match.
 	if header.Enc != "" && header.Enc != enc.enc {
 		return nil, fmt.Errorf(
-			"(contentEncryption.Header) %w: cek manager is incompatible with the current encryption algorithm: "+
+			"%w: cek manager is incompatible with the current encryption algorithm: "+
 				"expected %s, got %s",
 			jwt.ErrConflictingHeader, enc.enc, header.Enc,
 		)
@@ -94,40 +94,40 @@ func (enc *contentEncryption) encrypt(
 ) (string, error) {
 	token, err := (&jwt.RawTokenDecoder{}).Decode(rawToken)
 	if err != nil {
-		return "", fmt.Errorf("(contentEncryption.encrypt) split token: %w", err)
+		return "", fmt.Errorf("split token: %w", err)
 	}
 
 	plainText, err := base64.RawURLEncoding.DecodeString(token.Payload)
 	if err != nil {
-		return "", fmt.Errorf("(contentEncryption.encrypt) decode payload: %w", err)
+		return "", fmt.Errorf("decode payload: %w", err)
 	}
 
 	cek, err := enc.cekManager.ComputeCEK(ctx, header)
 	if err != nil {
-		return "", fmt.Errorf("(contentEncryption.encrypt) compute cek: %w", err)
+		return "", fmt.Errorf("compute cek: %w", err)
 	}
 
 	if len(cek) != enc.cekLen {
 		return "", fmt.Errorf(
-			"(contentEncryption.encrypt) %w: cek has length %d, expected %d", ErrInvalidSecret, len(cek), enc.cekLen,
+			"%w: cek has length %d, expected %d", ErrInvalidSecret, len(cek), enc.cekLen,
 		)
 	}
 
 	encryptedKey, err := enc.cekManager.EncryptCEK(ctx, header, cek)
 	if err != nil {
-		return "", fmt.Errorf("(contentEncryption.encrypt) encrypt key: %w", err)
+		return "", fmt.Errorf("encrypt key: %w", err)
 	}
 
 	serializedHeader, err := json.Marshal(header)
 	if err != nil {
-		return "", fmt.Errorf("(contentEncryption.encrypt) serialize header: %w", err)
+		return "", fmt.Errorf("serialize header: %w", err)
 	}
 
 	encodedHeader := base64.RawURLEncoding.EncodeToString(serializedHeader)
 
 	iv, cipherText, tag, err := seal(cek, plainText, aad(encodedHeader, enc.additionalData))
 	if err != nil {
-		return "", fmt.Errorf("(contentEncryption.encrypt) %w", err)
+		return "", err
 	}
 
 	return jwt.EncryptedToken{
@@ -162,7 +162,7 @@ func (dec *contentDecryption) decrypt(
 ) ([]byte, error) {
 	if header.Enc != dec.enc {
 		return nil, fmt.Errorf(
-			"(contentDecryption.decrypt) %w: invalid enc %s, expected %s",
+			"%w: invalid enc %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Enc, dec.enc,
 		)
 	}
@@ -170,34 +170,34 @@ func (dec *contentDecryption) decrypt(
 	// This package performs no decompression, so it refuses a compressed payload.
 	if header.Zip != "" {
 		return nil, fmt.Errorf(
-			"(contentDecryption.decrypt) %w: unsupported zip %s", jwt.ErrUnsupportedTokenFormat, header.Zip,
+			"%w: unsupported zip %s", jwt.ErrUnsupportedTokenFormat, header.Zip,
 		)
 	}
 
 	token, err := (&jwt.EncryptedTokenDecoder{}).Decode(rawToken)
 	if err != nil {
-		return nil, fmt.Errorf("(contentDecryption.decrypt) split token: %w", err)
+		return nil, fmt.Errorf("split token: %w", err)
 	}
 
 	segments, err := decodeSegments(token)
 	if err != nil {
-		return nil, fmt.Errorf("(contentDecryption.decrypt) %w", err)
+		return nil, err
 	}
 
 	cek, err := dec.cekDecoder.ComputeCEK(ctx, header, segments.encryptedKey)
 	if err != nil {
-		return nil, fmt.Errorf("(contentDecryption.decrypt) get secret key: %w", err)
+		return nil, fmt.Errorf("get secret key: %w", err)
 	}
 
 	if len(cek) != dec.cekLen {
 		return nil, fmt.Errorf(
-			"(contentDecryption.decrypt) %w: cek has length %d, expected %d", ErrInvalidSecret, len(cek), dec.cekLen,
+			"%w: cek has length %d, expected %d", ErrInvalidSecret, len(cek), dec.cekLen,
 		)
 	}
 
 	plainText, err := open(cek, segments, aad(token.Header, dec.additionalData))
 	if err != nil {
-		return nil, fmt.Errorf("(contentDecryption.decrypt) %w", err)
+		return nil, err
 	}
 
 	return plainText, nil

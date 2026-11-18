@@ -15,7 +15,7 @@ import (
 func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateED25519) generate key pair: %w", err)
+		return nil, nil, fmt.Errorf("generate key pair: %w", err)
 	}
 
 	private, public, err := newKeyPair(
@@ -23,7 +23,7 @@ func GenerateED25519() (*Key[ed25519.PrivateKey], *Key[ed25519.PublicKey], error
 		publicKey, serializers.EncodeED(publicKey), signatureHeader(jwa.KTYOKP, jwa.Ed25519, jwa.KeyOpVerify),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateED25519) %w", err)
+		return nil, nil, err
 	}
 
 	return private, public, nil
@@ -49,7 +49,7 @@ func ConsumeED25519(source *jwa.JWK) (*Key[ed25519.PrivateKey], *Key[ed25519.Pub
 		serializers.DecodeED,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeED25519) %w", err)
+		return nil, nil, err
 	}
 
 	return privateKey, publicKey, nil

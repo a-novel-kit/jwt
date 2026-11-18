@@ -174,25 +174,25 @@ func (checker *ClaimsChecker) Unmarshal(raw []byte, dst any) error {
 
 	err := json.Unmarshal(raw, &token)
 	if err != nil {
-		return fmt.Errorf("(ClaimsChecker.Unmarshal) unmarshal claims: %w", err)
+		return fmt.Errorf("unmarshal claims: %w", err)
 	}
 
 	// A payload of JSON "null" unmarshals into a nil pointer without error.
 	if token == nil {
-		return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: null claims set", ErrInvalidClaims)
+		return fmt.Errorf("%w: null claims set", ErrInvalidClaims)
 	}
 
 	for _, check := range checker.config.Checks {
 		err := check.CheckClaims(token)
 		if err != nil {
-			return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: %w", ErrInvalidClaims, err)
+			return fmt.Errorf("%w: %w", ErrInvalidClaims, err)
 		}
 	}
 
 	for _, check := range checker.config.ChecksRaw {
 		err := check.CheckRaw(raw)
 		if err != nil {
-			return fmt.Errorf("(ClaimsChecker.Unmarshal) %w: %w", ErrInvalidClaims, err)
+			return fmt.Errorf("%w: %w", ErrInvalidClaims, err)
 		}
 	}
 

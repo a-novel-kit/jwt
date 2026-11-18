@@ -1,8 +1,6 @@
 package jwk
 
 import (
-	"fmt"
-
 	"github.com/a-novel-kit/jwt/v2/jwa"
 )
 
@@ -41,7 +39,7 @@ var (
 func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {
 	key, err := newOctKey(hmacHeader(preset), preset.KeySize)
 	if err != nil {
-		return nil, fmt.Errorf("(GenerateHMAC) %w", err)
+		return nil, err
 	}
 
 	return key, nil
@@ -54,7 +52,7 @@ func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {
 func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
 	key, err := consumeOct(source, hmacHeader(preset))
 	if err != nil {
-		return nil, fmt.Errorf("(ConsumeHMAC) %w", err)
+		return nil, err
 	}
 
 	return key, nil

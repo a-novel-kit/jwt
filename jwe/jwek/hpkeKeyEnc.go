@@ -79,12 +79,12 @@ func NewHPKEKeyEncManager(config *HPKEKeyEncManagerConfig, preset HPKEKeyEncPres
 
 func (manager *HPKEKeyEncManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa.JWH, error) {
 	if !header.Alg.Empty() {
-		return nil, fmt.Errorf("(HPKEKeyEncManager.SetHeader) %w: alg field already set", jwt.ErrConflictingHeader)
+		return nil, fmt.Errorf("%w: alg field already set", jwt.ErrConflictingHeader)
 	}
 
 	if manager.recipientKey == nil || manager.recipientKey.Curve() != manager.preset.Curve {
 		return nil, fmt.Errorf(
-			"(HPKEKeyEncManager.SetHeader) %w: %s needs a recipient key on %v",
+			"%w: %s needs a recipient key on %v",
 			jwt.ErrInvalidSecretKey, manager.preset.Alg, manager.preset.Curve,
 		)
 	}
@@ -97,19 +97,19 @@ func (manager *HPKEKeyEncManager) SetHeader(_ context.Context, header *jwa.JWH) 
 func (manager *HPKEKeyEncManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
 	publicKey, err := hpke.NewDHKEMPublicKey(manager.recipientKey)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEKeyEncManager.EncryptCEK) %w: %w", jwt.ErrInvalidSecretKey, err)
+		return nil, fmt.Errorf("%w: %w", jwt.ErrInvalidSecretKey, err)
 	}
 
 	encapsulated, sender, err := hpke.NewSender(
 		publicKey, manager.preset.KDF, manager.preset.AEAD, recipientStructure(header.Enc),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEKeyEncManager.EncryptCEK) set up sender: %w", err)
+		return nil, fmt.Errorf("set up sender: %w", err)
 	}
 
 	encrypted, err := sender.Seal(nil, cek)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEKeyEncManager.EncryptCEK) seal: %w", err)
+		return nil, fmt.Errorf("seal: %w", err)
 	}
 
 	header.EK = base64.RawURLEncoding.EncodeToString(encapsulated)
@@ -144,7 +144,7 @@ func NewHPKEKeyEncDecoder(config *HPKEKeyEncDecoderConfig, preset HPKEKeyEncPres
 func (decoder *HPKEKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encKey []byte) ([]byte, error) {
 	if header.Alg != decoder.preset.Alg {
 		return nil, fmt.Errorf(
-			"(HPKEKeyEncDecoder.ComputeCEK) %w: invalid algorithm %s, expected %s",
+			"%w: invalid algorithm %s, expected %s",
 			jwt.ErrMismatchRecipientPlugin, header.Alg, decoder.preset.Alg,
 		)
 	}
@@ -156,41 +156,41 @@ func (decoder *HPKEKeyEncDecoder) ComputeCEK(_ context.Context, header *jwa.JWH,
 	if len(header.Payload) > 0 {
 		err := json.Unmarshal(header.Payload, &custom)
 		if err != nil {
-			return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: unmarshal header: %w", jwt.ErrUnsupportedTokenFormat, err)
+			return nil, fmt.Errorf("%w: unmarshal header: %w", jwt.ErrUnsupportedTokenFormat, err)
 		}
 	}
 
 	if _, ok := custom["psk_id"]; ok {
-		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: psk_id is not supported", jwt.ErrUnsupportedTokenFormat)
+		return nil, fmt.Errorf("%w: psk_id is not supported", jwt.ErrUnsupportedTokenFormat)
 	}
 
 	if decoder.recipientKey == nil || decoder.recipientKey.Curve() != decoder.preset.Curve {
 		return nil, fmt.Errorf(
-			"(HPKEKeyEncDecoder.ComputeCEK) %w: %s needs a recipient key on %v",
+			"%w: %s needs a recipient key on %v",
 			jwt.ErrInvalidSecretKey, decoder.preset.Alg, decoder.preset.Curve,
 		)
 	}
 
 	encapsulated, err := base64.RawURLEncoding.DecodeString(header.EK)
 	if err != nil || len(encapsulated) == 0 {
-		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: missing or undecodable ek", jwt.ErrUnsupportedTokenFormat)
+		return nil, fmt.Errorf("%w: missing or undecodable ek", jwt.ErrUnsupportedTokenFormat)
 	}
 
 	privateKey, err := hpke.NewDHKEMPrivateKey(decoder.recipientKey)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: %w", jwt.ErrInvalidSecretKey, err)
+		return nil, fmt.Errorf("%w: %w", jwt.ErrInvalidSecretKey, err)
 	}
 
 	recipient, err := hpke.NewRecipient(
 		encapsulated, privateKey, decoder.preset.KDF, decoder.preset.AEAD, recipientStructure(header.Enc),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: decapsulate: %w", jwt.ErrTokenRejected, err)
+		return nil, fmt.Errorf("%w: decapsulate: %w", jwt.ErrTokenRejected, err)
 	}
 
 	cek, err := recipient.Open(nil, encKey)
 	if err != nil {
-		return nil, fmt.Errorf("(HPKEKeyEncDecoder.ComputeCEK) %w: decrypt cek: %w", jwt.ErrTokenRejected, err)
+		return nil, fmt.Errorf("%w: decrypt cek: %w", jwt.ErrTokenRejected, err)
 	}
 
 	return cek, nil

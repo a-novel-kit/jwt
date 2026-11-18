@@ -32,21 +32,21 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 
 	serializedCommon, err := json.Marshal(common)
 	if err != nil {
-		return nil, fmt.Errorf("(MarshalPartial) serialize common: %w", err)
+		return nil, fmt.Errorf("serialize common: %w", err)
 	}
 
 	var merged map[string]json.RawMessage
 
 	err = json.Unmarshal(serializedCommon, &merged)
 	if err != nil {
-		return nil, fmt.Errorf("(MarshalPartial) convert common to map: %w", err)
+		return nil, fmt.Errorf("convert common to map: %w", err)
 	}
 
 	var customMembers map[string]json.RawMessage
 
 	err = json.Unmarshal(custom, &customMembers)
 	if err != nil {
-		return nil, fmt.Errorf("(MarshalPartial) convert custom to map: %w", err)
+		return nil, fmt.Errorf("convert custom to map: %w", err)
 	}
 
 	declared := declaredMembers(reflect.TypeFor[T]())
@@ -66,12 +66,12 @@ func MarshalPartial[T any](common T, custom json.RawMessage) ([]byte, error) {
 	}
 
 	if len(reserved) > 0 {
-		return nil, errReserved("MarshalPartial", reserved)
+		return nil, errReserved(reserved)
 	}
 
 	mergedSerialized, err := json.Marshal(merged)
 	if err != nil {
-		return nil, fmt.Errorf("(MarshalPartial) serialize merged: %w", err)
+		return nil, fmt.Errorf("serialize merged: %w", err)
 	}
 
 	return mergedSerialized, nil
@@ -156,7 +156,7 @@ func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 
 	err := json.Unmarshal(src, &common)
 	if err != nil {
-		return common, nil, fmt.Errorf("(UnmarshalPartial) unmarshal common: %w", err)
+		return common, nil, fmt.Errorf("unmarshal common: %w", err)
 	}
 
 	declared := declaredMembers(reflect.TypeFor[T]())
@@ -168,7 +168,7 @@ func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 
 	err = json.Unmarshal(src, &members)
 	if err != nil {
-		return common, nil, fmt.Errorf("(UnmarshalPartial) convert source to map: %w", err)
+		return common, nil, fmt.Errorf("convert source to map: %w", err)
 	}
 
 	// A case variant of a declared name has filled that field too, and a parser
@@ -183,7 +183,7 @@ func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 	}
 
 	if len(reserved) > 0 {
-		return common, nil, errReserved("UnmarshalPartial", reserved)
+		return common, nil, errReserved(reserved)
 	}
 
 	for name := range declared {
@@ -192,7 +192,7 @@ func UnmarshalPartial[T any](src []byte) (T, json.RawMessage, error) {
 
 	custom, err := json.Marshal(members)
 	if err != nil {
-		return common, nil, fmt.Errorf("(UnmarshalPartial) serialize custom: %w", err)
+		return common, nil, fmt.Errorf("serialize custom: %w", err)
 	}
 
 	return common, custom, nil
@@ -215,11 +215,11 @@ func reservedName(declared map[string]struct{}, name string) bool {
 	return false
 }
 
-// errReserved reports the custom members of op that name registered ones. Map
+// errReserved reports the custom members that name registered ones. Map
 // iteration order is random, so the names are sorted to keep one input from
 // producing several different messages.
-func errReserved(op string, names []string) error {
+func errReserved(names []string) error {
 	slices.Sort(names)
 
-	return fmt.Errorf("(%s) %w: %s", op, ErrReservedMember, strings.Join(names, ", "))
+	return fmt.Errorf("%w: %s", ErrReservedMember, strings.Join(names, ", "))
 }
