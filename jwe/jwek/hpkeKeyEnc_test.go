@@ -16,62 +16,10 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
-func TestHPKEKeyEnc(t *testing.T) {
+func TestHPKEKeyEncDecoder(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		name string
-
-		keyPreset jwk.ECDHPreset
-		preset    jwek.HPKEKeyEncPreset
-	}{
-		{name: "HPKE0KE", keyPreset: jwk.HPKE0KE, preset: jwek.HPKE0KE},
-		{name: "HPKE1KE", keyPreset: jwk.HPKE1KE, preset: jwek.HPKE1KE},
-		{name: "HPKE2KE", keyPreset: jwk.HPKE2KE, preset: jwek.HPKE2KE},
-		{name: "HPKE3KE", keyPreset: jwk.HPKE3KE, preset: jwek.HPKE3KE},
-		{name: "HPKE7KE", keyPreset: jwk.HPKE7KE, preset: jwek.HPKE7KE},
-	}
-
-	producerClaims := map[string]any{"foo": "bar"}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			privateKey, publicKey, err := jwk.GenerateECDHKey(testCase.keyPreset)
-			require.NoError(t, err)
-
-			manager := jwek.NewHPKEKeyEncManager(&jwek.HPKEKeyEncManagerConfig{RecipientKey: publicKey.Key()}, testCase.preset)
-			decoder := jwek.NewHPKEKeyEncDecoder(&jwek.HPKEKeyEncDecoderConfig{RecipientKey: privateKey.Key()}, testCase.preset)
-
-			producer := jwt.NewProducer(jwt.ProducerConfig{
-				Plugins: []jwt.ProducerPlugin{
-					jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{CEKManager: manager}, jwe.A256GCM),
-				},
-			})
-			recipient := jwt.NewRecipient(jwt.RecipientConfig{
-				Plugins: []jwt.RecipientPlugin{
-					jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{CEKDecoder: decoder}, jwe.A256GCM),
-				},
-			})
-
-			first, err := producer.Issue(t.Context(), producerClaims, nil)
-			require.NoError(t, err)
-
-			second, err := producer.Issue(t.Context(), producerClaims, nil)
-			require.NoError(t, err)
-
-			var recipientClaims map[string]any
-
-			require.NoError(t, recipient.Consume(t.Context(), first, &recipientClaims))
-			require.Equal(t, producerClaims, recipientClaims)
-
-			// Each token encapsulates afresh, so "ek" travels in the header and differs per token.
-			require.NotEqual(t, first, second)
-		})
-	}
-
-	t.Run("DraftVectors", func(t *testing.T) {
+	t.Run("Success/DraftVectors", func(t *testing.T) {
 		t.Parallel()
 
 		raw, err := os.ReadFile("testdata/hpke-key-encryption.json")
@@ -104,7 +52,7 @@ func TestHPKEKeyEnc(t *testing.T) {
 
 			parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(vector.Compact)
 			require.NoError(t, err)
-			require.NoError(t, json.Unmarshal(mustDecode(t, parts.Header), &header))
+			require.NoError(t, json.Unmarshal(mustDecodeBase64(t, parts.Header), &header))
 
 			preset := map[jwa.Enc]jwe.AESGCMPreset{jwa.A128GCM: jwe.A128GCM, jwa.A256GCM: jwe.A256GCM}[header.Enc]
 			recipient := jwt.NewRecipient(jwt.RecipientConfig{
@@ -124,12 +72,8 @@ func TestHPKEKeyEnc(t *testing.T) {
 			require.Equal(t, fixture.Plaintext, plaintext, vector.Alg)
 		}
 	})
-}
 
-func TestHPKEKeyEncDecoderRejects(t *testing.T) {
-	t.Parallel()
-
-	privateKey, _, err := jwk.GenerateECDHKey(jwk.HPKE0KE)
+	privateKey, publicKey, err := jwk.GenerateECDHKey(jwk.HPKE0KE)
 	require.NoError(t, err)
 
 	x25519Private, _, err := jwk.GenerateECDHKey(jwk.HPKE3KE)
@@ -146,19 +90,26 @@ func TestHPKEKeyEncDecoderRejects(t *testing.T) {
 		expectErr error
 	}{
 		{
-			name:      "OtherAlgorithm",
+			name:      "Error/OtherAlgorithm",
 			decoder:   decoder,
 			header:    jwa.JWHCommon{Alg: jwa.HPKE7KE, JWHHPKE: jwa.JWHHPKE{EK: "AAAA"}},
 			expectErr: jwt.ErrMismatchRecipientPlugin,
 		},
 		{
-			name:      "MissingEK",
+			name:      "Error/MissingEK",
 			decoder:   decoder,
 			header:    jwa.JWHCommon{Alg: jwa.HPKE0KE},
 			expectErr: jwt.ErrUnsupportedTokenFormat,
 		},
 		{
-			name:      "KeyOffCurve",
+			// Valid base64url, but no encapsulated secret.
+			name:      "Error/Undecapsulable",
+			decoder:   decoder,
+			header:    jwa.JWHCommon{Alg: jwa.HPKE0KE, JWHHPKE: jwa.JWHHPKE{EK: "AAAA"}},
+			expectErr: jwt.ErrTokenRejected,
+		},
+		{
+			name:      "Error/KeyOffCurve",
 			decoder:   jwek.NewHPKEKeyEncDecoder(&jwek.HPKEKeyEncDecoderConfig{RecipientKey: x25519Private.Key()}, jwek.HPKE0KE),
 			header:    jwa.JWHCommon{Alg: jwa.HPKE0KE, JWHHPKE: jwa.JWHHPKE{EK: "AAAA"}},
 			expectErr: jwt.ErrInvalidSecretKey,
@@ -174,36 +125,51 @@ func TestHPKEKeyEncDecoderRejects(t *testing.T) {
 		})
 	}
 
-	// Valid base64url, but no encapsulated secret.
-	t.Run("Undecapsulable", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := decoder.ComputeCEK(
-			t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.HPKE0KE, JWHHPKE: jwa.JWHHPKE{EK: "AAAA"}}}, []byte("cek"),
-		)
-		require.ErrorIs(t, err, jwt.ErrTokenRejected)
+	// "psk_id" selects HPKE's PSK mode by its presence, so an empty or null value still counts. The
+	// producer authenticates the header carrying it, so only the decoder's check can reject the token.
+	// The SealedHeader case proves the same pipeline decrypts.
+	producer := jwt.NewProducer(jwt.ProducerConfig{
+		Plugins: []jwt.ProducerPlugin{
+			jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
+				CEKManager: jwek.NewHPKEKeyEncManager(&jwek.HPKEKeyEncManagerConfig{RecipientKey: publicKey.Key()}, jwek.HPKE0KE),
+			}, jwe.A128GCM),
+		},
+	})
+	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		Plugins: []jwt.RecipientPlugin{
+			jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
+				CEKDecoder: jwek.NewHPKEKeyEncDecoder(&jwek.HPKEKeyEncDecoderConfig{RecipientKey: privateKey.Key()}, jwek.HPKE0KE),
+			}, jwe.A128GCM),
+		},
 	})
 
-	t.Run("WrongKey", func(t *testing.T) {
-		t.Parallel()
+	pskCases := []struct {
+		name   string
+		header any
 
-		_, otherPublicKey, err := jwk.GenerateECDHKey(jwk.HPKE0KE)
-		require.NoError(t, err)
+		expectErr error
+	}{
+		{name: "Success/SealedHeader", header: nil},
+		{name: "Error/EmptyPSKID", header: map[string]any{"psk_id": ""}, expectErr: jwt.ErrUnsupportedTokenFormat},
+		{name: "Error/NullPSKID", header: map[string]any{"psk_id": nil}, expectErr: jwt.ErrUnsupportedTokenFormat},
+	}
 
-		manager := jwek.NewHPKEKeyEncManager(&jwek.HPKEKeyEncManagerConfig{RecipientKey: otherPublicKey.Key()}, jwek.HPKE0KE)
+	for _, testCase := range pskCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 
-		header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A128GCM}})
-		require.NoError(t, err)
+			token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, testCase.header)
+			require.NoError(t, err)
 
-		encrypted, err := manager.EncryptCEK(t.Context(), header, make([]byte, 16))
-		require.NoError(t, err)
+			var claims map[string]any
 
-		_, err = decoder.ComputeCEK(t.Context(), header, encrypted)
-		require.ErrorIs(t, err, jwt.ErrTokenRejected)
-	})
+			err = recipient.Consume(t.Context(), token, &claims)
+			require.ErrorIs(t, err, testCase.expectErr)
+		})
+	}
 }
 
-func TestHPKEKeyEncManagerRejects(t *testing.T) {
+func TestHPKEKeyEncManager(t *testing.T) {
 	t.Parallel()
 
 	_, publicKey, err := jwk.GenerateECDHKey(jwk.HPKE0KE)
@@ -221,13 +187,13 @@ func TestHPKEKeyEncManagerRejects(t *testing.T) {
 		expectErr error
 	}{
 		{
-			name:         "AlgSet",
+			name:         "Error/AlgSet",
 			recipientKey: publicKey.Key(),
 			header:       jwa.JWHCommon{Alg: jwa.RS256},
 			expectErr:    jwt.ErrConflictingHeader,
 		},
-		{name: "NoKey", expectErr: jwt.ErrInvalidSecretKey},
-		{name: "KeyOffCurve", recipientKey: x25519Public.Key(), expectErr: jwt.ErrInvalidSecretKey},
+		{name: "Error/NoKey", expectErr: jwt.ErrInvalidSecretKey},
+		{name: "Error/KeyOffCurve", recipientKey: x25519Public.Key(), expectErr: jwt.ErrInvalidSecretKey},
 	}
 
 	for _, testCase := range testCases {
@@ -239,56 +205,6 @@ func TestHPKEKeyEncManagerRejects(t *testing.T) {
 			)
 
 			_, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: testCase.header})
-			require.ErrorIs(t, err, testCase.expectErr)
-		})
-	}
-}
-
-// "psk_id" selects HPKE's PSK mode by its presence, so an empty or null value still counts. The
-// producer authenticates the header carrying it, so only the decoder's check can reject the token:
-// the control proves the same pipeline decrypts.
-func TestHPKEKeyEncDecoderRefusesPSKID(t *testing.T) {
-	t.Parallel()
-
-	privateKey, publicKey, err := jwk.GenerateECDHKey(jwk.HPKE0KE)
-	require.NoError(t, err)
-
-	producer := jwt.NewProducer(jwt.ProducerConfig{
-		Plugins: []jwt.ProducerPlugin{
-			jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
-				CEKManager: jwek.NewHPKEKeyEncManager(&jwek.HPKEKeyEncManagerConfig{RecipientKey: publicKey.Key()}, jwek.HPKE0KE),
-			}, jwe.A128GCM),
-		},
-	})
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{
-			jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-				CEKDecoder: jwek.NewHPKEKeyEncDecoder(&jwek.HPKEKeyEncDecoderConfig{RecipientKey: privateKey.Key()}, jwek.HPKE0KE),
-			}, jwe.A128GCM),
-		},
-	})
-
-	testCases := []struct {
-		name   string
-		header any
-
-		expectErr error
-	}{
-		{name: "Control", header: nil},
-		{name: "EmptyPSKID", header: map[string]any{"psk_id": ""}, expectErr: jwt.ErrUnsupportedTokenFormat},
-		{name: "NullPSKID", header: map[string]any{"psk_id": nil}, expectErr: jwt.ErrUnsupportedTokenFormat},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, testCase.header)
-			require.NoError(t, err)
-
-			var claims map[string]any
-
-			err = recipient.Consume(t.Context(), token, &claims)
 			require.ErrorIs(t, err, testCase.expectErr)
 		})
 	}

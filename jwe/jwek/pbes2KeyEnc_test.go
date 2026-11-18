@@ -1,6 +1,7 @@
 package jwek_test
 
 import (
+	"crypto"
 	"encoding/base64"
 	"testing"
 
@@ -11,25 +12,116 @@ import (
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 )
 
-func TestPBES2KeyEncKW(t *testing.T) {
+func TestPBES2KeyEncKWManager(t *testing.T) {
 	t.Parallel()
+
+	t.Run("Success/Defaults", func(t *testing.T) {
+		t.Parallel()
+
+		// A zero SaltSize and Iterations select the defaults. rand.Read fills an empty salt without
+		// error, and the decoder rejects p2c=0, so neither zero value may reach a token.
+		manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{Secret: "a password"}, jwek.PBES2A128KW)
+
+		first, err := manager.SetHeader(t.Context(), &jwa.JWH{})
+		require.NoError(t, err)
+		require.Len(t, mustDecodeBase64(t, first.P2S), jwek.DefaultPBES2SaltSize)
+		require.Equal(t, jwek.DefaultPBES2Iterations, first.P2C)
+
+		second, err := manager.SetHeader(t.Context(), &jwa.JWH{})
+		require.NoError(t, err)
+		require.NotEqual(t, first.P2S, second.P2S, "each token must carry a fresh salt")
+	})
+
+	t.Run("Error/AlgSet", func(t *testing.T) {
+		t.Parallel()
+
+		manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{Secret: "a password"}, jwek.PBES2A256KW)
+
+		// SetHeader refuses to overwrite an algorithm already stamped on the header.
+		_, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}})
+		require.ErrorIs(t, err, jwt.ErrConflictingHeader)
+	})
+
+	t.Run("Error/ShortSalt", func(t *testing.T) {
+		t.Parallel()
+
+		manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
+			Iterations: 1000,
+			SaltSize:   7,
+			Secret:     "a password",
+		}, jwek.PBES2A256KW)
+
+		header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
+		require.NoError(t, err)
+
+		// RFC 7518 §4.8.1.1: a Salt Input shorter than 8 octets fails issuance.
+		_, err = manager.EncryptCEK(t.Context(), header, make([]byte, 32))
+		require.Error(t, err)
+	})
+}
+
+func TestPBES2KeyEncKWDecoder(t *testing.T) {
+	t.Parallel()
+
+	manager := jwek.NewPBES2KeyEncKWManager(
+		&jwek.PBES2KeyEncKWManagerConfig{Secret: "a password", Iterations: 1000}, jwek.PBES2A128KW,
+	)
+	decoder := jwek.NewPBES2KeyEncKWDecoder(&jwek.PBES2KeyEncKWDecoderConfig{Secret: "a password"}, jwek.PBES2A128KW)
+
+	header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
+	require.NoError(t, err)
+
+	cek, err := manager.ComputeCEK(t.Context(), header)
+	require.NoError(t, err)
+
+	encryptedKey, err := manager.EncryptCEK(t.Context(), header, cek)
+	require.NoError(t, err)
 
 	testCases := []struct {
 		name string
 
-		preset jwek.PBES2KeyEncKWPreset
+		malform      func(common *jwa.JWHCommon)
+		encryptedKey []byte
+
+		expectErr error
 	}{
 		{
-			name:   "PBES2A128KW",
-			preset: jwek.PBES2A128KW,
+			name:         "Error/AlgMismatch",
+			malform:      func(common *jwa.JWHCommon) { common.Alg = jwa.RS256 },
+			encryptedKey: encryptedKey,
+			expectErr:    jwt.ErrMismatchRecipientPlugin,
 		},
 		{
-			name:   "PBES2A192KW",
-			preset: jwek.PBES2A192KW,
+			name:      "Error/MissingEncKey",
+			expectErr: jwt.ErrUnsupportedTokenFormat,
 		},
 		{
-			name:   "PBES2A256KW",
-			preset: jwek.PBES2A256KW,
+			name:         "Error/MalformedSalt",
+			malform:      func(common *jwa.JWHCommon) { common.P2S = "!!!" },
+			encryptedKey: encryptedKey,
+			expectErr:    jwt.ErrUnsupportedTokenFormat,
+		},
+		{
+			// RFC 7518 §4.8.1.1: the Salt Input holds 8 or more octets.
+			name: "Error/ShortSalt",
+			malform: func(common *jwa.JWHCommon) {
+				common.P2S = base64.RawURLEncoding.EncodeToString([]byte("1234567"))
+			},
+			encryptedKey: encryptedKey,
+			expectErr:    jwt.ErrUnsupportedTokenFormat,
+		},
+		{
+			// p2c comes from the token, so a count past the cap is refused before PBKDF2 runs.
+			name:         "Error/P2CTooLarge",
+			malform:      func(common *jwa.JWHCommon) { common.P2C = jwek.DefaultMaxPBES2Iterations + 1 },
+			encryptedKey: encryptedKey,
+			expectErr:    jwt.ErrUnsupportedTokenFormat,
+		},
+		{
+			name:         "Error/P2CZero",
+			malform:      func(common *jwa.JWHCommon) { common.P2C = 0 },
+			encryptedKey: encryptedKey,
+			expectErr:    jwt.ErrUnsupportedTokenFormat,
 		},
 	}
 
@@ -37,154 +129,30 @@ func TestPBES2KeyEncKW(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			secret := "my-strong-password"
+			common := header.JWHCommon
+			if testCase.malform != nil {
+				testCase.malform(&common)
+			}
 
-			manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
-				Secret:     secret,
-				Iterations: 1000,
-				SaltSize:   16,
-			}, testCase.preset)
-
-			header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
-			require.NoError(t, err)
-
-			computedCEK, err := manager.ComputeCEK(t.Context(), header)
-			require.NoError(t, err)
-			require.Len(t, computedCEK, 32)
-
-			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, computedCEK)
-			require.NoError(t, err)
-			require.NotNil(t, encryptedCEK)
-			require.NotEqual(t, computedCEK, encryptedCEK)
-
-			t.Run("OK", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewPBES2KeyEncKWDecoder(
-					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
-					testCase.preset,
-				)
-
-				decodedCEK, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.NoError(t, err)
-				require.Equal(t, computedCEK, decodedCEK)
-			})
-
-			t.Run("MalformedSalt", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewPBES2KeyEncKWDecoder(
-					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
-					testCase.preset,
-				)
-
-				common := header.JWHCommon
-				common.P2S = "!!!"
-
-				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-			})
-
-			t.Run("ShortSalt", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewPBES2KeyEncKWDecoder(
-					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
-					testCase.preset,
-				)
-
-				// RFC 7518 §4.8.1.1: the Salt Input holds 8 or more octets.
-				common := header.JWHCommon
-				common.P2S = base64.RawURLEncoding.EncodeToString([]byte("1234567"))
-
-				_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-			})
-
-			t.Run("WrongSecret", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewPBES2KeyEncKWDecoder(
-					&jwek.PBES2KeyEncKWDecoderConfig{Secret: "fake-secret"},
-					testCase.preset,
-				)
-
-				_, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrTokenRejected)
-			})
-
-			t.Run("MissingEncKey", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewPBES2KeyEncKWDecoder(
-					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
-					testCase.preset,
-				)
-
-				_, err := decoder.ComputeCEK(t.Context(), header, nil)
-				require.ErrorIs(t, err, jwt.ErrTokenRejected)
-			})
-
-			t.Run("P2CTooLarge", func(t *testing.T) {
-				t.Parallel()
-
-				// A token whose p2c exceeds the cap must be rejected before PBKDF2 runs, or it's a
-				// CPU-exhaustion DoS.
-				hugeHeader := *header
-				hugeHeader.P2C = jwek.DefaultMaxPBES2Iterations + 1
-
-				decoder := jwek.NewPBES2KeyEncKWDecoder(
-					&jwek.PBES2KeyEncKWDecoderConfig{Secret: secret},
-					testCase.preset,
-				)
-
-				_, err := decoder.ComputeCEK(t.Context(), &hugeHeader, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrTokenRejected)
-			})
+			_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, testCase.encryptedKey)
+			require.ErrorIs(t, err, testCase.expectErr)
 		})
 	}
-}
 
-func TestPBES2KeyEncKWSetHeaderConflict(t *testing.T) {
-	t.Parallel()
+	// RFC 7518 §4.8.1.1 prefixes the salt with the algorithm, so one password reused across two PBES2
+	// algorithms derives unrelated wrap keys. This preset differs from PBES2A128KW by its name only.
+	t.Run("Error/SaltBindsTheAlgorithm", func(t *testing.T) {
+		t.Parallel()
 
-	manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
-		Iterations: 1000,
-		SaltSize:   16,
-		Secret:     "password",
-	}, jwek.PBES2A256KW)
+		otherAlg := jwek.NewPBES2KeyEncKWDecoder(
+			&jwek.PBES2KeyEncKWDecoderConfig{Secret: "a password"},
+			jwek.PBES2KeyEncKWPreset{Alg: jwa.PBES2HS384A192KW, Hash: crypto.SHA256, KeySize: 16},
+		)
 
-	// SetHeader refuses to overwrite an algorithm already stamped on the header.
-	_, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}})
-	require.ErrorIs(t, err, jwt.ErrConflictingHeader)
-}
+		common := header.JWHCommon
+		common.Alg = jwa.PBES2HS384A192KW
 
-func TestPBES2KeyEncKWDecoderAlgMismatch(t *testing.T) {
-	t.Parallel()
-
-	decoder := jwek.NewPBES2KeyEncKWDecoder(
-		&jwek.PBES2KeyEncKWDecoderConfig{Secret: "password"},
-		jwek.PBES2A256KW,
-	)
-
-	// The decoder rejects a token whose alg is not the one it manages.
-	_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.RS256}}, []byte("enc"))
-	require.Error(t, err)
-}
-
-func TestPBES2KeyEncKWManagerShortSalt(t *testing.T) {
-	t.Parallel()
-
-	manager := jwek.NewPBES2KeyEncKWManager(&jwek.PBES2KeyEncKWManagerConfig{
-		Iterations: 1000,
-		SaltSize:   7,
-		Secret:     "password",
-	}, jwek.PBES2A256KW)
-
-	header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
-	require.NoError(t, err)
-
-	// RFC 7518 §4.8.1.1: a Salt Input shorter than 8 octets fails issuance.
-	_, err = manager.EncryptCEK(t.Context(), header, make([]byte, 32))
-	require.Error(t, err)
+		_, err := otherAlg.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedKey)
+		require.ErrorIs(t, err, jwt.ErrTokenRejected)
+	})
 }

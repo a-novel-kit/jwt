@@ -100,7 +100,7 @@ func TestHPKE(t *testing.T) {
 		})
 	}
 
-	t.Run("DraftVectors", func(t *testing.T) {
+	t.Run("Success/DraftVectors", func(t *testing.T) {
 		t.Parallel()
 
 		raw, err := os.ReadFile("testdata/hpke-integrated.json")
@@ -139,7 +139,7 @@ func TestHPKE(t *testing.T) {
 	})
 }
 
-func TestHPKEDecryptionRejects(t *testing.T) {
+func TestHPKEDecryption(t *testing.T) {
 	t.Parallel()
 
 	privateKey, publicKey, err := jwk.GenerateECDHKey(jwk.HPKE0)
@@ -173,26 +173,26 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 		expectRejected bool
 	}{
 		{
-			name:      "OtherAlgorithm",
+			name:      "Error/OtherAlgorithm",
 			decrypter: decrypter,
 			header:    &jwa.JWH{JWHCommon: jwa.JWHCommon{Alg: jwa.HPKE7}},
 			expectErr: jwt.ErrMismatchRecipientPlugin,
 		},
 		{
-			name:           "WrongKey",
+			name:           "Error/WrongKey",
 			decrypter:      jwe.NewHPKEDecryption(&jwe.HPKEDecryptionConfig{RecipientKey: otherPrivateKey.Key()}, jwe.HPKE0),
 			header:         header,
 			expectErr:      jwe.ErrInvalidSecret,
 			expectRejected: true,
 		},
 		{
-			name:      "KeyOffCurve",
+			name:      "Error/KeyOffCurve",
 			decrypter: jwe.NewHPKEDecryption(&jwe.HPKEDecryptionConfig{RecipientKey: x25519Private.Key()}, jwe.HPKE0),
 			header:    header,
 			expectErr: jwt.ErrInvalidSecretKey,
 		},
 		{
-			name:           "IV",
+			name:           "Error/IV",
 			decrypter:      decrypter,
 			header:         header,
 			token:          func(parts *jwt.EncryptedToken) { parts.IV = "AAAA" },
@@ -201,7 +201,7 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 		},
 		{
 			// Valid base64url, but no encapsulated secret: decapsulation fails before any decryption.
-			name:           "Undecapsulable",
+			name:           "Error/Undecapsulable",
 			decrypter:      decrypter,
 			header:         header,
 			token:          func(parts *jwt.EncryptedToken) { parts.EncKey = "AAAA" },
@@ -209,7 +209,7 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 			expectRejected: true,
 		},
 		{
-			name:           "MalformedEncKey",
+			name:           "Error/MalformedEncKey",
 			decrypter:      decrypter,
 			header:         header,
 			token:          func(parts *jwt.EncryptedToken) { parts.EncKey = testutils.UndecodableSegment },
@@ -217,7 +217,7 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 			expectRejected: true,
 		},
 		{
-			name:           "MalformedCipherText",
+			name:           "Error/MalformedCipherText",
 			decrypter:      decrypter,
 			header:         header,
 			token:          func(parts *jwt.EncryptedToken) { parts.CipherText = testutils.UndecodableSegment },
@@ -242,38 +242,55 @@ func TestHPKEDecryptionRejects(t *testing.T) {
 			require.Equal(t, testCase.expectRejected, errors.Is(err, jwt.ErrTokenRejected))
 		})
 	}
-}
 
-// The draft keys "enc", "ek", and "psk_id" on presence, so an empty or null value still counts. Each
-// header here is sealed as the AAD of its ciphertext, so only the member check can reject the token:
-// the control proves the same construction decrypts.
-func TestHPKEDecryptionRefusesHeaderMembers(t *testing.T) {
-	t.Parallel()
+	// A lenient decoder reads an encapsulated key with an unused trailing bit set as the same bytes, so
+	// accepting it would turn one issued token into several strings that all decrypt.
+	t.Run("Error/NonCanonicalEncryptedKey", func(t *testing.T) {
+		t.Parallel()
 
-	privateKey, publicKey, err := jwk.GenerateECDHKey(jwk.HPKE0)
-	require.NoError(t, err)
+		recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
 
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{
+		var claims map[string]any
+
+		require.NoError(t, recipient.Consume(t.Context(), token, &claims))
+
+		parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
+		require.NoError(t, err)
+
+		// HPKE-0 encapsulates a 65-byte P-256 point, which leaves unused bits. mustDecodeBase64 decodes
+		// leniently.
+		encKey, ok := nonCanonical(parts.EncKey)
+		require.True(t, ok)
+		require.Equal(t, mustDecodeBase64(t, parts.EncKey), mustDecodeBase64(t, encKey))
+
+		parts.EncKey = encKey
+		require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwt.ErrUnsupportedTokenFormat)
+	})
+
+	// The draft keys "enc", "ek", and "psk_id" on presence, so an empty or null value still counts. Each
+	// header here is sealed as the AAD of its ciphertext, so only the member check can reject the token.
+	// The SealedHeader case proves the same construction decrypts.
+	memberRecipient := jwt.NewRecipient(jwt.RecipientConfig{
 		Plugins: []jwt.RecipientPlugin{
 			jwe.NewHPKEDecryption(&jwe.HPKEDecryptionConfig{RecipientKey: privateKey.Key()}, jwe.HPKE0),
 		},
 	})
 
-	testCases := []struct {
+	memberCases := []struct {
 		name   string
 		header string
 
 		expectErr error
 	}{
-		{name: "Control", header: `{"alg":"HPKE-0"}`},
-		{name: "EmptyPSKID", header: `{"alg":"HPKE-0","psk_id":""}`, expectErr: jwt.ErrUnsupportedTokenFormat},
-		{name: "NullPSKID", header: `{"alg":"HPKE-0","psk_id":null}`, expectErr: jwt.ErrUnsupportedTokenFormat},
-		{name: "EmptyEnc", header: `{"alg":"HPKE-0","enc":""}`, expectErr: jwt.ErrUnsupportedTokenFormat},
-		{name: "NullEK", header: `{"alg":"HPKE-0","ek":null}`, expectErr: jwt.ErrUnsupportedTokenFormat},
-		{name: "Zip", header: `{"alg":"HPKE-0","zip":"DEF"}`, expectErr: jwt.ErrUnsupportedTokenFormat},
+		{name: "Success/SealedHeader", header: `{"alg":"HPKE-0"}`},
+		{name: "Error/EmptyPSKID", header: `{"alg":"HPKE-0","psk_id":""}`, expectErr: jwt.ErrUnsupportedTokenFormat},
+		{name: "Error/NullPSKID", header: `{"alg":"HPKE-0","psk_id":null}`, expectErr: jwt.ErrUnsupportedTokenFormat},
+		{name: "Error/EmptyEnc", header: `{"alg":"HPKE-0","enc":""}`, expectErr: jwt.ErrUnsupportedTokenFormat},
+		{name: "Error/NullEK", header: `{"alg":"HPKE-0","ek":null}`, expectErr: jwt.ErrUnsupportedTokenFormat},
+		{name: "Error/Zip", header: `{"alg":"HPKE-0","zip":"DEF"}`, expectErr: jwt.ErrUnsupportedTokenFormat},
 	}
 
-	for _, testCase := range testCases {
+	for _, testCase := range memberCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -281,7 +298,7 @@ func TestHPKEDecryptionRefusesHeaderMembers(t *testing.T) {
 
 			var claims map[string]any
 
-			err := recipient.Consume(t.Context(), token, &claims)
+			err := memberRecipient.Consume(t.Context(), token, &claims)
 			require.ErrorIs(t, err, testCase.expectErr)
 
 			if testCase.expectErr == nil {
@@ -320,7 +337,7 @@ func sealHPKE0(t *testing.T, recipientKey *ecdh.PublicKey, header string, payloa
 	}.String()
 }
 
-func TestHPKEEncryptionRejects(t *testing.T) {
+func TestHPKEEncryption(t *testing.T) {
 	t.Parallel()
 
 	_, publicKey, err := jwk.GenerateECDHKey(jwk.HPKE0)
@@ -338,19 +355,19 @@ func TestHPKEEncryptionRejects(t *testing.T) {
 		expectErr error
 	}{
 		{
-			name:         "AlgSet",
+			name:         "Error/AlgSet",
 			recipientKey: publicKey.Key(),
 			header:       jwa.JWHCommon{Alg: jwa.RS256},
 			expectErr:    jwt.ErrConflictingHeader,
 		},
 		{
-			name:         "EncSet",
+			name:         "Error/EncSet",
 			recipientKey: publicKey.Key(),
 			header:       jwa.JWHCommon{Enc: jwa.A128GCM},
 			expectErr:    jwt.ErrConflictingHeader,
 		},
-		{name: "NoKey", expectErr: jwt.ErrInvalidSecretKey},
-		{name: "KeyOffCurve", recipientKey: x25519Public.Key(), expectErr: jwt.ErrInvalidSecretKey},
+		{name: "Error/NoKey", expectErr: jwt.ErrInvalidSecretKey},
+		{name: "Error/KeyOffCurve", recipientKey: x25519Public.Key(), expectErr: jwt.ErrInvalidSecretKey},
 	}
 
 	for _, testCase := range testCases {

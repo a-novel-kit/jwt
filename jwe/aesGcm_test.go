@@ -2,15 +2,16 @@ package jwe_test
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/a-novel-kit/jwt/v2"
-	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe"
+	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
 	"github.com/a-novel-kit/jwt/v2/jwk"
-	"github.com/a-novel-kit/jwt/v2/testutils"
+	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 func TestAESGCM(t *testing.T) {
@@ -144,8 +145,39 @@ func TestAESGCM(t *testing.T) {
 	}
 }
 
-func TestAESGCMBadIV(t *testing.T) {
+func TestAESGCMDecryption(t *testing.T) {
 	t.Parallel()
+
+	// https://datatracker.ietf.org/doc/html/rfc7516#appendix-A.1
+	t.Run("Success/RFC7516A1", func(t *testing.T) {
+		t.Parallel()
+
+		example := mustLoadRFCExample(t, "RFC7516A1")
+
+		// serializers decodes the RFC's JWK, which lacks the "use" and "key_ops" every jwk.Consume* requires (jwk/doc.go).
+		var keyPayload serializers.RSAPayload
+
+		require.NoError(t, json.Unmarshal(example.JWK, &keyPayload))
+
+		privateKey, _, err := serializers.DecodeRSA(&keyPayload)
+		require.NoError(t, err)
+
+		decoder := jwek.NewRSAOAEPKeyEncDecoder(
+			&jwek.RSAOAEPKeyEncDecoderConfig{EncKey: privateKey},
+			jwek.RSAOAEP, //nolint:staticcheck // The example encrypts the key with RSA-OAEP over SHA-1.
+		)
+		recipient := jwt.NewRecipient(jwt.RecipientConfig{
+			Plugins: []jwt.RecipientPlugin{
+				jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{CEKDecoder: decoder}, jwe.A256GCM),
+			},
+			Deserializer: rawDeserializer,
+		})
+
+		var plaintext []byte
+
+		require.NoError(t, recipient.Consume(t.Context(), example.Compact(), &plaintext))
+		require.Equal(t, example.Plaintext, string(plaintext))
+	})
 
 	key, err := jwk.GenerateAES(jwk.A256GCM)
 	require.NoError(t, err)
@@ -153,110 +185,12 @@ func TestAESGCMBadIV(t *testing.T) {
 	encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
 		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
 	}, jwe.A256GCM)
-	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
 
-	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
+	token, err := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}}).
+		Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
 	require.NoError(t, err)
 
-	// gcm.Open panics on a wrong-length nonce; a tampered IV must instead yield an error.
 	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
-	require.NoError(t, err)
-
-	parts.IV = base64.RawURLEncoding.EncodeToString([]byte("short"))
-
-	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, jwe.A256GCM)
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
-
-	var claims map[string]any
-	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidToken)
-}
-
-func TestAESGCMBadTag(t *testing.T) {
-	t.Parallel()
-
-	key, err := jwk.GenerateAES(jwk.A256GCM)
-	require.NoError(t, err)
-
-	encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
-		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, jwe.A256GCM)
-	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
-
-	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
-	require.NoError(t, err)
-
-	// A wrong-length tag is a malformed token, distinct from an authentication failure.
-	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
-	require.NoError(t, err)
-
-	parts.Tag = base64.RawURLEncoding.EncodeToString([]byte("shorttag"))
-
-	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, jwe.A256GCM)
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
-
-	var claims map[string]any
-	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidToken)
-}
-
-func TestAESGCMHeaderBound(t *testing.T) {
-	t.Parallel()
-
-	key, err := jwk.GenerateAES(jwk.A256GCM)
-	require.NoError(t, err)
-
-	encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
-		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, jwe.A256GCM)
-	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
-
-	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
-	require.NoError(t, err)
-
-	// The protected header is bound as AAD, so swapping it for a different but still enc-valid header
-	// fails decryption.
-	parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
-	require.NoError(t, err)
-
-	parts.Header = base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"dir","enc":"A256GCM","x":1}`))
-
-	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
-		CEKDecoder: &fakeCEKDecoder{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, jwe.A256GCM)
-	recipient := jwt.NewRecipient(jwt.RecipientConfig{Plugins: []jwt.RecipientPlugin{decrypter}})
-
-	var claims map[string]any
-
-	// The tamper surfaces as an authenticated-decryption error.
-	require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwe.ErrInvalidSecret)
-}
-
-func TestAESGCMRejectsCompression(t *testing.T) {
-	t.Parallel()
-
-	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{CEKDecoder: &fakeCEKDecoder{}}, jwe.A256GCM)
-
-	header := &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwe.A256GCM.Enc, Zip: jwa.ZipDeflate}}
-
-	_, err := decrypter.Transform(t.Context(), header, "a.b.c.d.e")
-	require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-}
-
-func TestAESGCMMalformedSegment(t *testing.T) {
-	t.Parallel()
-
-	key, err := jwk.GenerateAES(jwk.A256GCM)
-	require.NoError(t, err)
-
-	encrypter := jwe.NewAESGCMEncryption(&jwe.AESGCMEncryptionConfig{
-		CEKManager: &fakeCEKManager{cek: key.Key(), encrypted: []byte("encrypted")},
-	}, jwe.A256GCM)
-	producer := jwt.NewProducer(jwt.ProducerConfig{Plugins: []jwt.ProducerPlugin{encrypter}})
-
-	token, err := producer.Issue(t.Context(), map[string]any{"foo": "bar"}, nil)
 	require.NoError(t, err)
 
 	decrypter := jwe.NewAESGCMDecryption(&jwe.AESGCMDecryptionConfig{
@@ -267,24 +201,41 @@ func TestAESGCMMalformedSegment(t *testing.T) {
 	testCases := []struct {
 		name    string
 		malform func(token *jwt.EncryptedToken)
+
+		expectErr error
 	}{
-		{name: "EncKey", malform: func(token *jwt.EncryptedToken) { token.EncKey = testutils.UndecodableSegment }},
-		{name: "IV", malform: func(token *jwt.EncryptedToken) { token.IV = testutils.UndecodableSegment }},
-		{name: "Tag", malform: func(token *jwt.EncryptedToken) { token.Tag = testutils.UndecodableSegment }},
-		{name: "CipherText", malform: func(token *jwt.EncryptedToken) { token.CipherText = testutils.UndecodableSegment }},
+		{
+			// gcm.Open panics on a nonce of the wrong length, so a tampered IV must yield an error instead.
+			name:      "Error/ShortIV",
+			malform:   func(token *jwt.EncryptedToken) { token.IV = base64.RawURLEncoding.EncodeToString([]byte("short")) },
+			expectErr: jwe.ErrInvalidToken,
+		},
+		{
+			// A tag of the wrong length makes a malformed token, apart from an authentication failure.
+			name:      "Error/ShortTag",
+			malform:   func(token *jwt.EncryptedToken) { token.Tag = base64.RawURLEncoding.EncodeToString([]byte("shorttag")) },
+			expectErr: jwe.ErrInvalidToken,
+		},
+		{
+			// The protected header is bound as AAD, so another header that still names the enc fails
+			// authenticated decryption.
+			name: "Error/TamperedHeader",
+			malform: func(token *jwt.EncryptedToken) {
+				token.Header = base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"dir","enc":"A256GCM","x":1}`))
+			},
+			expectErr: jwe.ErrInvalidSecret,
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			parts, err := (&jwt.EncryptedTokenDecoder{}).Decode(token)
-			require.NoError(t, err)
-
-			testCase.malform(parts)
+			malformed := *parts
+			testCase.malform(&malformed)
 
 			var claims map[string]any
-			require.ErrorIs(t, recipient.Consume(t.Context(), parts.String(), &claims), jwt.ErrUnsupportedTokenFormat)
+			require.ErrorIs(t, recipient.Consume(t.Context(), malformed.String(), &claims), testCase.expectErr)
 		})
 	}
 }

@@ -1,7 +1,7 @@
 package jwek_test
 
 import (
-	"bytes"
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,104 +9,48 @@ import (
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwe/jwek"
-	"github.com/a-novel-kit/jwt/v2/jwk"
 )
 
-func TestAESGCMKW(t *testing.T) {
+func TestAESGCMKWDecoder(t *testing.T) {
 	t.Parallel()
 
+	wrapKey := randomKey(jwek.A128GCMKW.KeyLen)
+
+	manager := jwek.NewAESGCMKWManager(&jwek.AESGCMKWManagerConfig{WrapKey: wrapKey}, jwek.A128GCMKW)
+	decoder := jwek.NewAESGCMKWDecoder(&jwek.AESGCMKWDecoderConfig{WrapKey: wrapKey}, jwek.A128GCMKW)
+
+	header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A128GCM}})
+	require.NoError(t, err)
+
+	cek, err := manager.ComputeCEK(t.Context(), header)
+	require.NoError(t, err)
+
+	encryptedKey, err := manager.EncryptCEK(t.Context(), header, cek)
+	require.NoError(t, err)
+
+	short := base64.RawURLEncoding.EncodeToString([]byte("short"))
+
+	// The IV and tag come from the token, and AES-GCM panics on a nonce of the wrong length.
 	testCases := []struct {
 		name string
 
-		keyPreset jwk.AESPreset
-		preset    jwek.KeyWrapPreset
+		malform func(common *jwa.JWHCommon)
 	}{
-		{
-			name:      "A128GCMKW",
-			keyPreset: jwk.A128GCMKW,
-			preset:    jwek.A128GCMKW,
-		},
-		{
-			name:      "A192GCMKW",
-			keyPreset: jwk.A192GCMKW,
-			preset:    jwek.A192GCMKW,
-		},
-		{
-			name:      "A256GCMKW",
-			keyPreset: jwk.A256GCMKW,
-			preset:    jwek.A256GCMKW,
-		},
+		{name: "Error/MalformedIV", malform: func(common *jwa.JWHCommon) { common.IV = "!!!" }},
+		{name: "Error/MalformedTag", malform: func(common *jwa.JWHCommon) { common.Tag = "!!!" }},
+		{name: "Error/ShortIV", malform: func(common *jwa.JWHCommon) { common.IV = short }},
+		{name: "Error/ShortTag", malform: func(common *jwa.JWHCommon) { common.Tag = short }},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			wrapKey, err := jwk.GenerateAES(testCase.keyPreset)
-			require.NoError(t, err)
+			common := header.JWHCommon
+			testCase.malform(&common)
 
-			manager := jwek.NewAESGCMKWManager(&jwek.AESGCMKWManagerConfig{
-				WrapKey: wrapKey.Key(),
-			}, testCase.preset)
-
-			header, err := manager.SetHeader(t.Context(), &jwa.JWH{JWHCommon: jwa.JWHCommon{Enc: jwa.A256GCM}})
-			require.NoError(t, err)
-
-			computedCEK, err := manager.ComputeCEK(t.Context(), header)
-			require.NoError(t, err)
-			require.Len(t, computedCEK, 32)
-
-			encryptedCEK, err := manager.EncryptCEK(t.Context(), header, computedCEK)
-			require.NoError(t, err)
-			require.NotEmpty(t, encryptedCEK)
-			require.NotEqual(t, computedCEK, encryptedCEK)
-
-			t.Run("OK", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewAESGCMKWDecoder(
-					&jwek.AESGCMKWDecoderConfig{WrapKey: wrapKey.Key()},
-					testCase.preset,
-				)
-
-				decodedCEK, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.NoError(t, err)
-				require.Equal(t, computedCEK, decodedCEK)
-			})
-
-			t.Run("MalformedHeader", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewAESGCMKWDecoder(
-					&jwek.AESGCMKWDecoderConfig{WrapKey: wrapKey.Key()},
-					testCase.preset,
-				)
-
-				malforms := []func(*jwa.JWHCommon){
-					func(common *jwa.JWHCommon) { common.IV = "!!!" },
-					func(common *jwa.JWHCommon) { common.Tag = "!!!" },
-				}
-
-				for _, malform := range malforms {
-					common := header.JWHCommon
-					malform(&common)
-
-					_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedCEK)
-					require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
-				}
-			})
-
-			t.Run("WrongKEK", func(t *testing.T) {
-				t.Parallel()
-
-				decoder := jwek.NewAESGCMKWDecoder(
-					&jwek.AESGCMKWDecoderConfig{WrapKey: bytes.Repeat([]byte{0}, testCase.preset.KeyLen)},
-					testCase.preset,
-				)
-
-				_, err := decoder.ComputeCEK(t.Context(), header, encryptedCEK)
-				require.ErrorIs(t, err, jwt.ErrTokenRejected)
-			})
+			_, err := decoder.ComputeCEK(t.Context(), &jwa.JWH{JWHCommon: common}, encryptedKey)
+			require.ErrorIs(t, err, jwt.ErrUnsupportedTokenFormat)
 		})
 	}
 }

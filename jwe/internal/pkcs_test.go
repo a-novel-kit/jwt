@@ -20,7 +20,7 @@ func TestPKCS7Padding(t *testing.T) {
 		expected []byte
 	}{
 		{
-			name: "padding",
+			name: "Success/Padding",
 
 			ciphertext: []byte("test"),
 			blockSize:  8,
@@ -28,7 +28,7 @@ func TestPKCS7Padding(t *testing.T) {
 			expected: []byte("test\x04\x04\x04\x04"),
 		},
 		{
-			name: "no padding",
+			name: "Success/AlignedInput",
 
 			ciphertext: []byte("test"),
 			blockSize:  4,
@@ -72,28 +72,28 @@ func TestPKCS7UnPadding(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "padding",
+			name: "Success",
 
 			plaintText: []byte("test\x04\x04\x04\x04"),
 
 			expected: []byte("test"),
 		},
 		{
-			name: "empty",
+			name: "Error/Empty",
 
 			plaintText: []byte{},
 
 			expectErr: true,
 		},
 		{
-			name: "padding too large",
+			name: "Error/PaddingTooLarge",
 
 			plaintText: []byte("test\xff"),
 
 			expectErr: true,
 		},
 		{
-			name: "inconsistent padding",
+			name: "Error/InconsistentPadding",
 
 			plaintText: []byte("test\x02\x04"),
 
