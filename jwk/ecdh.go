@@ -108,17 +108,3 @@ func ecdhHeader(preset ECDHPreset) jwa.JWKCommon {
 		Alg:    preset.Alg,
 	}
 }
-
-// GenerateECDH generates a new ECDH-ES key pair on the X25519 curve.
-//
-// Deprecated: use [GenerateECDHKey] with [ECDHESX25519], or a preset for another curve.
-func GenerateECDH() (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
-	return GenerateECDHKey(ECDHESX25519)
-}
-
-// ConsumeECDH parses a JSON Web Key into an X25519 ECDH-ES key pair.
-//
-// Deprecated: use [ConsumeECDHKey] with [ECDHESX25519], or a preset for another curve.
-func ConsumeECDH(source *jwa.JWK) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
-	return ConsumeECDHKey(source, ECDHESX25519)
-}

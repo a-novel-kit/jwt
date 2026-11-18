@@ -7,19 +7,29 @@ import (
 
 	"github.com/a-novel-kit/jwt/v2"
 	"github.com/a-novel-kit/jwt/v2/jwa"
+	"github.com/a-novel-kit/jwt/v2/jwe"
 )
 
-// cekSizes holds the content encryption key length, in bytes, each "enc" algorithm consumes.
-// An AES-CBC-HMAC key carries both its MAC and encryption halves. The map lists the algorithms the
-// jwe package implements. An encryption plugin for another "enc" needs an entry here before the
-// wrapping and agreement-with-wrapping managers can draw keys for it.
+// cekSizes holds the content encryption key length, in bytes, of each "enc" the jwe package
+// implements, as its presets state it. An encryption plugin for another "enc" needs an entry here
+// before the key managers can draw or derive a key for it.
 var cekSizes = map[jwa.Enc]int{
-	jwa.A128CBC: 32,
-	jwa.A192CBC: 48,
-	jwa.A256CBC: 64,
-	jwa.A128GCM: 16,
-	jwa.A192GCM: 24,
-	jwa.A256GCM: 32,
+	jwe.A128CBCHS256.Enc: jwe.A128CBCHS256.KeyLen,
+	jwe.A192CBCHS384.Enc: jwe.A192CBCHS384.KeyLen,
+	jwe.A256CBCHS512.Enc: jwe.A256CBCHS512.KeyLen,
+	jwe.A128GCM.Enc:      jwe.A128GCM.KeyLen,
+	jwe.A192GCM.Enc:      jwe.A192GCM.KeyLen,
+	jwe.A256GCM.Enc:      jwe.A256GCM.KeyLen,
+}
+
+// cekSize returns the content encryption key length enc takes, in bytes.
+func cekSize(enc jwa.Enc) (int, error) {
+	size, ok := cekSizes[enc]
+	if !ok {
+		return 0, fmt.Errorf("%w: no content encryption key size for enc %q", jwt.ErrInvalidSecretKey, enc)
+	}
+
+	return size, nil
 }
 
 // freshCEK provides ComputeCEK to the key managers that wrap or encrypt a random content encryption
@@ -31,11 +41,9 @@ type freshCEK struct{}
 //
 // https://datatracker.ietf.org/doc/html/rfc7516#section-5.1
 func (freshCEK) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
-	size, ok := cekSizes[header.Enc]
-	if !ok {
-		return nil, fmt.Errorf(
-			"(freshCEK.ComputeCEK) %w: no content encryption key size for enc %q", jwt.ErrInvalidSecretKey, header.Enc,
-		)
+	size, err := cekSize(header.Enc)
+	if err != nil {
+		return nil, fmt.Errorf("(freshCEK.ComputeCEK) %w", err)
 	}
 
 	cek := make([]byte, size)

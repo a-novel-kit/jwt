@@ -66,9 +66,6 @@ type PBES2KeyEncKWManagerConfig struct {
 	// below 8 fails issuance (RFC 7518 §4.8.1.1). Non-positive selects DefaultPBES2SaltSize.
 	SaltSize int
 
-	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
-	// RFC 7516 requires.
-	CEK []byte
 	// Secret is the password the wrap key is derived from. The recipient must know
 	// it to decrypt the token.
 	Secret string

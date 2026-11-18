@@ -102,17 +102,3 @@ func TestConsumeECDHKey(t *testing.T) {
 		})
 	}
 }
-
-func TestConsumeECDH(t *testing.T) {
-	t.Parallel()
-
-	// The deprecated pair keeps its X25519 ECDH-ES behavior.
-	private, public, err := jwk.GenerateECDH()
-	require.NoError(t, err)
-	require.Equal(t, ecdh.X25519(), public.Key().Curve())
-
-	privateKey, publicKey, err := jwk.ConsumeECDH(private.JWK)
-	require.NoError(t, err)
-	require.True(t, privateKey.Key().Equal(private.Key()))
-	require.True(t, publicKey.Key().Equal(public.Key()))
-}

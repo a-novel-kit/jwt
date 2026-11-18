@@ -57,9 +57,6 @@ func checkRSAOAEPKey(key *rsa.PublicKey) error {
 
 // RSAOAEPKeyEncManagerConfig configures NewRSAOAEPKeyEncManager.
 type RSAOAEPKeyEncManagerConfig struct {
-	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
-	// RFC 7516 requires.
-	CEK []byte
 	// EncKey is the recipient's public key, which each token's content encryption key is encrypted to.
 	EncKey *rsa.PublicKey
 }

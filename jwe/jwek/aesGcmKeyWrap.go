@@ -33,9 +33,6 @@ var (
 
 // AESGCMKWManagerConfig configures NewAESGCMKWManager.
 type AESGCMKWManagerConfig struct {
-	// Deprecated: ignored. Each token is encrypted under a fresh random content encryption key, as
-	// RFC 7516 requires.
-	CEK []byte
 	// WrapKey is the AES key that wraps each token's content encryption key. Its length matches the
 	// preset's.
 	WrapKey []byte

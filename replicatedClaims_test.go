@@ -192,7 +192,7 @@ func TestRecipientReplicatedClaims(t *testing.T) {
 	}
 
 	recipient := jwt.NewRecipient(jwt.RecipientConfig{
-		Plugins: []jwt.RecipientPlugin{jwt.NewDefaultRecipientPlugin()},
+		Plugins: []jwt.RecipientPlugin{jwt.NewUnsecuredRecipientPlugin()},
 	})
 
 	for _, testCase := range testCases {

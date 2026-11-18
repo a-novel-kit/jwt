@@ -105,7 +105,6 @@ if errors.Is(err, jwt.ErrTokenRejected) {
 | `jwa`             | Holds the JOSE wire types: headers, registered claims, keys, and algorithm identifiers.         |
 | `jwk`             | Generates and parses JSON Web Keys, and caches the key sets that sourced plugins draw from.     |
 | `jwk/serializers` | Converts native Go keys to and from the key members of a JSON Web Key.                          |
-| `jwk/generators`  | Produces raw symmetric key material.                                                            |
 | `jws`             | Signs and verifies tokens with HMAC, ECDSA, Ed25519, ML-DSA, RSA, and RSA-PSS.                  |
 | `jwe`             | Encrypts and decrypts tokens with AES-CBC-HMAC or AES-GCM content encryption, or with HPKE.     |
 | `jwe/jwek`        | Delivers the content encryption key: direct keys, AES wrapping, ECDH-ES, RSA-OAEP, PBES2, HPKE. |
@@ -237,7 +236,7 @@ Recipient plugins also run in order. A plugin that does not recognize the token 
 succeeds supplies the claims payload.
 
 A recipient consumes unsecured (`"alg":"none"`) tokens only when its plugins include
-`jwt.NewDefaultRecipientPlugin()`, since RFC 7518 forbids accepting them by default. Keep them to
+`jwt.NewUnsecuredRecipientPlugin()`, since RFC 7518 forbids accepting them by default. Keep them to
 tests and trusted internal hops.
 
 ### Standards
