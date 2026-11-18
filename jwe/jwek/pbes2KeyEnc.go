@@ -3,7 +3,6 @@ package jwek
 import (
 	"context"
 	"crypto"
-	"crypto/aes"
 	"crypto/pbkdf2"
 	"crypto/rand"
 	"encoding/base64"
@@ -79,6 +78,8 @@ type PBES2KeyEncKWManagerConfig struct {
 // password with PBES2 (PBKDF2) and wraps the content encryption key with AES Key
 // Wrap.
 type PBES2KeyEncKWManager struct {
+	freshCEK
+
 	config PBES2KeyEncKWManagerConfig
 
 	alg        jwa.Alg
@@ -154,11 +155,7 @@ func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JW
 	// A fresh salt per token widens the key space, so one password never derives the
 	// same wrap key twice. It travels in the header for the recipient.
 	salt := make([]byte, manager.saltSize)
-
-	_, err := rand.Read(salt)
-	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWManager.SetHeader) generate salt: %w", err)
-	}
+	_, _ = rand.Read(salt) // never fails: it crashes the program instead
 
 	header.JWHPBES2 = jwa.JWHPBES2{
 		P2S: base64.RawURLEncoding.EncodeToString(salt),
@@ -167,15 +164,6 @@ func (manager *PBES2KeyEncKWManager) SetHeader(_ context.Context, header *jwa.JW
 	header.Alg = manager.alg
 
 	return header, nil
-}
-
-func (manager *PBES2KeyEncKWManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
-	cek, err := newCEK(header)
-	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWManager.ComputeCEK) %w", err)
-	}
-
-	return cek, nil
 }
 
 func (manager *PBES2KeyEncKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
@@ -189,12 +177,7 @@ func (manager *PBES2KeyEncKWManager) EncryptCEK(_ context.Context, header *jwa.J
 		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) derive wrap key: %w", err)
 	}
 
-	block, err := aes.NewCipher(wrapKey)
-	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) create cipher: %w", err)
-	}
-
-	wrapped, err := internal.KeyWrap(block, cek)
+	wrapped, err := internal.KeyWrap(wrapKey, cek)
 	if err != nil {
 		return nil, fmt.Errorf("(PBES2KeyEncKWManager.EncryptCEK) wrap key: %w", err)
 	}
@@ -283,12 +266,7 @@ func (decoder *PBES2KeyEncKWDecoder) ComputeCEK(_ context.Context, header *jwa.J
 		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) derive wrap key: %w", err)
 	}
 
-	block, err := aes.NewCipher(wrapKey)
-	if err != nil {
-		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) create cipher: %w", err)
-	}
-
-	cek, err := internal.KeyUnwrap(block, encKey)
+	cek, err := internal.KeyUnwrap(wrapKey, encKey)
 	if err != nil {
 		return nil, fmt.Errorf("(PBES2KeyEncKWDecoder.ComputeCEK) %w: unwrap key: %w", jwt.ErrTokenRejected, err)
 	}

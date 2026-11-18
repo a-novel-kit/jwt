@@ -2,7 +2,6 @@ package jwek
 
 import (
 	"context"
-	"crypto/aes"
 	"fmt"
 
 	"github.com/a-novel-kit/jwt/v2"
@@ -51,6 +50,8 @@ type AESKWManagerConfig struct {
 // AESKWManager implements jwe.CEKManager, wrapping the content encryption key with
 // the AES Key Wrap algorithm. See RFC 7518 section 4.4.
 type AESKWManager struct {
+	freshCEK
+
 	wrapKey []byte
 
 	alg    jwa.Alg
@@ -80,15 +81,6 @@ func (manager *AESKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*jwa
 	return header, nil
 }
 
-func (manager *AESKWManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
-	cek, err := newCEK(header)
-	if err != nil {
-		return nil, fmt.Errorf("(AESKWManager.ComputeCEK) %w", err)
-	}
-
-	return cek, nil
-}
-
 func (manager *AESKWManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byte) ([]byte, error) {
 	if len(manager.wrapKey) != manager.keyLen {
 		return nil, fmt.Errorf(
@@ -97,12 +89,7 @@ func (manager *AESKWManager) EncryptCEK(_ context.Context, _ *jwa.JWH, cek []byt
 		)
 	}
 
-	block, err := aes.NewCipher(manager.wrapKey)
-	if err != nil {
-		return nil, fmt.Errorf("(AESKWManager.EncryptCEK) create cipher: %w", err)
-	}
-
-	wrapped, err := internal.KeyWrap(block, cek)
+	wrapped, err := internal.KeyWrap(manager.wrapKey, cek)
 	if err != nil {
 		return nil, fmt.Errorf("(AESKWManager.EncryptCEK) wrap key: %w", err)
 	}
@@ -160,12 +147,7 @@ func (decoder *AESKWDecoder) ComputeCEK(_ context.Context, header *jwa.JWH, encK
 		)
 	}
 
-	block, err := aes.NewCipher(decoder.wrapKey)
-	if err != nil {
-		return nil, fmt.Errorf("(AESKWDecoder.ComputeCEK) create cipher: %w", err)
-	}
-
-	cek, err := internal.KeyUnwrap(block, encKey)
+	cek, err := internal.KeyUnwrap(decoder.wrapKey, encKey)
 	if err != nil {
 		return nil, fmt.Errorf("(AESKWDecoder.ComputeCEK) %w: unwrap key: %w", jwt.ErrTokenRejected, err)
 	}

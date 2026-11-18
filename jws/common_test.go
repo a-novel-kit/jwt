@@ -169,13 +169,12 @@ func TestSignerVerifier(t *testing.T) {
 					require.Equal(t, strings.Join(vector.JWS, "."), signed)
 				}
 
+				// An asymmetric key is published as its public half, which only verifies.
 				if key.KTY != jwa.KTYOct {
 					var err error
 
 					key, err = jwk.Public(key)
 					require.NoError(t, err)
-
-					key.KeyOps = jwa.KeyOps{jwa.KeyOpVerify}
 				}
 
 				_, verifier := testCase.newSourced(newSource(key))

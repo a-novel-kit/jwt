@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -219,7 +219,7 @@ func reservedName(declared map[string]struct{}, name string) bool {
 // iteration order is random, so the names are sorted to keep one input from
 // producing several different messages.
 func errReserved(op string, names []string) error {
-	sort.Strings(names)
+	slices.Sort(names)
 
 	return fmt.Errorf("(%s) %w: %s", op, ErrReservedMember, strings.Join(names, ", "))
 }

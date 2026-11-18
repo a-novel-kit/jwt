@@ -181,12 +181,12 @@ func (dec *HPKEDecryption) Transform(_ context.Context, header *jwa.JWH, rawToke
 		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: iv and tag must be empty", ErrInvalidToken)
 	}
 
-	encapsulated, err := base64.RawURLEncoding.DecodeString(token.EncKey)
+	encapsulated, err := segmentEncoding.DecodeString(token.EncKey)
 	if err != nil {
 		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: decode enc key: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}
 
-	cipherText, err := base64.RawURLEncoding.DecodeString(token.CipherText)
+	cipherText, err := segmentEncoding.DecodeString(token.CipherText)
 	if err != nil {
 		return nil, fmt.Errorf("(HPKEDecryption.Transform) %w: decode cipher text: %w", jwt.ErrUnsupportedTokenFormat, err)
 	}

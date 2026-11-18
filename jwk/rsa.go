@@ -3,10 +3,7 @@ package jwk
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"encoding/json"
 	"fmt"
-
-	"github.com/google/uuid"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
@@ -111,27 +108,15 @@ func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey],
 
 	publicKey := &privateKey.PublicKey
 
-	privatePayload := serializers.EncodeRSA(privateKey)
-	publicPayload := serializers.EncodeRSA(publicKey)
-
-	privateSerialized, err := json.Marshal(privatePayload)
+	private, public, err := newKeyPair(
+		privateKey, serializers.EncodeRSA(privateKey), rsaHeader(preset, preset.PrivateKeyOps),
+		publicKey, serializers.EncodeRSA(publicKey), rsaHeader(preset, preset.PublicKeyOps),
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateRSA) serialize private key: %w", err)
+		return nil, nil, fmt.Errorf("(GenerateRSA) %w", err)
 	}
 
-	publicSerialized, err := json.Marshal(publicPayload)
-	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateRSA) serialize public key: %w", err)
-	}
-
-	kid := uuid.NewString()
-	privateHeader := rsaHeader(preset, preset.PrivateKeyOps)
-	publicHeader := rsaHeader(preset, preset.PublicKeyOps)
-	privateHeader.KID, publicHeader.KID = kid, kid
-
-	return NewKey(&jwa.JWK{JWKCommon: privateHeader, Payload: privateSerialized}, privateKey),
-		NewKey(&jwa.JWK{JWKCommon: publicHeader, Payload: publicSerialized}, publicKey),
-		nil
+	return private, public, nil
 }
 
 // ConsumeRSA parses a JSON Web Key into an RSA key pair for signature or key-management
@@ -140,32 +125,14 @@ func GenerateRSA(preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey],
 // It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
 // generate the key; see [GenerateRSA] for the available presets.
 func ConsumeRSA(source *jwa.JWK, preset RSAPreset) (*Key[*rsa.PrivateKey], *Key[*rsa.PublicKey], error) {
-	matchPrivate := source.MatchPreset(rsaHeader(preset, preset.PrivateKeyOps))
-	matchPublic := source.MatchPreset(rsaHeader(preset, preset.PublicKeyOps))
-
-	if !matchPrivate && !matchPublic {
-		return nil, nil, fmt.Errorf("(ConsumeRSA) %w", ErrJWKMismatch)
-	}
-
-	var rsaPayload serializers.RSAPayload
-
-	err := json.Unmarshal(source.Payload, &rsaPayload)
+	privateKey, publicKey, err := consumeKeyPair(
+		source, rsaHeader(preset, preset.PrivateKeyOps), rsaHeader(preset, preset.PublicKeyOps), serializers.DecodeRSA,
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeRSA) unmarshal payload: %w", err)
+		return nil, nil, fmt.Errorf("(ConsumeRSA) %w", err)
 	}
 
-	decodedPrivate, decodedPublic, err := serializers.DecodeRSA(&rsaPayload)
-	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeRSA) decode payload: %w", err)
-	}
-
-	var privateKey *Key[*rsa.PrivateKey]
-
-	if decodedPrivate != nil {
-		privateKey = NewKey(source, decodedPrivate)
-	}
-
-	return privateKey, NewKey(source, decodedPublic), nil
+	return privateKey, publicKey, nil
 }
 
 // rsaHeader returns the common parameters of the RSA key half that permits keyOps under preset.

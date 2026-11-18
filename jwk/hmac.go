@@ -1,14 +1,9 @@
 package jwk
 
 import (
-	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"github.com/a-novel-kit/jwt/v2/jwa"
-	"github.com/a-novel-kit/jwt/v2/jwk/generators"
-	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 // An HMACPreset describes how to generate or match an HMAC JSON Web Key.
@@ -44,20 +39,12 @@ var (
 //
 // Pass one of the HMAC presets, such as [HS256].
 func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {
-	key, err := generators.NewOct(preset.KeySize)
+	key, err := newOctKey(hmacHeader(preset), preset.KeySize)
 	if err != nil {
-		return nil, fmt.Errorf("(GenerateHMAC) generate key: %w", err)
+		return nil, fmt.Errorf("(GenerateHMAC) %w", err)
 	}
 
-	payloadSerialized, err := json.Marshal(serializers.EncodeOct(key))
-	if err != nil {
-		return nil, fmt.Errorf("(GenerateHMAC) serialize payload: %w", err)
-	}
-
-	header := hmacHeader(preset)
-	header.KID = uuid.NewString()
-
-	return NewKey(&jwa.JWK{JWKCommon: header, Payload: payloadSerialized}, key), nil
+	return key, nil
 }
 
 // ConsumeHMAC parses a JSON Web Key into the secret key for an HMAC algorithm.
@@ -65,23 +52,12 @@ func GenerateHMAC(preset HMACPreset) (*Key[[]byte], error) {
 // It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
 // generate the key; see [GenerateHMAC] for the available presets.
 func ConsumeHMAC(source *jwa.JWK, preset HMACPreset) (*Key[[]byte], error) {
-	if !source.MatchPreset(hmacHeader(preset)) {
-		return nil, fmt.Errorf("(ConsumeHMAC) %w", ErrJWKMismatch)
-	}
-
-	var octPayload serializers.OctPayload
-
-	err := json.Unmarshal(source.Payload, &octPayload)
+	key, err := consumeOct(source, hmacHeader(preset))
 	if err != nil {
-		return nil, fmt.Errorf("(ConsumeHMAC) unmarshal payload: %w", err)
+		return nil, fmt.Errorf("(ConsumeHMAC) %w", err)
 	}
 
-	decoded, err := serializers.DecodeOct(&octPayload)
-	if err != nil {
-		return nil, fmt.Errorf("(ConsumeHMAC) decode payload: %w", err)
-	}
-
-	return NewKey(source, decoded), nil
+	return key, nil
 }
 
 // hmacHeader returns the common parameters of an HMAC key for preset. The one secret both signs and

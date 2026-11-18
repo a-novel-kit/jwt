@@ -139,6 +139,21 @@ func TestGenerateRSA(t *testing.T) {
 			})
 		})
 	}
+
+	// A generated key owns its key_ops: editing them leaves the exported preset alone.
+	t.Run("Success/KeyOpsOwnedByKey", func(t *testing.T) {
+		t.Parallel()
+
+		preset := jwk.PS512
+
+		privateKey, publicKey, err := jwk.GenerateRSA(preset)
+		require.NoError(t, err)
+
+		privateKey.KeyOps[0], publicKey.KeyOps[0] = jwa.KeyOpDecrypt, jwa.KeyOpEncrypt
+
+		require.Equal(t, jwa.KeyOps{jwa.KeyOpSign}, preset.PrivateKeyOps)
+		require.Equal(t, jwa.KeyOps{jwa.KeyOpVerify}, preset.PublicKeyOps)
+	})
 }
 
 func TestConsumeRSA(t *testing.T) {

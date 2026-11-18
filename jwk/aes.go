@@ -1,14 +1,9 @@
 package jwk
 
 import (
-	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"github.com/a-novel-kit/jwt/v2/jwa"
-	"github.com/a-novel-kit/jwt/v2/jwk/generators"
-	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
 )
 
 // An AESPreset describes how to generate or match an AES JSON Web Key.
@@ -145,20 +140,12 @@ var (
 // Pass one of the package's AES presets. A content-encryption preset, such as [A128GCM], produces a
 // CEK. A key-wrapping preset, such as [A128KW], produces a KEK.
 func GenerateAES(preset AESPreset) (*Key[[]byte], error) {
-	key, err := generators.NewOct(preset.KeySize)
+	key, err := newOctKey(aesHeader(preset), preset.KeySize)
 	if err != nil {
-		return nil, fmt.Errorf("(GenerateAES) generate key: %w", err)
+		return nil, fmt.Errorf("(GenerateAES) %w", err)
 	}
 
-	payloadSerialized, err := json.Marshal(serializers.EncodeOct(key))
-	if err != nil {
-		return nil, fmt.Errorf("(GenerateAES) serialize payload: %w", err)
-	}
-
-	header := aesHeader(preset)
-	header.KID = uuid.NewString()
-
-	return NewKey(&jwa.JWK{JWKCommon: header, Payload: payloadSerialized}, key), nil
+	return key, nil
 }
 
 // ConsumeAES parses a JSON Web Key into the secret key for an AES algorithm.
@@ -166,23 +153,12 @@ func GenerateAES(preset AESPreset) (*Key[[]byte], error) {
 // It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
 // generate the key; see [GenerateAES] for the available presets.
 func ConsumeAES(source *jwa.JWK, preset AESPreset) (*Key[[]byte], error) {
-	if !source.MatchPreset(aesHeader(preset)) {
-		return nil, fmt.Errorf("(ConsumeAES) %w", ErrJWKMismatch)
-	}
-
-	var octPayload serializers.OctPayload
-
-	err := json.Unmarshal(source.Payload, &octPayload)
+	key, err := consumeOct(source, aesHeader(preset))
 	if err != nil {
-		return nil, fmt.Errorf("(ConsumeAES) unmarshal payload: %w", err)
+		return nil, fmt.Errorf("(ConsumeAES) %w", err)
 	}
 
-	decoded, err := serializers.DecodeOct(&octPayload)
-	if err != nil {
-		return nil, fmt.Errorf("(ConsumeAES) decode payload: %w", err)
-	}
-
-	return NewKey(source, decoded), nil
+	return key, nil
 }
 
 // aesHeader returns the common parameters of an AES key for preset. GenerateAES stamps them with a

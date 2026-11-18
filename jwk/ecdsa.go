@@ -4,10 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
-
-	"github.com/google/uuid"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
@@ -62,24 +59,15 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 		return nil, nil, fmt.Errorf("(GenerateECDSA) encode public key: %w", err)
 	}
 
-	privateSerialized, err := json.Marshal(privatePayload)
+	private, public, err := newKeyPair(
+		privateKey, privatePayload, signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpSign),
+		publicKey, publicPayload, signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpVerify),
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDSA) serialize private key: %w", err)
+		return nil, nil, fmt.Errorf("(GenerateECDSA) %w", err)
 	}
 
-	publicSerialized, err := json.Marshal(publicPayload)
-	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDSA) serialize public key: %w", err)
-	}
-
-	kid := uuid.NewString()
-	privateHeader := signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpSign)
-	publicHeader := signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpVerify)
-	privateHeader.KID, publicHeader.KID = kid, kid
-
-	return NewKey(&jwa.JWK{JWKCommon: privateHeader, Payload: privateSerialized}, privateKey),
-		NewKey(&jwa.JWK{JWKCommon: publicHeader, Payload: publicSerialized}, publicKey),
-		nil
+	return private, public, nil
 }
 
 // ConsumeECDSA parses a JSON Web Key into an ECDSA signature key pair. When the key holds only a
@@ -88,41 +76,26 @@ func GenerateECDSA(preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.Pub
 // It returns ErrJWKMismatch when the key does not match the preset. Pass the same preset used to
 // generate the key; see [GenerateECDSA] for the available presets.
 func ConsumeECDSA(source *jwa.JWK, preset ECDSAPreset) (*Key[*ecdsa.PrivateKey], *Key[*ecdsa.PublicKey], error) {
-	matchPrivate := source.MatchPreset(signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpSign))
-	matchPublic := source.MatchPreset(signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpVerify))
-
-	if !matchPrivate && !matchPublic {
-		return nil, nil, fmt.Errorf("(ConsumeECDSA) %w", ErrJWKMismatch)
-	}
-
-	var ecPayload serializers.ECPayload
-
-	err := json.Unmarshal(source.Payload, &ecPayload)
+	privateKey, publicKey, err := consumeKeyPair(
+		source,
+		signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpSign),
+		signatureHeader(jwa.KTYEC, preset.Alg, jwa.KeyOpVerify),
+		serializers.DecodeEC,
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeECDSA) unmarshal payload: %w", err)
-	}
-
-	decodedPrivate, decodedPublic, err := serializers.DecodeEC(&ecPayload)
-	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeECDSA) decode payload: %w", err)
+		return nil, nil, fmt.Errorf("(ConsumeECDSA) %w", err)
 	}
 
 	// RFC 7518 §3.4 binds each algorithm to one curve, such as ES256 to P-256. The curve lives in the
-	// payload, where MatchPreset above cannot see it, so it is checked here.
-	if decodedPublic.Curve != preset.Curve {
+	// payload, where the preset match cannot see it, so it is checked here.
+	if curve := publicKey.Key().Curve; curve != preset.Curve {
 		return nil, nil, fmt.Errorf(
 			"(ConsumeECDSA) %w: key is on %s, preset %s requires %s",
-			ErrJWKMismatch, curveName(decodedPublic.Curve), preset.Alg, curveName(preset.Curve),
+			ErrJWKMismatch, curveName(curve), preset.Alg, curveName(preset.Curve),
 		)
 	}
 
-	var privateKey *Key[*ecdsa.PrivateKey]
-
-	if decodedPrivate != nil {
-		privateKey = NewKey(source, decodedPrivate)
-	}
-
-	return privateKey, NewKey(source, decodedPublic), nil
+	return privateKey, publicKey, nil
 }
 
 // curveName reports a curve's standard name for an error message. A hand-built preset that names

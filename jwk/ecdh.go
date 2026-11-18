@@ -3,10 +3,7 @@ package jwk
 import (
 	"crypto/ecdh"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
-
-	"github.com/google/uuid"
 
 	"github.com/a-novel-kit/jwt/v2/jwa"
 	"github.com/a-novel-kit/jwt/v2/jwk/serializers"
@@ -67,24 +64,16 @@ func GenerateECDHKey(preset ECDHPreset) (*Key[*ecdh.PrivateKey], *Key[*ecdh.Publ
 		return nil, nil, fmt.Errorf("(GenerateECDHKey) encode public key: %w", err)
 	}
 
-	privateSerialized, err := json.Marshal(privatePayload)
-	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDHKey) serialize private key: %w", err)
-	}
-
-	publicSerialized, err := json.Marshal(publicPayload)
-	if err != nil {
-		return nil, nil, fmt.Errorf("(GenerateECDHKey) serialize public key: %w", err)
-	}
-
 	// Each half gets its own header, so the two keys share no slice.
-	kid := uuid.NewString()
-	privateHeader, publicHeader := ecdhHeader(preset), ecdhHeader(preset)
-	privateHeader.KID, publicHeader.KID = kid, kid
+	private, public, err := newKeyPair(
+		privateKey, privatePayload, ecdhHeader(preset),
+		publicKey, publicPayload, ecdhHeader(preset),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("(GenerateECDHKey) %w", err)
+	}
 
-	return NewKey(&jwa.JWK{JWKCommon: privateHeader, Payload: privateSerialized}, privateKey),
-		NewKey(&jwa.JWK{JWKCommon: publicHeader, Payload: publicSerialized}, publicKey),
-		nil
+	return private, public, nil
 }
 
 // ConsumeECDHKey parses a JSON Web Key into a key-agreement key pair. When the key holds only a
@@ -93,36 +82,19 @@ func GenerateECDHKey(preset ECDHPreset) (*Key[*ecdh.PrivateKey], *Key[*ecdh.Publ
 // It returns ErrJWKMismatch when the key does not match the preset, including a key on another
 // curve. Pass the same preset used to generate the key; see [GenerateECDHKey].
 func ConsumeECDHKey(source *jwa.JWK, preset ECDHPreset) (*Key[*ecdh.PrivateKey], *Key[*ecdh.PublicKey], error) {
-	if !source.MatchPreset(ecdhHeader(preset)) {
-		return nil, nil, fmt.Errorf("(ConsumeECDHKey) %w", ErrJWKMismatch)
-	}
-
-	var ecdhPayload serializers.ECDHPayload
-
-	err := json.Unmarshal(source.Payload, &ecdhPayload)
+	privateKey, publicKey, err := consumeKeyPair(source, ecdhHeader(preset), ecdhHeader(preset), serializers.DecodeECDH)
 	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeECDHKey) unmarshal payload: %w", err)
+		return nil, nil, fmt.Errorf("(ConsumeECDHKey) %w", err)
 	}
 
-	decodedPrivate, decodedPublic, err := serializers.DecodeECDH(&ecdhPayload)
-	if err != nil {
-		return nil, nil, fmt.Errorf("(ConsumeECDHKey) decode payload: %w", err)
-	}
-
-	// The curve lives in the payload, where MatchPreset cannot see it.
-	if decodedPublic.Curve() != preset.Curve {
+	// The curve lives in the payload, where the preset match cannot see it.
+	if curve := publicKey.Key().Curve(); curve != preset.Curve {
 		return nil, nil, fmt.Errorf(
-			"(ConsumeECDHKey) %w: key is on %v, preset requires %v", ErrJWKMismatch, decodedPublic.Curve(), preset.Curve,
+			"(ConsumeECDHKey) %w: key is on %v, preset requires %v", ErrJWKMismatch, curve, preset.Curve,
 		)
 	}
 
-	var privateKey *Key[*ecdh.PrivateKey]
-
-	if decodedPrivate != nil {
-		privateKey = NewKey(source, decodedPrivate)
-	}
-
-	return privateKey, NewKey(source, decodedPublic), nil
+	return privateKey, publicKey, nil
 }
 
 // ecdhHeader returns the common parameters of a key-agreement key for preset. Both halves of the

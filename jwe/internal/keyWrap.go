@@ -1,10 +1,11 @@
 package internal
 
 import (
-	"crypto/cipher"
+	"crypto/aes"
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 // Adapted from go-jose:
@@ -14,16 +15,21 @@ import (
 // right key, which makes it the integrity check.
 var defaultIV = []byte{0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6}
 
-// KeyWrap wraps the content encryption key cek under block using the AES Key Wrap algorithm
-// (RFC 3394). The cek length must be a multiple of 8 bytes, and at least 16: RFC 3394 §2 wraps two
-// 64-bit blocks or more.
-func KeyWrap(block cipher.Block, cek []byte) ([]byte, error) {
+// KeyWrap wraps the content encryption key cek under the AES key kek using the AES Key Wrap
+// algorithm (RFC 3394). The cek length must be a multiple of 8 bytes, and at least 16: RFC 3394 §2
+// wraps two 64-bit blocks or more.
+func KeyWrap(kek, cek []byte) ([]byte, error) {
 	if len(cek)%8 != 0 {
 		return nil, errors.New("key wrap input must be 8 byte blocks")
 	}
 
 	if len(cek) < 16 {
 		return nil, errors.New("key wrap input must hold at least 2 blocks")
+	}
+
+	block, err := aes.NewCipher(kek)
+	if err != nil {
+		return nil, fmt.Errorf("create cipher: %w", err)
 	}
 
 	n := len(cek) / 8
@@ -63,9 +69,10 @@ func KeyWrap(block cipher.Block, cek []byte) ([]byte, error) {
 	return out, nil
 }
 
-// KeyUnwrap reverses KeyWrap, recovering the content encryption key from ciphertext under block. It
-// fails when the integrity check value does not match, which signals a wrong key or corrupted input.
-func KeyUnwrap(block cipher.Block, ciphertext []byte) ([]byte, error) {
+// KeyUnwrap reverses KeyWrap, recovering the content encryption key from ciphertext under the AES
+// key kek. It fails when the integrity check value does not match, which signals a wrong key or
+// corrupted input.
+func KeyUnwrap(kek, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext)%8 != 0 {
 		return nil, errors.New("key wrap input must be 8 byte blocks")
 	}
@@ -74,6 +81,11 @@ func KeyUnwrap(block cipher.Block, ciphertext []byte) ([]byte, error) {
 	// (RFC 3394 §2).
 	if len(ciphertext) < 24 {
 		return nil, errors.New("key unwrap input must hold at least 3 blocks")
+	}
+
+	block, err := aes.NewCipher(kek)
+	if err != nil {
+		return nil, fmt.Errorf("create cipher: %w", err)
 	}
 
 	n := (len(ciphertext) / 8) - 1

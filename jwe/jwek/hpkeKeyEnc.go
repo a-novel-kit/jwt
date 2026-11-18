@@ -59,6 +59,8 @@ type HPKEKeyEncManagerConfig struct {
 // HPKEKeyEncManager implements jwe.CEKManager: it encrypts a fresh content encryption key per token
 // to the recipient with HPKE, publishing the encapsulated secret in the "ek" header.
 type HPKEKeyEncManager struct {
+	freshCEK
+
 	recipientKey *ecdh.PublicKey
 	preset       HPKEKeyEncPreset
 }
@@ -90,15 +92,6 @@ func (manager *HPKEKeyEncManager) SetHeader(_ context.Context, header *jwa.JWH) 
 	header.Alg = manager.preset.Alg
 
 	return header, nil
-}
-
-func (manager *HPKEKeyEncManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
-	cek, err := newCEK(header)
-	if err != nil {
-		return nil, fmt.Errorf("(HPKEKeyEncManager.ComputeCEK) %w", err)
-	}
-
-	return cek, nil
 }
 
 func (manager *HPKEKeyEncManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {

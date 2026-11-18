@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"slices"
 
 	"github.com/a-novel-kit/jwt/v2"
@@ -45,6 +44,8 @@ type AESGCMKWManagerConfig struct {
 // AESGCMKWManager implements jwe.CEKManager, wrapping the content encryption key
 // with AES GCM. See RFC 7518 section 4.7.
 type AESGCMKWManager struct {
+	freshCEK
+
 	wrapKey []byte
 
 	alg    jwa.Alg
@@ -76,15 +77,6 @@ func (manager *AESGCMKWManager) SetHeader(_ context.Context, header *jwa.JWH) (*
 	return header, nil
 }
 
-func (manager *AESGCMKWManager) ComputeCEK(_ context.Context, header *jwa.JWH) ([]byte, error) {
-	cek, err := newCEK(header)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWManager.ComputeCEK) %w", err)
-	}
-
-	return cek, nil
-}
-
 func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, cek []byte) ([]byte, error) {
 	if len(manager.wrapKey) != manager.keyLen {
 		return nil, fmt.Errorf(
@@ -104,11 +96,7 @@ func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, c
 	}
 
 	iv := make([]byte, aesgcm.NonceSize())
-
-	_, err = io.ReadFull(rand.Reader, iv)
-	if err != nil {
-		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) generate IV: %w", err)
-	}
+	_, _ = rand.Read(iv) // never fails: it crashes the program instead
 
 	// Seal appends the authentication tag to the ciphertext, and the JWE header carries the tag
 	// separately.
@@ -116,14 +104,6 @@ func (manager *AESGCMKWManager) EncryptCEK(_ context.Context, header *jwa.JWH, c
 	cipherLen := len(ciphertextAndTag) - aesgcm.Overhead()
 	ciphertext := ciphertextAndTag[:cipherLen]
 	tag := ciphertextAndTag[cipherLen:]
-
-	if len(iv) != 12 {
-		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) invalid IV size: expected 12, got %d", len(iv))
-	}
-
-	if len(tag) != 16 {
-		return nil, fmt.Errorf("(AESGCMKWManager.EncryptCEK) invalid tag size: expected 16, got %d", len(tag))
-	}
 
 	header.JWHAESGCMKW = jwa.JWHAESGCMKW{
 		IV:  base64.RawURLEncoding.EncodeToString(iv),
