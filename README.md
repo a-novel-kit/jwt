@@ -250,6 +250,7 @@ The data structures follow the JOSE specifications:
 | RFC 7517 | JSON Web Key (JWK)                                           |
 | RFC 7518 | JSON Web Algorithms (JWA)                                    |
 | RFC 7519 | JSON Web Token (JWT) registered data                         |
+| RFC 7638 | JWK Thumbprint under SHA-256 (`jwk.Thumbprint`)              |
 | RFC 8037 | Ed25519 signatures and X25519 key agreement (`OKP` keys)     |
 | RFC 8725 | JWT Best Current Practices                                   |
 | RFC 9864 | Fully-specified algorithms: `Ed25519` replaces `EdDSA`       |

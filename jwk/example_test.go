@@ -43,3 +43,25 @@ func ExampleGenerateECDSA() {
 	// true true
 	// true
 }
+
+// ExampleThumbprint derives a key ID from the key itself, here the Ed25519 public key of RFC 8037
+// appendix A.2. The private half of that key yields the same value.
+func ExampleThumbprint() {
+	var key jwa.JWK
+
+	err := json.Unmarshal(
+		[]byte(`{"kty":"OKP","crv":"Ed25519","x":"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"}`), &key,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	key.KID, err = jwk.Thumbprint(&key)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(key.KID)
+	// Output:
+	// kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k
+}
