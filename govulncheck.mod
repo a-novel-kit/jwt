@@ -5,7 +5,7 @@ go 1.27.4
 tool golang.org/x/vuln/cmd/govulncheck
 
 require (
-	github.com/a-novel-kit/jwt/v2 v2.7.0
+	github.com/a-novel-kit/jwt/v2 v2.8.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.12.1
 )
