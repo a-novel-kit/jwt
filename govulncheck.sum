@@ -1,4 +1,4 @@
-github.com/a-novel-kit/jwt/v2 v2.7.0/go.mod h1:f2i8dJYYdIxTZbT+UOy9awRSZz/YsRHgCxCbnC/coGY=
+github.com/a-novel-kit/jwt/v2 v2.8.0/go.mod h1:f2i8dJYYdIxTZbT+UOy9awRSZz/YsRHgCxCbnC/coGY=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
 go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
